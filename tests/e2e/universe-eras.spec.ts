@@ -10,13 +10,18 @@ test('@matrix universe renders graph controls, analytics, and diagnostics', asyn
 
   const universeGraphCard = page.getByRole('heading', { name: 'Music Universe Graph' }).locator('..')
   await expect(universeGraphCard).toBeVisible()
-  const modeSelect = universeGraphCard.getByLabel('Mode')
+  const modeSelect = page.getByRole('combobox', { name: /^Mode/i })
   await expect(modeSelect).toBeVisible()
-  expect(['2d', '3d']).toContain(await modeSelect.inputValue())
-  await expect(universeGraphCard.getByRole('button', { name: 'Reset Camera' })).toBeVisible()
-  await expect(universeGraphCard.getByPlaceholder('Search artist or track in graph…')).toBeVisible()
-  await expect(universeGraphCard.getByLabel('Co-listen edges')).toBeVisible()
-  await expect(universeGraphCard.getByLabel('Contains edges')).toBeVisible()
+  const modeValue = await modeSelect.inputValue()
+  expect(['2d', '3d']).toContain(modeValue)
+  if (modeValue === '3d') {
+    await expect(page.getByRole('button', { name: 'Reset Camera' })).toBeVisible()
+  } else {
+    await expect(page.getByRole('button', { name: 'Reset Camera' })).toHaveCount(0)
+  }
+  await expect(page.getByPlaceholder('Search artist or track in graph…')).toBeVisible()
+  await expect(page.getByLabel('Co-listen edges')).toBeVisible()
+  await expect(page.getByLabel('Contains edges')).toBeVisible()
   await expect(page.getByText('Network Analytics')).toBeVisible()
   await expect(page.getByText('Top Hubs')).toBeVisible()
   await expect(page.getByText('Bridge Artists')).toBeVisible()
