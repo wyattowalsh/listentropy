@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#121212" />
+      <stop offset="1" stop-color="#1C2B22" />
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(925 90) rotate(120) scale(590 680)">
+      <stop stop-color="#1DB954" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#1DB954" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <text x="80" y="250" fill="#FFFFFF" font-family="Sora, Arial, sans-serif" font-size="96" font-weight="700">Listentropy</text>
+  <text x="80" y="325" fill="#B3B3B3" font-family="IBM Plex Sans, Arial, sans-serif" font-size="42">Your music. Your data. Your story.</text>
+  <text x="80" y="410" fill="#1DB954" font-family="JetBrains Mono, monospace" font-size="28">100% client-side Spotify export analytics</text>
+</svg>

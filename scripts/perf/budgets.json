@@ -1,0 +1,11 @@
+{
+  "entryGzip": 460800,
+  "largestAsyncGzip": 307200,
+  "workerGzip": 153600,
+  "regressionTolerance": 0.05,
+  "baseline": {
+    "entryGzip": 430080,
+    "largestAsyncGzip": 286720,
+    "workerGzip": 131072
+  }
+}
