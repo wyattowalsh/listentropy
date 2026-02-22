@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { GraphEdge, GraphNode } from './types'
-import { computeGraphLayout } from './graph-layout'
+import { computeGraphLayout, projectNodeLayoutToViewport } from './graph-layout'
 
 const nodes: GraphNode[] = [
   {
@@ -71,3 +71,24 @@ describe('computeGraphLayout', () => {
   })
 })
 
+describe('projectNodeLayoutToViewport', () => {
+  it('projects normalized layout coordinates into a padded viewport and clamps out-of-range values', () => {
+    const projected = projectNodeLayoutToViewport(
+      { layout: { x: 2.5, y: -2.5 } },
+      { width: 200, height: 100, padding: 10 },
+    )
+
+    expect(projected).toEqual({ x: 190, y: 10 })
+  })
+
+  it('falls back to the viewport center when layout or viewport dimensions are invalid', () => {
+    const projected = projectNodeLayoutToViewport(
+      {},
+      { width: Number.NaN, height: 0 },
+    )
+
+    expect(Number.isFinite(projected.x)).toBe(true)
+    expect(Number.isFinite(projected.y)).toBe(true)
+    expect(projected).toEqual({ x: 0.5, y: 0.5 })
+  })
+})

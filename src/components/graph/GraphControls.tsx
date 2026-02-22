@@ -91,7 +91,7 @@ export function GraphControls({
             <option value="2d">2D</option>
           </Select>
         </label>
-        <div className="w-64">
+        <div className="w-full sm:w-64">
           <Slider
             value={maxNodes}
             min={50}
@@ -101,7 +101,7 @@ export function GraphControls({
             onChange={onMaxNodesChange}
           />
         </div>
-        <div className="w-64">
+        <div className="w-full sm:w-64">
           <Slider
             value={maxEdges}
             min={20}
@@ -120,13 +120,15 @@ export function GraphControls({
             Retry 3D
           </button>
         ) : null}
-        <button
-          type="button"
-          className="rounded-theme border border-border px-3 py-2 text-sm text-text transition hover:border-accent hover:text-accent"
-          onClick={onResetCamera}
-        >
-          Reset Camera
-        </button>
+        {mode === '3d' ? (
+          <button
+            type="button"
+            className="rounded-theme border border-border px-3 py-2 text-sm text-text transition hover:border-accent hover:text-accent"
+            onClick={onResetCamera}
+          >
+            Reset Camera
+          </button>
+        ) : null}
       </div>
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
         <Input

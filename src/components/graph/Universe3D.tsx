@@ -16,9 +16,11 @@ interface Universe3DProps {
   onRendererInitSuccess?: () => void
   focusTargetId?: string | null
   focusToken?: number
+  resetCameraToken?: number
 }
 
 const POSITION_SCALE = 18
+const DEFAULT_CAMERA_POSITION: [number, number, number] = [0, 0, 26]
 
 function nodePosition(node: GraphNode): [number, number, number] {
   const x = (node.layout?.x ?? 0) * POSITION_SCALE
@@ -126,6 +128,7 @@ export function Universe3D({
   onRendererInitSuccess,
   focusTargetId,
   focusToken,
+  resetCameraToken,
 }: Universe3DProps): JSX.Element {
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
   const cameraRef = useRef<Camera | null>(null)
@@ -152,10 +155,24 @@ export function Universe3D({
     controls.update()
   }, [focusTargetId, focusToken, nodeById])
 
+  useEffect(() => {
+    if (!resetCameraToken) {
+      return
+    }
+    const camera = cameraRef.current
+    const controls = controlsRef.current
+    if (!camera || !controls) {
+      return
+    }
+    controls.target.set(0, 0, 0)
+    camera.position.set(...DEFAULT_CAMERA_POSITION)
+    controls.update()
+  }, [resetCameraToken])
+
   return (
-    <div className="h-[640px] overflow-hidden rounded-theme border border-border bg-surface">
+    <div className="h-[360px] overflow-hidden rounded-theme border border-border bg-surface sm:h-[520px] lg:h-[640px]">
       <Canvas
-        camera={{ position: [0, 0, 26], fov: 55 }}
+        camera={{ position: DEFAULT_CAMERA_POSITION, fov: 55 }}
         onCreated={({ camera }) => {
           cameraRef.current = camera
           onRendererInitSuccess?.()

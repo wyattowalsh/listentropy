@@ -22,6 +22,12 @@ interface LayoutLink extends SimulationLinkDatum<LayoutNode> {
   weight: number
 }
 
+interface ViewportProjectionOptions {
+  width: number
+  height: number
+  padding?: number
+}
+
 function hashSeed(input: string): number {
   let hash = 2166136261
   for (let index = 0; index < input.length; index += 1) {
@@ -74,6 +80,34 @@ function zCoordinate(node: GraphNode, communityId: string): number {
   const a = randomFromSeed(hashSeed(node.id))
   const b = randomFromSeed(hashSeed(communityId))
   return (a - 0.5) * 0.8 + (b - 0.5) * 0.4
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
+function safeViewportSize(value: number): number {
+  return Number.isFinite(value) && value > 0 ? value : 1
+}
+
+export function projectNodeLayoutToViewport(
+  node: Pick<GraphNode, 'layout'>,
+  options: ViewportProjectionOptions,
+): { x: number; y: number } {
+  const width = safeViewportSize(options.width)
+  const height = safeViewportSize(options.height)
+  const maxInset = Math.max(0, Math.min(width, height) / 2 - 0.5)
+  const padding = clamp(Number.isFinite(options.padding) ? (options.padding as number) : 0, 0, maxInset)
+
+  const layoutX = clamp(node.layout?.x ?? 0, -1, 1)
+  const layoutY = clamp(node.layout?.y ?? 0, -1, 1)
+  const innerWidth = Math.max(1, width - padding * 2)
+  const innerHeight = Math.max(1, height - padding * 2)
+
+  return {
+    x: padding + ((layoutX + 1) / 2) * innerWidth,
+    y: padding + ((layoutY + 1) / 2) * innerHeight,
+  }
 }
 
 export function computeGraphLayout(
@@ -154,4 +188,3 @@ export function computeGraphLayout(
     edges: [...edges],
   }
 }
-

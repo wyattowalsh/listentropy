@@ -1,13 +1,6 @@
-import {
-  forceCenter,
-  forceLink,
-  forceManyBody,
-  forceSimulation,
-  type SimulationLinkDatum,
-  type SimulationNodeDatum,
-} from 'd3-force'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
+import { projectNodeLayoutToViewport } from '@/lib/graph-layout'
 import type { GraphEdge, GraphNode } from '@/lib/types'
 import { clamp } from '@/lib/utils'
 
@@ -15,24 +8,6 @@ interface Universe2DProps {
   nodes: GraphNode[]
   edges: GraphEdge[]
   selectedNodeId?: string | null
-}
-
-interface ForceNode extends GraphNode, SimulationNodeDatum {
-  x: number
-  y: number
-}
-
-interface ForceLink extends SimulationLinkDatum<ForceNode> {
-  source: string | ForceNode
-  target: string | ForceNode
-  weight: number
-}
-
-function clampCoordinate(value: number | undefined, max: number): number {
-  if (!Number.isFinite(value)) {
-    return max / 2
-  }
-  return clamp(value as number, 0, max)
 }
 
 function clampRadius(playCount: number): number {
@@ -43,18 +18,66 @@ function clampRadius(playCount: number): number {
   return clamp(value, 2, 18)
 }
 
-function resolveNode(
-  value: string | ForceNode,
-  nodesById: Map<string, ForceNode>,
-): ForceNode | undefined {
-  if (typeof value === 'string') {
-    return nodesById.get(value)
+function edgeStroke(edge: GraphEdge, selectedNodeId?: string | null): { color: string; width: number } {
+  const isSelectedEdge = Boolean(selectedNodeId && (edge.source === selectedNodeId || edge.target === selectedNodeId))
+
+  if (edge.type === 'contains') {
+    return {
+      color: isSelectedEdge ? 'rgba(148, 163, 184, 0.55)' : 'rgba(148, 163, 184, 0.16)',
+      width: isSelectedEdge ? 1.4 : 0.8,
+    }
   }
-  return value
+
+  if (edge.communityBridge) {
+    return {
+      color: isSelectedEdge ? 'rgba(245, 158, 11, 0.95)' : 'rgba(245, 158, 11, 0.42)',
+      width: isSelectedEdge ? 2.2 : 1.35,
+    }
+  }
+
+  return {
+    color: isSelectedEdge ? 'rgba(34, 197, 94, 0.9)' : 'rgba(34, 197, 94, 0.28)',
+    width: isSelectedEdge ? 1.8 : 1.1,
+  }
+}
+
+function nodeFill(node: GraphNode): string {
+  if (node.type === 'artist') {
+    return 'rgba(29, 185, 84, 0.92)'
+  }
+  if (node.type === 'album') {
+    return 'rgba(96, 165, 250, 0.84)'
+  }
+  return 'rgba(165, 180, 252, 0.82)'
 }
 
 export function Universe2D({ nodes, edges, selectedNodeId }: Universe2DProps): JSX.Element {
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const [viewport, setViewport] = useState({ width: 1000, height: 640 })
+
+  useEffect(() => {
+    const element = containerRef.current
+    if (!element) {
+      return
+    }
+
+    const updateSize = () => {
+      const width = Math.max(1, Math.round(element.clientWidth))
+      const height = Math.max(1, Math.round(element.clientHeight))
+      setViewport((current) => (current.width === width && current.height === height ? current : { width, height }))
+    }
+    updateSize()
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(updateSize)
+      observer.observe(element)
+      return () => observer.disconnect()
+    }
+
+    window.addEventListener('resize', updateSize)
+    return () => window.removeEventListener('resize', updateSize)
+  }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -62,86 +85,106 @@ export function Universe2D({ nodes, edges, selectedNodeId }: Universe2DProps): J
       return
     }
 
-    const width = canvas.width
-    const height = canvas.height
     const context = canvas.getContext('2d')
     if (!context) {
       return
     }
 
-    const mutableNodes: ForceNode[] = nodes.map((node) => ({
-      ...node,
-      x: node.layout ? ((node.layout.x + 1) / 2) * width : width / 2,
-      y: node.layout ? ((node.layout.y + 1) / 2) * height : height / 2,
-    }))
-    const nodesById = new Map(mutableNodes.map((node) => [node.id, node]))
-    const simulationLinks: ForceLink[] = edges
-      .filter((edge) => nodesById.has(edge.source) && nodesById.has(edge.target))
-      .map((edge) => ({
-        source: edge.source,
-        target: edge.target,
-        weight: edge.weight,
-      }))
+    const cssWidth = Math.max(1, Math.round(viewport.width))
+    const cssHeight = Math.max(1, Math.round(viewport.height))
+    const dpr = Math.min(2, typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1)
 
-    const simulation = forceSimulation<ForceNode>(mutableNodes)
-      .force('charge', forceManyBody().strength(-20))
-      .force(
-        'link',
-        forceLink<ForceNode, ForceLink>(simulationLinks)
-          .id((node) => node.id)
-          .distance((edge) => clamp(160 / Math.max(1, edge.weight), 25, 90)),
-      )
-      .force('center', forceCenter(width / 2, height / 2))
-      .on('tick', () => {
-        context.clearRect(0, 0, width, height)
-        context.strokeStyle = 'rgba(148, 163, 184, 0.18)'
-        for (const edge of simulationLinks) {
-          const source = resolveNode(edge.source, nodesById)
-          const target = resolveNode(edge.target, nodesById)
-          if (!source || !target) {
-            continue
-          }
-          const sourceX = clampCoordinate(source.x, width)
-          const sourceY = clampCoordinate(source.y, height)
-          const targetX = clampCoordinate(target.x, width)
-          const targetY = clampCoordinate(target.y, height)
-          context.beginPath()
-          context.moveTo(sourceX, sourceY)
-          context.lineTo(targetX, targetY)
-          context.stroke()
-        }
-        for (const node of mutableNodes) {
-          const radius = clampRadius(node.playCount)
-          const x = clampCoordinate(node.x, width)
-          const y = clampCoordinate(node.y, height)
-          const isSelected = node.id === selectedNodeId
-          context.fillStyle = node.type === 'artist' ? 'rgba(29, 185, 84, 0.9)' : 'rgba(96, 165, 250, 0.8)'
-          context.beginPath()
-          context.arc(x, y, radius, 0, Math.PI * 2)
-          context.fill()
-          if (isSelected) {
-            context.strokeStyle = 'rgba(245, 158, 11, 0.95)'
-            context.lineWidth = 2
-            context.beginPath()
-            context.arc(x, y, radius + 4, 0, Math.PI * 2)
-            context.stroke()
-            context.fillStyle = 'rgba(15, 23, 42, 0.88)'
-            context.fillRect(x + 8, y - 18, Math.min(240, node.label.length * 7 + 12), 20)
-            context.fillStyle = 'rgba(241, 245, 249, 1)'
-            context.font = '12px ui-sans-serif, system-ui, sans-serif'
-            context.fillText(node.label, x + 14, y - 4)
-          }
-        }
-      })
+    canvas.width = Math.max(1, Math.round(cssWidth * dpr))
+    canvas.height = Math.max(1, Math.round(cssHeight * dpr))
+    canvas.style.width = `${cssWidth}px`
+    canvas.style.height = `${cssHeight}px`
 
-    return () => {
-      simulation.stop()
+    context.setTransform(dpr, 0, 0, dpr, 0, 0)
+    context.clearRect(0, 0, cssWidth, cssHeight)
+    context.lineCap = 'round'
+    context.lineJoin = 'round'
+
+    const positions = new Map(
+      nodes.map((node) => [
+        node.id,
+        projectNodeLayoutToViewport(node, {
+          width: cssWidth,
+          height: cssHeight,
+          padding: 18,
+        }),
+      ]),
+    )
+
+    const orderedEdges = [...edges].sort((a, b) => {
+      if (a.type !== b.type) {
+        return a.type === 'contains' ? -1 : 1
+      }
+      return a.weight - b.weight
+    })
+
+    for (const edge of orderedEdges) {
+      const source = positions.get(edge.source)
+      const target = positions.get(edge.target)
+      if (!source || !target) {
+        continue
+      }
+      const stroke = edgeStroke(edge, selectedNodeId)
+      context.strokeStyle = stroke.color
+      context.lineWidth = stroke.width
+      context.beginPath()
+      context.moveTo(source.x, source.y)
+      context.lineTo(target.x, target.y)
+      context.stroke()
     }
-  }, [edges, nodes, selectedNodeId])
+
+    const orderedNodes = [...nodes].sort((a, b) => {
+      if (a.id === selectedNodeId) {
+        return 1
+      }
+      if (b.id === selectedNodeId) {
+        return -1
+      }
+      return clampRadius(a.playCount) - clampRadius(b.playCount)
+    })
+
+    for (const node of orderedNodes) {
+      const point = positions.get(node.id)
+      if (!point) {
+        continue
+      }
+      const radius = clampRadius(node.playCount)
+      const isSelected = node.id === selectedNodeId
+
+      context.fillStyle = nodeFill(node)
+      context.beginPath()
+      context.arc(point.x, point.y, radius, 0, Math.PI * 2)
+      context.fill()
+
+      if (isSelected) {
+        context.strokeStyle = 'rgba(245, 158, 11, 0.95)'
+        context.lineWidth = 2
+        context.beginPath()
+        context.arc(point.x, point.y, radius + 4, 0, Math.PI * 2)
+        context.stroke()
+
+        context.font = '12px ui-sans-serif, system-ui, sans-serif'
+        const textWidth = Math.min(260, context.measureText(node.label).width + 12)
+        const labelX = clamp(point.x + 10, 4, Math.max(4, cssWidth - textWidth - 4))
+        const labelY = clamp(point.y - 22, 4, Math.max(4, cssHeight - 24))
+
+        context.fillStyle = 'rgba(15, 23, 42, 0.9)'
+        context.fillRect(labelX, labelY, textWidth, 20)
+        context.fillStyle = 'rgba(241, 245, 249, 1)'
+        context.fillText(node.label, labelX + 6, labelY + 14)
+      }
+    }
+  }, [edges, nodes, selectedNodeId, viewport.height, viewport.width])
 
   return (
     <div className="overflow-hidden rounded-theme border border-border bg-surface">
-      <canvas ref={canvasRef} width={1000} height={640} className="h-auto w-full" />
+      <div ref={containerRef} className="relative h-[360px] sm:h-[520px] lg:h-[640px]">
+        <canvas ref={canvasRef} className="absolute inset-0 block h-full w-full" />
+      </div>
     </div>
   )
 }
