@@ -8,11 +8,15 @@ test('@matrix universe renders graph controls, analytics, and diagnostics', asyn
 
   await page.getByRole('tab', { name: 'Universe' }).click()
 
-  await expect(page.getByText('Music Universe Graph')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Reset Camera' })).toBeVisible()
-  await expect(page.getByPlaceholder('Search artist or track in graph…')).toBeVisible()
-  await expect(page.getByLabel('Co-listen edges')).toBeVisible()
-  await expect(page.getByLabel('Contains edges')).toBeVisible()
+  const universeGraphCard = page.getByRole('heading', { name: 'Music Universe Graph' }).locator('..')
+  await expect(universeGraphCard).toBeVisible()
+  const modeSelect = universeGraphCard.getByLabel('Mode')
+  await expect(modeSelect).toBeVisible()
+  expect(['2d', '3d']).toContain(await modeSelect.inputValue())
+  await expect(universeGraphCard.getByRole('button', { name: 'Reset Camera' })).toBeVisible()
+  await expect(universeGraphCard.getByPlaceholder('Search artist or track in graph…')).toBeVisible()
+  await expect(universeGraphCard.getByLabel('Co-listen edges')).toBeVisible()
+  await expect(universeGraphCard.getByLabel('Contains edges')).toBeVisible()
   await expect(page.getByText('Network Analytics')).toBeVisible()
   await expect(page.getByText('Top Hubs')).toBeVisible()
   await expect(page.getByText('Bridge Artists')).toBeVisible()
@@ -20,12 +24,17 @@ test('@matrix universe renders graph controls, analytics, and diagnostics', asyn
   await expect(page.getByText('Co-listen Motifs')).toBeVisible()
   await expect(page.getByText('View Diagnostics')).toBeVisible()
 
-  const fallbackMessage = page.getByText(/2D mode|3D renderer failed|3D rendering is unavailable/i)
+  const fallbackMessage = page.getByText(/Running in 2D fallback|2D mode|3D renderer failed|3D rendering is unavailable/i)
   if ((await fallbackMessage.count()) > 0) {
     await expect(fallbackMessage.first()).toBeVisible()
   }
 
-  await expect(page.locator('canvas').first()).toBeVisible()
+  const graphCanvas = page.locator('canvas').first()
+  if ((await page.locator('canvas').count()) > 0) {
+    await expect(graphCanvas).toBeVisible()
+  } else {
+    await expect(fallbackMessage.first()).toBeVisible()
+  }
 })
 
 test('@matrix eras tab shows timeline, detail, diagnostics, and summary table', async ({ page }) => {
@@ -41,15 +50,32 @@ test('@matrix eras tab shows timeline, detail, diagnostics, and summary table', 
   await expect(page.getByRole('heading', { name: 'Transition Diagnostics' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Era Summary Table' })).toBeVisible()
 
-  const eraButtons = page.locator('button[aria-pressed]')
+  const detectedErasCard = page.getByRole('heading', { name: 'Detected Eras' }).locator('..')
+  const eraButtons = detectedErasCard.locator('button[aria-pressed]')
   const buttonCount = await eraButtons.count()
   expect(buttonCount).toBeGreaterThan(0)
+
+  const eraDetailCard = page.getByRole('heading', { name: 'Era Detail' }).locator('..')
+  const eraDetailDescription = eraDetailCard.locator('p').first()
+  const transitionCard = page.getByRole('heading', { name: 'Transition Diagnostics' }).locator('..')
+  const transitionDescription = transitionCard.locator('p').first()
+
   if (buttonCount > 1) {
-    await eraButtons.nth(1).click()
-    await expect(eraButtons.nth(1)).toHaveAttribute('aria-pressed', 'true')
+    const activeIndex = await eraButtons.evaluateAll((buttons) =>
+      buttons.findIndex((button) => button.getAttribute('aria-pressed') === 'true'),
+    )
+    const targetIndex = activeIndex === 0 ? 1 : 0
+    const detailDescriptionBefore = (await eraDetailDescription.textContent())?.trim() ?? ''
+    const transitionDescriptionBefore = (await transitionDescription.textContent())?.trim() ?? ''
+    expect(detailDescriptionBefore).not.toBe('')
+    expect(transitionDescriptionBefore).not.toBe('')
+
+    await eraButtons.nth(targetIndex).click()
+    await expect(eraButtons.nth(targetIndex)).toHaveAttribute('aria-pressed', 'true')
+    await expect(eraDetailDescription).not.toHaveText(detailDescriptionBefore)
+    await expect(transitionDescription).not.toHaveText(transitionDescriptionBefore)
   }
 
-  const transitionCard = page.getByRole('heading', { name: 'Transition Diagnostics' }).locator('..')
   const firstEraText = transitionCard.getByText(/This is the first detected era/i)
   const transitionConfidenceText = transitionCard.getByText(/Transition confidence:/i)
   if ((await firstEraText.count()) > 0) {
