@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ErrorInfo,
   type ReactNode,
@@ -137,6 +138,8 @@ export function MusicUniverse({ data }: MusicUniverseProps): JSX.Element {
   const [cameraResetKey, setCameraResetKey] = useState(0)
   const [focusToken, setFocusToken] = useState(0)
   const [lastRetryAt, setLastRetryAt] = useState(0)
+  const last3DFailureMetricAttemptRef = useRef<number | null>(null)
+  const last3DSuccessMetricAttemptRef = useRef<number | null>(null)
 
   useEffect(() => {
     setRendererStatus(initialRendererStatus(webglSupported))
@@ -266,11 +269,16 @@ export function MusicUniverse({ data }: MusicUniverseProps): JSX.Element {
       state: '3d-failed',
       diagnosticMessage: '3D renderer initialization failed in this browser session. 2D fallback is active.',
     })
+    if (last3DFailureMetricAttemptRef.current === retryKey) {
+      return
+    }
+    last3DFailureMetricAttemptRef.current = retryKey
+    last3DSuccessMetricAttemptRef.current = null
     recordMetric({
       type: 'universe_3d_init_failed',
       timestamp: new Date().toISOString(),
     })
-  }, [recordMetric])
+  }, [recordMetric, retryKey])
 
   const handle3DInitSuccess = useCallback(() => {
     setRendererStatus((current) => {
@@ -283,20 +291,25 @@ export function MusicUniverse({ data }: MusicUniverseProps): JSX.Element {
         diagnosticMessage: '3D renderer initialized successfully.',
       }
     })
+    if (last3DSuccessMetricAttemptRef.current === retryKey) {
+      return
+    }
+    last3DSuccessMetricAttemptRef.current = retryKey
+    last3DFailureMetricAttemptRef.current = null
     recordMetric({
       type: 'universe_3d_init_success',
       timestamp: new Date().toISOString(),
     })
-  }, [recordMetric])
+  }, [recordMetric, retryKey])
 
   const is3D = rendererStatus.renderer === '3d'
 
   const selectedNodeLabel = selectedNodeId ? nodeById.get(selectedNodeId)?.label ?? null : null
 
-  const renderKey = `${is3D ? '3d' : '2d'}-${retryKey}-${cameraResetKey}`
+  const renderKey = `${is3D ? '3d' : '2d'}-${retryKey}`
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       <Card>
         <CardTitle>Music Universe Graph</CardTitle>
         <CardDescription className="mt-1">
@@ -367,6 +380,7 @@ export function MusicUniverse({ data }: MusicUniverseProps): JSX.Element {
             onRendererInitSuccess={handle3DInitSuccess}
             focusTargetId={selectedNodeId}
             focusToken={focusToken}
+            resetCameraToken={cameraResetKey}
           />
         </Universe3DGuard>
       ) : (
