@@ -80,6 +80,36 @@ describe('computeEras', () => {
     expect(eras[0]?.label).toContain('Artist A')
   })
 
+  it('does not create a new era from a single mixed rebound month', () => {
+    const records = [
+      record('2024-01-10T00:00:00Z', 'Artist A', 520000),
+      record('2024-02-10T00:00:00Z', 'Artist A', 500000),
+      record('2024-03-10T00:00:00Z', 'Artist B', 310000),
+      record('2024-03-12T00:00:00Z', 'Artist A', 300000),
+      record('2024-04-10T00:00:00Z', 'Artist A', 540000),
+      record('2024-05-10T00:00:00Z', 'Artist A', 530000),
+    ]
+
+    const eras = computeEras(records)
+
+    expect(eras).toHaveLength(1)
+    expect(eras[0]?.dominantArtists[0]).toBe('Artist A')
+  })
+
+  it('marks long missing-month gaps as sparse and reduces confidence', () => {
+    const records = [
+      record('2024-01-10T00:00:00Z', 'Artist A', 450000),
+      record('2024-12-10T00:00:00Z', 'Artist A', 470000),
+    ]
+
+    const eras = computeEras(records)
+
+    expect(eras).toHaveLength(1)
+    expect(eras[0]?.durationMonths).toBe(12)
+    expect(eras[0]?.changeDrivers.some((driver) => driver.key === 'sparse-data')).toBe(true)
+    expect(eras[0]?.confidence ?? 1).toBeLessThan(0.7)
+  })
+
   it('produces deterministic enriched transition metadata', () => {
     const records = [
       record('2024-01-01T00:00:00Z', 'Artist A', 500000),

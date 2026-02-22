@@ -36,6 +36,9 @@ const DOMINANCE_THRESHOLD = 0.36
 const SPLIT_ENTER_THRESHOLD = 0.34
 const SPLIT_FORCE_THRESHOLD = 0.56
 const MIN_ERA_MONTHS = 2
+const REBOUND_BLIP_MAX_SHARE = 0.58
+const GAP_CONFIDENCE_PENALTY_PER_MONTH = 0.04
+const GAP_CONFIDENCE_PENALTY_CAP = 0.32
 
 function clamp(value: number, min = 0, max = 1): number {
   return Math.min(max, Math.max(min, value))
@@ -289,8 +292,12 @@ function aggregateEra(base: EraCandidate, previousEra?: EraData, previousMonth?:
   const summaries = base.summaries
   const startMonth = summaries[0]?.month ?? 'unknown'
   const endMonth = summaries[summaries.length - 1]?.month ?? startMonth
+  const spanMonths = monthSpanInclusive(startMonth, endMonth)
   const totalMs = summaries.reduce((sum, summary) => sum + summary.totalMs, 0)
   const sparseCount = summaries.filter((summary) => summary.sparse).length
+  const missingMonthCount = Math.max(0, spanMonths - summaries.length)
+  const sparseSignalCount = sparseCount + missingMonthCount
+  const hasSparseSignals = sparseSignalCount > 0
   const dominantArtists = Array.from(new Set(summaries.flatMap((summary) => summary.dominantArtists))).slice(0, 5)
 
   const avgDominance = dominantArtistShare(summaries)
@@ -298,11 +305,11 @@ function aggregateEra(base: EraCandidate, previousEra?: EraData, previousMonth?:
 
   let changeDrivers: EraData['changeDrivers'] = [
     {
-      key: sparseCount > 0 ? 'sparse-data' : 'dominance-shift',
-      weight: sparseCount > 0 ? 0.12 : round(avgDominance),
+      key: hasSparseSignals ? 'sparse-data' : 'dominance-shift',
+      weight: hasSparseSignals ? 0.12 : round(avgDominance),
       description:
-        sparseCount > 0
-          ? 'This era includes lower-density months, so boundaries were smoothed conservatively.'
+        hasSparseSignals
+          ? 'This era includes lower-density or missing months, so boundaries were smoothed conservatively.'
           : 'This era is characterized by a stable concentration around a recurring artist core.',
     },
   ]
@@ -310,12 +317,15 @@ function aggregateEra(base: EraCandidate, previousEra?: EraData, previousMonth?:
   let topArrivals: string[] | undefined
   let topDepartures: string[] | undefined
   let transitionFromPrevious: EraData['transitionFromPrevious'] | undefined
-  let confidence = clamp(0.35 + avgDominance * 0.35 + (1 - diversity) * 0.15 + Math.min(0.15, summaries.length * 0.03))
+  const gapPenalty = Math.min(GAP_CONFIDENCE_PENALTY_CAP, missingMonthCount * GAP_CONFIDENCE_PENALTY_PER_MONTH)
+  let confidence = clamp(
+    0.35 + avgDominance * 0.35 + (1 - diversity) * 0.15 + Math.min(0.15, summaries.length * 0.03) - gapPenalty,
+  )
 
   if (previousEra && previousMonth && summaries[0]) {
     const details = computeChangeScore(previousMonth, summaries[0])
-    confidence = clamp(confidence + details.total * 0.2 - (sparseCount > 0 ? 0.08 : 0))
-    changeDrivers = summarizeChangeDrivers(details, sparseCount > 0)
+    confidence = clamp(confidence + details.total * 0.2 - (hasSparseSignals ? 0.08 : 0))
+    changeDrivers = summarizeChangeDrivers(details, hasSparseSignals)
 
     const arrivalSet = new Set(dominantArtists)
     const departureSet = new Set(previousEra.dominantArtists)
@@ -328,7 +338,7 @@ function aggregateEra(base: EraCandidate, previousEra?: EraData, previousMonth?:
       : `Same lead artist, but rotation and behavior/context shifted with ${Math.round(details.total * 100)}% change intensity.`
 
     transitionFromPrevious = {
-      confidence: round(clamp(0.35 + details.total * 0.55 - (sparseCount > 0 ? 0.12 : 0))),
+      confidence: round(clamp(0.35 + details.total * 0.55 - (hasSparseSignals ? 0.12 : 0))),
       summary: transitionSummary,
     }
   }
@@ -341,7 +351,7 @@ function aggregateEra(base: EraCandidate, previousEra?: EraData, previousMonth?:
     dominantArtists,
     totalMs,
     confidence: round(confidence),
-    durationMonths: monthSpanInclusive(startMonth, endMonth),
+    durationMonths: spanMonths,
     dominanceScore: round(avgDominance),
     diversityScore: round(diversity),
     changeDrivers,
@@ -361,15 +371,40 @@ function shouldSplit(
     return false
   }
 
-  const previousSmoothed = smoothedMonth([...currentEraMonths.slice(-1), previous], 1)
+  const previousWindow = currentEraMonths.slice(-2)
+  const previousSmoothed = previousWindow.length >= 2 ? smoothedMonth(previousWindow, 1) : previous
   const currentSmoothed = smoothedMonth([previous, current], 1)
   const details = computeChangeScore(previousSmoothed, currentSmoothed)
 
   const leadChanged = current.topArtist !== previous.topArtist
   const strongDominance = current.topShare >= DOMINANCE_THRESHOLD
   const newLeadPersists = Boolean(next && next.topArtist === current.topArtist)
+  const prior = currentEraMonths[currentEraMonths.length - 2]
   const nextDetails = next ? computeChangeScore(current, next) : null
   const nextSupportsSplit = Boolean(nextDetails && nextDetails.total >= SPLIT_ENTER_THRESHOLD * 0.7)
+
+  const isSingleMonthLeadBlip =
+    leadChanged &&
+    Boolean(next && next.topArtist === previous.topArtist) &&
+    current.topShare <= REBOUND_BLIP_MAX_SHARE &&
+    !current.sparse &&
+    (!prior || prior.topArtist === previous.topArtist)
+
+  if (isSingleMonthLeadBlip) {
+    return false
+  }
+
+  const isSingleMonthReboundBlip =
+    Boolean(prior) &&
+    prior!.topArtist === current.topArtist &&
+    previous.topArtist !== current.topArtist &&
+    Boolean(next && next.topArtist === current.topArtist) &&
+    previous.topShare <= REBOUND_BLIP_MAX_SHARE &&
+    !previous.sparse
+
+  if (isSingleMonthReboundBlip) {
+    return false
+  }
 
   if (leadChanged && strongDominance && (newLeadPersists || current.topShare >= 0.62) && !current.sparse) {
     return true
