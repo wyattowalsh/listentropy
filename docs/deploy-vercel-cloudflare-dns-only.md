@@ -25,6 +25,7 @@ This avoids reverse-proxy caching/edge issues and keeps Vercel routing and secur
 4. Deploy once on the Vercel preview domain and confirm the app loads.
 5. In Vercel project settings, add your custom domain(s).
 6. In Cloudflare DNS, create the records Vercel requests (typically apex + `www`).
+   - For a subdomain launch like `listentropy.w4w.dev`, this is typically a `CNAME` for `listentropy` pointing to the Vercel target shown in your Vercel domain setup UI.
 7. Set those records to **DNS only** (gray cloud).
 8. Wait for Vercel domain verification and certificate issuance.
 
