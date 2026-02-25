@@ -5,6 +5,7 @@ import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import type {
   CompareEnginePayload,
   CompareEngineScopeId,
+  LabCompareDatasetSnapshot,
   LabCompareSnapshotEntry,
   LabDatasetSnapshot,
   LabModuleResult,
@@ -14,8 +15,8 @@ import type {
 
 interface CompareWorkspacePanelProps {
   currentSnapshot: LabDatasetSnapshot
-  baselineSnapshot: LabDatasetSnapshot | null
-  importedSnapshot: LabDatasetSnapshot | null
+  baselineSnapshot: LabCompareDatasetSnapshot | null
+  importedSnapshot: LabCompareDatasetSnapshot | null
   savedSnapshots: LabCompareSnapshotEntry[]
   selectedBaselineSnapshotId: string | null
   scopeId: CompareEngineScopeId

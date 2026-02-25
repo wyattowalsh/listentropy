@@ -8,6 +8,8 @@ import { runLabModuleWithFallback } from '@/lib/labs/worker-client'
 import { processRecords } from '@/lib/processor'
 import type {
   CompareEngineScopeId,
+  LabCompareDatasetSnapshot,
+  LabCompareRecord,
   LabCompareSnapshotEntry,
   LabCompareSnapshotSource,
   LabDatasetSnapshot,
@@ -39,8 +41,8 @@ type CompareImportMode = 'idle' | 'parsing' | 'ready' | 'error'
 interface LabState {
   selectedModuleId: LabModuleId | null
   selectedSceneId: LabSceneId | null
-  compareBaselineSnapshot: LabDatasetSnapshot | null
-  compareImportedSnapshot: LabDatasetSnapshot | null
+  compareBaselineSnapshot: LabCompareDatasetSnapshot | null
+  compareImportedSnapshot: LabCompareDatasetSnapshot | null
   compareSnapshotLibrary: LabCompareSnapshotEntry[]
   compareSelectedBaselineSnapshotId: string | null
   compareScopeId: CompareEngineScopeId
@@ -89,16 +91,48 @@ function upsertQueue(queue: QueueItem[], nextItem: QueueItem): QueueItem[] {
   return copy
 }
 
-function compareSnapshotId(snapshot: LabDatasetSnapshot): string {
+function compareSnapshotId(snapshot: Pick<LabCompareDatasetSnapshot, 'datasetIdentity'>): string {
   return `cmp-${snapshot.datasetIdentity.fingerprint}`
 }
 
 function compareSnapshotLabel(
-  snapshot: LabDatasetSnapshot,
+  snapshot: Pick<LabCompareDatasetSnapshot, 'datasetIdentity' | 'timezoneMode'>,
   source: LabCompareSnapshotSource,
 ): string {
   const sourceLabel = source === 'captured-current' ? 'Captured Current' : 'Imported Zip'
   return `${sourceLabel} · ${snapshot.datasetIdentity.recordCount.toLocaleString()} records · ${snapshot.timezoneMode.toUpperCase()}`
+}
+
+function toLabCompareRecord(record: LabDatasetSnapshot['records'][number]): LabCompareRecord {
+  return {
+    ts: record.ts,
+    ms_played: record.ms_played,
+    skipped: record.skipped,
+    shuffle: record.shuffle,
+    offline: record.offline,
+    conn_country: record.conn_country,
+    master_metadata_album_artist_name: record.master_metadata_album_artist_name,
+  }
+}
+
+function buildCompareSnapshot(snapshot: LabDatasetSnapshot): LabCompareDatasetSnapshot {
+  return {
+    timezoneMode: snapshot.timezoneMode,
+    datasetIdentity: snapshot.datasetIdentity,
+    records: snapshot.records.map(toLabCompareRecord),
+    summary: snapshot.summary,
+    contextAnalytics: {
+      country: {
+        homeCountry: snapshot.contextAnalytics.country.homeCountry,
+        travelShare: snapshot.contextAnalytics.country.travelShare,
+      },
+    },
+    eras: snapshot.eras,
+    archetypes: {
+      primary: snapshot.archetypes.primary,
+      allScores: snapshot.archetypes.allScores,
+    },
+  }
 }
 
 function upsertCompareSnapshotLibrary(
@@ -177,13 +211,14 @@ export const useLabStore = create<LabState>((set, get) => ({
   setCompareCurrentEraId: (eraId) => set({ compareCurrentEraId: eraId }),
   saveCompareSnapshot: (dataset, source, label) => {
     const id = compareSnapshotId(dataset)
+    const snapshot = buildCompareSnapshot(dataset)
     const entry: LabCompareSnapshotEntry = {
       id,
       fingerprint: dataset.datasetIdentity.fingerprint,
       source,
       label: label ?? compareSnapshotLabel(dataset, source),
       savedAt: new Date().toISOString(),
-      snapshot: dataset,
+      snapshot,
     }
     set((state) => ({
       compareSnapshotLibrary: upsertCompareSnapshotLibrary(state.compareSnapshotLibrary, entry),
@@ -192,8 +227,10 @@ export const useLabStore = create<LabState>((set, get) => ({
   },
   captureCompareBaseline: (dataset) => {
     const id = get().saveCompareSnapshot(dataset, 'captured-current')
+    const baselineSnapshot =
+      get().compareSnapshotLibrary.find((entry) => entry.id === id)?.snapshot ?? buildCompareSnapshot(dataset)
     set({
-      compareBaselineSnapshot: dataset,
+      compareBaselineSnapshot: baselineSnapshot,
       compareSelectedBaselineSnapshotId: id,
       compareBaselineEraId: null,
     })
@@ -222,9 +259,11 @@ export const useLabStore = create<LabState>((set, get) => ({
           : await processCompareZipWithMainThread(file, timezoneMode, set)
       const snapshot = buildDefaultLabDatasetSnapshot(processed)
       const savedId = get().saveCompareSnapshot(snapshot, 'imported-zip')
+      const savedSnapshot =
+        get().compareSnapshotLibrary.find((entry) => entry.id === savedId)?.snapshot ?? buildCompareSnapshot(snapshot)
       set({
-        compareImportedSnapshot: snapshot,
-        compareBaselineSnapshot: snapshot,
+        compareImportedSnapshot: savedSnapshot,
+        compareBaselineSnapshot: savedSnapshot,
         compareSelectedBaselineSnapshotId: savedId,
         compareBaselineEraId: null,
         compareImportMode: 'ready',
