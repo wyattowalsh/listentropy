@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 
+import { readLocalStorageItem, writeLocalStorageItem } from '@/store/browserStorage'
 import { getTheme } from '@/themes'
 import type { ThemeDefinition } from '@/themes/types'
 
@@ -8,6 +9,14 @@ const THEME_STORAGE_KEY = 'listentropy-theme'
 interface ThemeState {
   themeKey: ThemeDefinition['key']
   setTheme: (themeKey: ThemeDefinition['key']) => void
+}
+
+function getStoredTheme(): ThemeDefinition['key'] {
+  const storedTheme = readLocalStorageItem(THEME_STORAGE_KEY)
+  if (!storedTheme) {
+    return 'spotify-dark'
+  }
+  return getTheme(storedTheme as ThemeDefinition['key']).key
 }
 
 export function applyTheme(themeKey: ThemeDefinition['key']): void {
@@ -42,15 +51,12 @@ export function applyTheme(themeKey: ThemeDefinition['key']): void {
   root.style.setProperty('--font-mono', theme.fonts.mono)
 }
 
-const storedTheme =
-  (typeof window !== 'undefined'
-    ? (localStorage.getItem(THEME_STORAGE_KEY) as ThemeDefinition['key'] | null)
-    : null) ?? 'spotify-dark'
+const storedTheme = getStoredTheme()
 
 export const useThemeStore = create<ThemeState>((set) => ({
   themeKey: storedTheme,
   setTheme: (themeKey) => {
-    localStorage.setItem(THEME_STORAGE_KEY, themeKey)
+    writeLocalStorageItem(THEME_STORAGE_KEY, themeKey)
     applyTheme(themeKey)
     set({ themeKey })
   },

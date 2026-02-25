@@ -1,6 +1,6 @@
 import JSZip from 'jszip'
 import { expect, test } from '@playwright/test'
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 
 interface FixtureRecord {
   ts: string
@@ -75,7 +75,23 @@ async function uploadFixture(page: Page): Promise<void> {
     mimeType: 'application/zip',
     buffer,
   })
-  await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible({ timeout: 20_000 })
+  await expect(primaryAnalyticsTab(page, 'Overview')).toBeVisible({ timeout: 20_000 })
+}
+
+function primaryAnalyticsTab(page: Page, label: string) {
+  return page
+    .getByRole('tablist', { name: 'Primary analytics views' })
+    .getByRole('tab', { name: label, exact: true })
+}
+
+async function openPrimaryAnalyticsTab(page: Page, label: string): Promise<Locator> {
+  const tab = primaryAnalyticsTab(page, label)
+  await tab.click()
+  const panelId = await tab.getAttribute('aria-controls')
+  if (!panelId) {
+    throw new Error(`Primary analytics tab "${label}" is missing aria-controls`)
+  }
+  return page.locator(`#${panelId}`)
 }
 
 test('renders upload onboarding and privacy copy', async ({ page }) => {
@@ -91,48 +107,48 @@ test('all top-level tabs render after upload', async ({ page }) => {
   await uploadFixture(page)
   await expect(page.getByRole('button', { name: 'Unlock Advanced Analytics' })).toHaveCount(0)
 
-  await page.getByRole('tab', { name: 'Charts' }).click()
-  await expect(page.getByPlaceholder('Search leaderboard...')).toBeVisible()
+  const chartsPanel = await openPrimaryAnalyticsTab(page, 'Charts')
+  await expect(chartsPanel.getByPlaceholder('Search leaderboard...')).toBeVisible()
 
-  await page.getByRole('tab', { name: 'Timeline' }).click()
-  await expect(page.getByRole('heading', { name: 'Listening timeline' })).toBeVisible()
+  const timelinePanel = await openPrimaryAnalyticsTab(page, 'Timeline')
+  await expect(timelinePanel.getByRole('heading', { name: 'Listening timeline' })).toBeVisible()
 
-  await page.getByRole('tab', { name: 'Clock' }).click()
-  await expect(page.getByRole('heading', { name: 'Radial Clock' })).toBeVisible()
+  const clockPanel = await openPrimaryAnalyticsTab(page, 'Clock')
+  await expect(clockPanel.getByRole('heading', { name: 'Radial Clock' })).toBeVisible()
 
-  await page.getByRole('tab', { name: 'Artist' }).click()
-  await expect(page.getByRole('heading', { name: 'Artist Deep Dive' })).toBeVisible()
+  const artistPanel = await openPrimaryAnalyticsTab(page, 'Artist')
+  await expect(artistPanel.getByPlaceholder('Search artist...')).toBeVisible()
 
-  await page.getByRole('tab', { name: 'Habits' }).click()
-  await expect(page.getByRole('heading', { name: 'Skip and shuffle trend' })).toBeVisible()
+  const habitsPanel = await openPrimaryAnalyticsTab(page, 'Habits')
+  await expect(habitsPanel.getByRole('heading', { name: 'Skip and shuffle trend' })).toBeVisible()
 
-  await page.getByRole('tab', { name: 'Context' }).click()
-  await expect(page.getByRole('heading', { name: 'Context Intelligence' })).toBeVisible()
+  const contextPanel = await openPrimaryAnalyticsTab(page, 'Context')
+  await expect(contextPanel.getByRole('heading', { name: 'Context Intelligence' })).toBeVisible()
 
-  await page.getByRole('tab', { name: 'Eras' }).click()
-  await expect(page.getByRole('heading', { name: 'Music Eras' })).toBeVisible()
+  const erasPanel = await openPrimaryAnalyticsTab(page, 'Eras')
+  await expect(erasPanel.getByRole('heading', { name: 'Music Eras' })).toBeVisible()
 
-  await page.getByRole('tab', { name: 'Share' }).click()
-  await expect(page.getByRole('heading', { name: 'Share Studio' })).toBeVisible()
+  const sharePanel = await openPrimaryAnalyticsTab(page, 'Share')
+  await expect(sharePanel.getByRole('heading', { name: 'Share Studio' })).toBeVisible()
 
-  await page.getByRole('tab', { name: 'Universe' }).click()
-  await expect(page.getByText('Music Universe Graph')).toBeVisible()
-  await expect(page.getByText('This view crashed')).toHaveCount(0)
-  const fallbackNotice = page.getByText(/2D mode|3D rendering is unavailable|3D renderer failed/i)
+  const universePanel = await openPrimaryAnalyticsTab(page, 'Universe')
+  await expect(universePanel.getByText('Music Universe Graph')).toBeVisible()
+  await expect(universePanel.getByText('This view crashed')).toHaveCount(0)
+  const fallbackNotice = universePanel.getByText(/2D mode|3D rendering is unavailable|3D renderer failed/i)
   if ((await fallbackNotice.count()) > 0) {
     await expect(fallbackNotice.first()).toBeVisible()
   }
-  await expect(page.locator('canvas').first()).toBeVisible()
+  await expect(universePanel.locator('canvas').first()).toBeVisible()
 
-  await page.getByRole('tab', { name: 'Taste DNA' }).click()
-  await expect(page.getByRole('heading', { name: 'Taste DNA' })).toBeVisible()
+  const tastePanel = await openPrimaryAnalyticsTab(page, 'Taste DNA')
+  await expect(tastePanel.getByRole('heading', { name: 'Taste DNA' })).toBeVisible()
 })
 
 test('weekly timeline uses diverse ISO-like week keys', async ({ page }) => {
   await page.goto('/')
   await uploadFixture(page)
 
-  await page.getByRole('tab', { name: 'Timeline' }).click()
+  await primaryAnalyticsTab(page, 'Timeline').click()
   await page
     .locator('main select')
     .filter({ has: page.locator('option[value="weekly"]') })
@@ -154,7 +170,7 @@ test('share studio supports full deck traversal and share links', async ({ page 
   await page.goto('/')
   await uploadFixture(page)
 
-  await page.getByRole('tab', { name: 'Share' }).click()
+  await primaryAnalyticsTab(page, 'Share').click()
   await page.getByRole('button', { name: 'Quick Flex' }).click()
   await page.getByRole('button', { name: 'Deep Stats' }).click()
 
@@ -182,9 +198,9 @@ test('guided upload-to-share funnel works on mobile viewport', async ({ page }) 
   await page.goto('/')
   await uploadFixture(page)
 
-  await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible()
-  await expect(page.getByRole('tab', { name: 'Share' })).toBeVisible()
-  await page.getByRole('tab', { name: 'Share' }).click()
+  await expect(primaryAnalyticsTab(page, 'Overview')).toBeVisible()
+  await expect(primaryAnalyticsTab(page, 'Share')).toBeVisible()
+  await primaryAnalyticsTab(page, 'Share').click()
   await expect(page.getByRole('heading', { name: 'Share Studio' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Quick Flex' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Copy Share Link' })).toBeVisible()

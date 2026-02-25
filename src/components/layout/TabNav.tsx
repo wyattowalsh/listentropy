@@ -1,4 +1,5 @@
 import { PRIMARY_ANALYTICS_TABS_ID_BASE } from '@/components/layout/primary-analytics-tab-ids'
+import { getTabsTabId } from '@/components/ui/tab-ids'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { ExperienceLevel } from '@/lib/types'
 
@@ -48,17 +49,25 @@ export function TabNav({
         <TabsList className="w-full max-w-full min-w-0" aria-label="Primary analytics views">
           {viewTabs.map((tab) => {
             const tabMeta = metadata?.[tab.key]
+            const hasMeta = Boolean(tabMeta?.detail || tabMeta?.badge)
+            const metaDescriptionId = hasMeta
+              ? `${getTabsTabId(PRIMARY_ANALYTICS_TABS_ID_BASE, tab.key)}-meta`
+              : undefined
             return (
               <TabsTrigger
                 key={tab.key}
                 value={tab.key}
                 className="min-w-[112px] whitespace-normal px-3 py-2 text-left align-top"
-                title={tabMeta?.detail}
+                aria-label={tab.label}
+                aria-describedby={metaDescriptionId}
               >
                 <span className="flex min-w-0 flex-col items-start gap-1 leading-tight">
                   <span>{tab.label}</span>
-                  {tabMeta?.detail || tabMeta?.badge ? (
-                    <span className="flex min-w-0 flex-wrap items-center gap-1 text-[10px] uppercase tracking-[0.12em] opacity-90">
+                  {hasMeta ? (
+                    <span
+                      id={metaDescriptionId}
+                      className="flex min-w-0 flex-wrap items-center gap-1 text-[10px] uppercase tracking-[0.12em] opacity-90"
+                    >
                       {tabMeta?.badge ? (
                         <span className="rounded-theme border border-current/20 px-1.5 py-0.5">
                           {tabMeta.badge}
