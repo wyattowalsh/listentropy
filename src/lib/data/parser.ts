@@ -10,6 +10,20 @@ export interface ZipInspectionResult {
   historyFiles: string[]
 }
 
+export interface PreparedSpotifyZipArchive {
+  zip: JSZip
+  entries: JSZip.JSZipObject[]
+  historyEntries: JSZip.JSZipObject[]
+  inspection: ZipInspectionResult
+}
+
+export interface ParseSpotifyZipOptions extends ParseOptions {
+  archive?: PreparedSpotifyZipArchive
+  historyFileNames?: string[]
+}
+
+const preparedZipArchiveCache = new WeakMap<File, PreparedSpotifyZipArchive>()
+
 function inferContentType(record: RawSpotifyRecord): StreamRecord['content_type'] {
   if (record.spotify_track_uri || record.master_metadata_track_name) {
     return 'music'
@@ -106,14 +120,81 @@ export function sanitizeRecord(record: RawSpotifyRecord): StreamRecord {
   }
 }
 
+function getArchiveEntries(zip: JSZip): JSZip.JSZipObject[] {
+  return Object.values(zip.files).filter((zipFile) => !zipFile.dir)
+}
+
+function getHistoryEntries(entries: JSZip.JSZipObject[]): JSZip.JSZipObject[] {
+  return entries.filter((zipFile) => HISTORY_FILE_PATTERN.test(zipFile.name))
+}
+
+function buildZipInspection(entries: JSZip.JSZipObject[], historyEntries: JSZip.JSZipObject[]): ZipInspectionResult {
+  const historyFiles = historyEntries.map((entry) => entry.name).sort((a, b) => a.localeCompare(b))
+
+  return {
+    totalEntries: entries.length,
+    historyFileCount: historyFiles.length,
+    historyFiles,
+  }
+}
+
+function buildPreparedSpotifyZipArchive(zip: JSZip): PreparedSpotifyZipArchive {
+  const entries = getArchiveEntries(zip)
+  const historyEntries = getHistoryEntries(entries)
+  return {
+    zip,
+    entries,
+    historyEntries,
+    inspection: buildZipInspection(entries, historyEntries),
+  }
+}
+
+function resolveHistoryEntriesByName(
+  zip: JSZip,
+  historyFileNames: string[] | undefined,
+): JSZip.JSZipObject[] | null {
+  if (!historyFileNames || historyFileNames.length === 0) {
+    return null
+  }
+
+  const resolved: JSZip.JSZipObject[] = []
+  for (const fileName of historyFileNames) {
+    const zipFile = zip.files[fileName]
+    if (!zipFile || zipFile.dir || !HISTORY_FILE_PATTERN.test(zipFile.name)) {
+      continue
+    }
+    resolved.push(zipFile)
+  }
+
+  return resolved
+}
+
+export async function prepareSpotifyZipArchive(file: File): Promise<PreparedSpotifyZipArchive> {
+  const cached = preparedZipArchiveCache.get(file)
+  if (cached) {
+    return cached
+  }
+
+  const zip = await JSZip.loadAsync(file)
+  const prepared = buildPreparedSpotifyZipArchive(zip)
+  preparedZipArchiveCache.set(file, prepared)
+  return prepared
+}
+
 export async function parseSpotifyZip(
   file: File,
-  options: ParseOptions = {},
+  options: ParseSpotifyZipOptions = {},
 ): Promise<StreamRecord[]> {
-  const zip = await JSZip.loadAsync(file)
-  const historyFiles = Object.values(zip.files).filter(
-    (zipFile) => !zipFile.dir && HISTORY_FILE_PATTERN.test(zipFile.name),
-  )
+  const resolvedPreparedArchive =
+    options.archive ??
+    preparedZipArchiveCache.get(file) ??
+    (options.historyFileNames ? null : await prepareSpotifyZipArchive(file))
+
+  const zip = resolvedPreparedArchive?.zip ?? (await JSZip.loadAsync(file))
+  const historyFiles =
+    resolvedPreparedArchive?.historyEntries ??
+    resolveHistoryEntriesByName(zip, options.historyFileNames) ??
+    getHistoryEntries(getArchiveEntries(zip))
 
   if (historyFiles.length === 0) {
     throw new Error(
@@ -158,16 +239,6 @@ export async function parseSpotifyZip(
 }
 
 export async function inspectSpotifyZipArchive(file: File): Promise<ZipInspectionResult> {
-  const zip = await JSZip.loadAsync(file)
-  const entries = Object.values(zip.files).filter((zipFile) => !zipFile.dir)
-  const historyFiles = entries
-    .map((entry) => entry.name)
-    .filter((name) => HISTORY_FILE_PATTERN.test(name))
-    .sort((a, b) => a.localeCompare(b))
-
-  return {
-    totalEntries: entries.length,
-    historyFileCount: historyFiles.length,
-    historyFiles,
-  }
+  const prepared = await prepareSpotifyZipArchive(file)
+  return prepared.inspection
 }

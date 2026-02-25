@@ -12,6 +12,7 @@ context.onmessage = async (event: MessageEvent<DataProcessorWorkerRequest>) => {
     const records =
       request.type === 'process-zip'
         ? await parseSpotifyZip(request.file, {
+            historyFileNames: request.historyFileNames,
             onProgress(progress) {
               context.postMessage({
                 type: 'parse:progress',

@@ -989,6 +989,29 @@ export interface LabDatasetSnapshot {
   archetypes: ProcessedDataModel['archetypes']
 }
 
+export type LabCompareRecord = Pick<
+  StreamRecord,
+  | 'ts'
+  | 'ms_played'
+  | 'skipped'
+  | 'shuffle'
+  | 'offline'
+  | 'conn_country'
+  | 'master_metadata_album_artist_name'
+>
+
+export interface LabCompareDatasetSnapshot {
+  timezoneMode: LabDatasetSnapshot['timezoneMode']
+  datasetIdentity: LabDatasetSnapshot['datasetIdentity']
+  records: LabCompareRecord[]
+  summary: LabDatasetSnapshot['summary']
+  contextAnalytics: {
+    country: Pick<LabDatasetSnapshot['contextAnalytics']['country'], 'homeCountry' | 'travelShare'>
+  }
+  eras: LabDatasetSnapshot['eras']
+  archetypes: Pick<LabDatasetSnapshot['archetypes'], 'primary' | 'allScores'>
+}
+
 export type LabCompareSnapshotSource = 'captured-current' | 'imported-zip'
 
 export interface LabCompareSnapshotEntry {
@@ -997,7 +1020,7 @@ export interface LabCompareSnapshotEntry {
   source: LabCompareSnapshotSource
   label: string
   savedAt: string
-  snapshot: LabDatasetSnapshot
+  snapshot: LabCompareDatasetSnapshot
 }
 
 export interface LabWorkerRunModuleRequest {

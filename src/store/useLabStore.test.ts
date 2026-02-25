@@ -291,4 +291,26 @@ describe('useLabStore', () => {
     expect(useLabStore.getState().compareBaselineSnapshot).toBeNull()
     expect(useLabStore.getState().compareSelectedBaselineSnapshotId).toBeNull()
   })
+
+  it('stores compact compare snapshots in the library to avoid retaining heavy lab payloads', () => {
+    const snapshot = makeSyntheticLabSnapshot()
+
+    const id = useLabStore.getState().saveCompareSnapshot(snapshot, 'captured-current')
+    const entry = useLabStore.getState().compareSnapshotLibrary.find((item) => item.id === id)
+
+    expect(entry).toBeDefined()
+    expect(entry?.snapshot.datasetIdentity.fingerprint).toBe(snapshot.datasetIdentity.fingerprint)
+    expect('graph' in (entry?.snapshot as object)).toBe(false)
+    expect('graphAnalytics' in (entry?.snapshot as object)).toBe(false)
+    expect('taste' in (entry?.snapshot as object)).toBe(false)
+
+    const firstRecord = entry?.snapshot.records[0]
+    expect(firstRecord).toBeDefined()
+    expect(firstRecord && 'ts' in firstRecord).toBe(true)
+    expect(firstRecord && 'ms_played' in firstRecord).toBe(true)
+    expect(firstRecord && 'conn_country' in firstRecord).toBe(true)
+    expect(firstRecord && 'offline' in firstRecord).toBe(true)
+    expect(firstRecord && 'master_metadata_album_artist_name' in firstRecord).toBe(true)
+    expect(firstRecord && 'spotify_track_uri' in firstRecord).toBe(false)
+  })
 })
