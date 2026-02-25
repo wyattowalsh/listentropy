@@ -1,3 +1,7 @@
+import { spotifyGetJson } from '@/lib/audio-traits/providers/spotify/http'
+
+export { SpotifyApiHttpError } from '@/lib/audio-traits/providers/spotify/http'
+
 export interface SpotifyAudioFeatureRecord {
   id: string
   danceability: number
@@ -26,17 +30,6 @@ export interface SpotifyAudioFeaturesFetchResult {
   requestStats: SpotifyAudioFeaturesRequestStats
 }
 
-export class SpotifyApiHttpError extends Error {
-  readonly status: number
-  readonly retryAfterSeconds?: number
-
-  constructor(status: number, retryAfterSeconds?: number) {
-    super(`Spotify API request failed with ${status}`)
-    this.status = status
-    this.retryAfterSeconds = retryAfterSeconds
-  }
-}
-
 export const MAX_SPOTIFY_AUDIO_FEATURE_TRACK_IDS = 5_000
 
 function chunkArray<T>(values: T[], size: number): T[][] {
@@ -45,20 +38,6 @@ function chunkArray<T>(values: T[], size: number): T[][] {
     chunks.push(values.slice(index, index + size))
   }
   return chunks
-}
-
-async function spotifyGetJson<T>(accessToken: string, url: string): Promise<T> {
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  })
-  if (!response.ok) {
-    const retryHeader = response.headers.get('Retry-After')
-    const retryAfterSeconds = retryHeader ? Number.parseInt(retryHeader, 10) : undefined
-    throw new SpotifyApiHttpError(response.status, Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : undefined)
-  }
-  return (await response.json()) as T
 }
 
 export async function fetchSpotifyAudioFeaturesByTrackIds(
@@ -70,10 +49,11 @@ export async function fetchSpotifyAudioFeaturesByTrackIds(
   const results: SpotifyAudioFeatureRecord[] = []
   const chunks = chunkArray(ids, 100)
   for (const chunk of chunks) {
-    const payload = await spotifyGetJson<SpotifyAudioFeaturesResponse>(
+    const payload = await spotifyGetJson<SpotifyAudioFeaturesResponse>({
       accessToken,
-      `https://api.spotify.com/v1/audio-features?ids=${chunk.join(',')}`,
-    )
+      url: `https://api.spotify.com/v1/audio-features?ids=${chunk.join(',')}`,
+      endpoint: 'audio-features',
+    })
     results.push(...payload.audio_features.filter(Boolean) as SpotifyAudioFeatureRecord[])
   }
   return {

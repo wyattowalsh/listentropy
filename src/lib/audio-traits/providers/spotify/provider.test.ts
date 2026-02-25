@@ -59,6 +59,47 @@ describe('spotify audio trait provider', () => {
     expect(result.message).toMatch(/restricted/i)
   })
 
+  it('maps 401 responses to unsupported with unauthorized capability', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      headers: { get: () => null },
+    }))
+
+    const provider = createSpotifyAudioTraitProvider()
+    const result = await provider.fetchTraitSnapshot({
+      datasetFingerprint: 'fp',
+      trackIds: ['abc'],
+      accessToken: 'token',
+      tokenSource: 'manual-token',
+    })
+
+    expect(result.status).toBe('unsupported')
+    expect('audioFeatures' in result.capabilities ? result.capabilities.audioFeatures : result.capabilities.audioTraits).toBe('unauthorized')
+    expect(result.message).toMatch(/401|rejected/i)
+  })
+
+  it('maps 429 responses to rate-limited capability and preserves Retry-After context', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 429,
+      headers: { get: (name: string) => (name === 'Retry-After' ? '12' : null) },
+    }))
+
+    const provider = createSpotifyAudioTraitProvider()
+    const result = await provider.fetchTraitSnapshot({
+      datasetFingerprint: 'fp',
+      trackIds: ['abc'],
+      accessToken: 'token',
+      tokenSource: 'manual-token',
+    })
+
+    expect(result.status).toBe('error')
+    expect('audioFeatures' in result.capabilities ? result.capabilities.audioFeatures : result.capabilities.audioTraits).toBe('rate-limited')
+    expect(result.message).toMatch(/429|rate limit/i)
+    expect(result.provenance.endpointNotes?.some((note) => /Retry-After 12s/i.test(note))).toBe(true)
+  })
+
   it('surfaces a warning when track IDs are capped before audio feature fetch', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
