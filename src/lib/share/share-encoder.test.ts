@@ -9,6 +9,48 @@ import {
   encodeSharePayload,
 } from './share-encoder'
 
+function makeV4Payload(overrides: Partial<SharePayloadV4> = {}): SharePayloadV4 {
+  return {
+    version: 4,
+    privacyLevel: 'aggregate',
+    checksum: 'pending',
+    generatedAt: '2026-01-01T00:00:00.000Z',
+    timezoneMode: 'local',
+    includeName: false,
+    anonymize: false,
+    totalHours: 99,
+    totalPlays: 999,
+    uniqueArtists: 123,
+    uniqueTracks: 456,
+    dateRange: ['2018', '2026'],
+    topArtists: [['Artist A', 10]],
+    topTracks: [['Track A', 'Artist A', 10]],
+    archetype: 'Night Owl',
+    archetypes: ['Night Owl'],
+    peakHour: 23,
+    skipRate: 0.11,
+    shuffleRate: 0.44,
+    longestStreak: 12,
+    tasteDimensions: [0.1, 0.2, 0.3],
+    context: {
+      homeCountry: 'US',
+      domesticShare: 0.8,
+      travelShare: 0.2,
+      topReasons: [['trackdone', 50]],
+      offlineRate: 0.03,
+      incognitoRate: 0.01,
+    },
+    selectedCards: ['title', 'numbers', 'archetype'],
+    sharePreset: 'quick-flex',
+    themeKey: 'editorial-light',
+    ...overrides,
+  }
+}
+
+function legacyToBase64Url(value: string): string {
+  return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
 describe('share payload encoder', () => {
   it('encodes and decodes v2 round trip', () => {
     const payload: SharePayloadV2 = {
@@ -174,40 +216,7 @@ describe('share payload encoder', () => {
   })
 
   it('encodes and decodes v4 with preset, theme, and selected cards', () => {
-    const payload: SharePayloadV4 = {
-      version: 4,
-      privacyLevel: 'aggregate',
-      checksum: 'pending',
-      generatedAt: '2026-01-01T00:00:00.000Z',
-      timezoneMode: 'local',
-      includeName: false,
-      anonymize: false,
-      totalHours: 99,
-      totalPlays: 999,
-      uniqueArtists: 123,
-      uniqueTracks: 456,
-      dateRange: ['2018', '2026'],
-      topArtists: [['Artist A', 10]],
-      topTracks: [['Track A', 'Artist A', 10]],
-      archetype: 'Night Owl',
-      archetypes: ['Night Owl'],
-      peakHour: 23,
-      skipRate: 0.11,
-      shuffleRate: 0.44,
-      longestStreak: 12,
-      tasteDimensions: [0.1, 0.2, 0.3],
-      context: {
-        homeCountry: 'US',
-        domesticShare: 0.8,
-        travelShare: 0.2,
-        topReasons: [['trackdone', 50]],
-        offlineRate: 0.03,
-        incognitoRate: 0.01,
-      },
-      selectedCards: ['title', 'numbers', 'archetype'],
-      sharePreset: 'quick-flex',
-      themeKey: 'editorial-light',
-    }
+    const payload = makeV4Payload()
 
     const encoded = encodeSharePayload(payload)
     const decoded = decodeSharePayload(encoded)
@@ -262,5 +271,68 @@ describe('share payload encoder', () => {
 
   it('rejects invalid payloads', () => {
     expect(() => decodeSharePayload('not-valid')).toThrow()
+  })
+
+  it.each([
+    { label: 'ASCII', text: 'Artist Alpha' },
+    { label: 'accents', text: 'Beyoncé déjà vu café' },
+    { label: 'CJK', text: '宇多田ヒカル' },
+    { label: 'emoji', text: 'Fire Song 🔥🎧' },
+    { label: 'RTL', text: 'مرحبا بالموسيقى' },
+  ])('round-trips UTF-8 text safely for $label payloads', ({ text }) => {
+    const payload = makeV4Payload({
+      includeName: true,
+      privacyLevel: 'rich',
+      name: text,
+      topArtists: [[text, 42]],
+      topTracks: [[`${text} Track`, text, 7]],
+      archetypes: [text],
+    })
+
+    const encoded = encodeSharePayload(payload)
+    const decoded = decodeSharePayload(encoded)
+
+    expect(decoded.version).toBe(4)
+    if (decoded.version === 4) {
+      expect(decoded.name).toBe(text)
+      expect(decoded.topArtists[0]?.[0]).toBe(text)
+      expect(decoded.topTracks[0]?.[0]).toBe(`${text} Track`)
+      expect(decoded.topTracks[0]?.[1]).toBe(text)
+      expect(decoded.archetypes[0]).toBe(text)
+    }
+  })
+
+  it('decodes legacy latin1/base64url payloads for backward compatibility', () => {
+    const payload = makeV4Payload({
+      includeName: true,
+      privacyLevel: 'rich',
+      name: 'André',
+      topArtists: [['Café del Mar', 10]],
+      topTracks: [['Canción', 'Café del Mar', 3]],
+    })
+    const parsed = decodeSharePayload(encodeSharePayload(payload))
+    const legacyEncoded = legacyToBase64Url(JSON.stringify(parsed))
+
+    const decoded = decodeSharePayload(legacyEncoded)
+
+    expect(decoded.version).toBe(4)
+    if (decoded.version === 4) {
+      expect(decoded.name).toBe('André')
+      expect(decoded.topArtists[0]?.[0]).toBe('Café del Mar')
+      expect(decoded.topTracks[0]?.[0]).toBe('Canción')
+    }
+  })
+
+  it('accepts checksum mismatches because checksum is advisory for compatibility', () => {
+    const valid = decodeSharePayload(encodeSharePayload(makeV4Payload()))
+    const tampered = encodeSharePayload({
+      ...valid,
+      totalPlays: valid.totalPlays + 1,
+      checksum: valid.checksum,
+    })
+
+    const decoded = decodeSharePayload(tampered)
+    expect(decoded.totalPlays).toBe(valid.totalPlays + 1)
+    expect(decoded.checksum).toBe(valid.checksum)
   })
 })
