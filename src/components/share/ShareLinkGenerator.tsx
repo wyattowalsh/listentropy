@@ -39,17 +39,19 @@ export function ShareLinkGenerator({
   const [copied, setCopied] = useState(false)
   const themeKey = useThemeStore((state) => state.themeKey)
   const recordMetric = useSessionMetricsStore((state) => state.record)
+  const richModePendingConfirmation = includeName && !richConfirmed
 
   const payload = useMemo(() => {
     const context = data.contextAnalytics
+    const includeNameInPayload = includeName && richConfirmed
     const build = (compact: boolean): SharePayloadV4 => ({
       version: 4,
-      privacyLevel: includeName ? 'rich' : 'aggregate',
+      privacyLevel: includeNameInPayload ? 'rich' : 'aggregate',
       checksum: 'pending',
       generatedAt: new Date().toISOString(),
       timezoneMode: data.timezoneMode,
-      name: includeName ? displayName.trim() || undefined : undefined,
-      includeName,
+      name: includeNameInPayload ? displayName.trim() || undefined : undefined,
+      includeName: includeNameInPayload,
       anonymize,
       totalHours: Math.round(data.summary.totalHours),
       totalPlays: data.summary.totalPlays,
@@ -98,7 +100,7 @@ export function ShareLinkGenerator({
     }
     const compact = build(true)
     return { payload: compact, hash: encodeSharePayload(compact), compactMode: true }
-  }, [anonymize, data, displayName, includeName, selectedCards, sharePreset, themeKey])
+  }, [anonymize, data, displayName, includeName, richConfirmed, selectedCards, sharePreset, themeKey])
 
   const link = useMemo(() => {
     const shareUrl = new URL('share', new URL(import.meta.env.BASE_URL, window.location.origin))
@@ -119,7 +121,8 @@ export function ShareLinkGenerator({
     })
   }, [payload.compactMode, payload.hash, payload.payload.selectedCards.length, payload.payload.sharePreset, recordMetric])
 
-  const canCopyRichLink = !includeName || richConfirmed
+  const canCopyRichLink = !richModePendingConfirmation
+  const visibleLink = richModePendingConfirmation ? 'Confirm rich-share warning to generate link.' : link
 
   async function copyLink(): Promise<void> {
     if (!canCopyRichLink) {
@@ -204,15 +207,16 @@ export function ShareLinkGenerator({
         </Button>
         <div className="min-w-0 basis-full overflow-hidden sm:flex-1">
           <code className="block w-full truncate text-xs text-text-muted">
-            {link}
+            {visibleLink}
           </code>
         </div>
       </div>
-      {payload.compactMode ? (
-        <p className="text-xs text-text-muted">
-          Compact payload mode enabled to keep share-link size manageable.
-        </p>
-      ) : null}
+      <p className="text-xs text-text-muted">
+        Link payload size: {payload.hash.length}/{MAX_HASH_LENGTH} chars.
+        {payload.compactMode
+          ? ' Compact mode trimmed some detail lists to stay within the share-link budget.'
+          : ' If the payload exceeds the budget, compact mode trims list detail automatically.'}
+      </p>
     </div>
   )
 }
