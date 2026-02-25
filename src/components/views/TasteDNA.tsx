@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import {
   PolarAngleAxis,
   PolarGrid,
@@ -15,19 +16,34 @@ import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { fetchSpotifyAudioFeatureProfile, type SpotifyEnhancementResult } from '@/lib/spotify-api'
 import type { ProcessedDataModel } from '@/lib/types'
+import { useSpotifyAuthStore } from '@/store/useSpotifyAuthStore'
 
 interface TasteDNAProps {
   data: ProcessedDataModel
 }
 
 export function TasteDNA({ data }: TasteDNAProps): JSX.Element {
-  const [token, setToken] = useState(
-    typeof window !== 'undefined' ? sessionStorage.getItem('listentropy-spotify-token') ?? '' : '',
-  )
+  const { status: spotifyAuthStatus, session: spotifySession, authError, connectSpotify, disconnect, setManualToken, ensureValidAccessToken } =
+    useSpotifyAuthStore(useShallow((state) => ({
+      status: state.status,
+      session: state.session,
+      authError: state.error,
+      connectSpotify: state.connectSpotify,
+      disconnect: state.disconnect,
+      setManualToken: state.setManualToken,
+      ensureValidAccessToken: state.ensureValidAccessToken,
+    })))
+  const [token, setToken] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [enhanced, setEnhanced] = useState<Array<{ key: string; label: string; score: number }>>([])
   const [enhancedMeta, setEnhancedMeta] = useState<SpotifyEnhancementResult | null>(null)
+
+  useEffect(() => {
+    if (spotifySession?.tokenSource === 'manual-token') {
+      setToken(spotifySession.accessToken)
+    }
+  }, [spotifySession])
 
   const combinedDimensions = useMemo(() => {
     if (enhanced.length === 0) {
@@ -37,16 +53,21 @@ export function TasteDNA({ data }: TasteDNAProps): JSX.Element {
   }, [data.taste.dimensions, enhanced])
 
   async function enhance(): Promise<void> {
-    if (!token.trim()) {
-      setError('Enter a Spotify API token first.')
-      return
-    }
     setLoading(true)
     setError(null)
     try {
-      sessionStorage.setItem('listentropy-spotify-token', token.trim())
+      let activeToken = token.trim()
+      if (activeToken) {
+        setManualToken(activeToken)
+      } else {
+        activeToken = (await ensureValidAccessToken()) ?? ''
+      }
+      if (!activeToken) {
+        setError('Connect Spotify or enter a Spotify API token first.')
+        return
+      }
       const result = await fetchSpotifyAudioFeatureProfile(
-        token.trim(),
+        activeToken,
         data.tracks
           .map((track) => data.trackUriIndex[`${track.name}::${track.artist}`] ?? null)
           .filter((value): value is string => Boolean(value)),
@@ -70,20 +91,31 @@ export function TasteDNA({ data }: TasteDNAProps): JSX.Element {
         <div className="mt-3 flex flex-wrap gap-2">
           <Input
             className="max-w-lg"
-            placeholder="Spotify API token (optional)"
+            placeholder="Spotify API token (optional manual fallback)"
             value={token}
             onChange={(event) => setToken(event.currentTarget.value)}
           />
+          <Button variant="outline" onClick={() => void connectSpotify()}>
+            Connect Spotify (OAuth)
+          </Button>
+          <Button variant="outline" onClick={disconnect} disabled={!spotifySession}>
+            Disconnect
+          </Button>
           <Button onClick={enhance} disabled={loading}>
             {loading ? 'Loading...' : 'Enhance with Spotify API'}
           </Button>
         </div>
         {!token.trim() ? (
           <p className="mt-2 text-xs text-text-muted">
-            Optional and local-first: token is stored in `sessionStorage` only and used for on-demand enrichment.
+            Optional and local-first: OAuth or manual token is stored in `sessionStorage` only and used for on-demand enrichment.
           </p>
         ) : null}
+        <p className="mt-2 text-xs text-text-muted">
+          Auth status: {spotifyAuthStatus}
+          {spotifySession ? ` · source ${spotifySession.tokenSource}` : ''}
+        </p>
         {error ? <p className="mt-2 text-sm text-negative">{error}</p> : null}
+        {authError ? <p className="mt-2 text-sm text-negative">{authError}</p> : null}
         {enhancedMeta?.warnings && enhancedMeta.warnings.length > 0 ? (
           <ul className="mt-2 list-disc pl-4 text-xs text-text-muted">
             {enhancedMeta.warnings.map((warning) => (

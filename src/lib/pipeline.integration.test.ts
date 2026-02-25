@@ -41,6 +41,10 @@ describe('pipeline integration', () => {
 
     const processed = processRecords(parsed)
     expect(processed.summary.totalPlays).toBe(2)
+    expect(processed.modelVersion).toBeGreaterThanOrEqual(1)
+    expect(processed.datasetIdentity.fingerprint).toMatch(/^le-/)
+    expect(processed.datasetIdentity.recordCount).toBe(2)
+    expect(processed.datasetIdentity.timezoneMode).toBe(processed.timezoneMode)
     expect(processed.diagnostics.inputRecords).toBe(2)
     expect(processed.diagnostics.validRecords).toBe(2)
     expect(processed.diagnostics.droppedRecords).toBe(0)

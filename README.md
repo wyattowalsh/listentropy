@@ -9,6 +9,7 @@ Listentropy is a privacy-first Spotify listening explorer that runs 100% in your
 - Fully client-side data processing (no user data leaves the browser).
 - Adaptive dual-path UX: guided mode (high-signal defaults) and advanced mode (full analytics surface).
 - 12 analytics views: overview, charts, timeline, clock/calendar, artist deep dive, habits, context intelligence, eras, share studio, universe graph, taste DNA, and extras.
+- Xenolab (Train A) Lab tab for deferred, on-demand analytics modules and experimental visual scenes.
 - Share Studio with a deterministic 14-card deck, presets, PNG/ZIP export, copy-to-clipboard, and versioned share links.
 - Theme system with four visual modes, shared tokens, and chart palette propagation.
 - Worker-based processing pipeline with stage progress, diagnostics metadata, and worker-backed timezone reprocessing.
@@ -43,6 +44,25 @@ Required contents inside the zip include files like:
 - Optional Spotify API token (Taste DNA enrichment) is stored in `sessionStorage` only.
 - Theme preference and experience mode (`guided`/`advanced`) are stored in `localStorage`.
 - Session KPI events are kept in-memory and can be exported manually as JSON.
+- Xenolab deferred module results are cached in-memory per dataset fingerprint and are not persisted across refreshes.
+
+## Xenolab (Train A)
+
+Xenolab is the **Lab** tab for deferred, privacy-first analytics experiments and visual scenes.
+
+Train A includes:
+
+- A dedicated deferred analytics worker (`labAnalytics.worker`) separate from the core processing worker.
+- An on-demand module gallery (no heavy auto-run by default).
+- An explainability panel with confidence and provenance metadata for module results.
+- A scene gallery with lightweight Train A visuals (Intent Sankey, Chronomap Ridgelines, Entropy Phase Portrait, Universe Time Slider).
+- Typed `unsupported` placeholder behavior for future modules/scenes (shown as coming soon instead of crashing).
+
+See:
+
+- `docs/xenolab-architecture.md`
+- `docs/xenolab-module-authoring.md`
+- `docs/xenolab-release-notes-train-a.md`
 
 ## Share Behavior
 

@@ -3,6 +3,7 @@ import { computeEras } from './eras'
 import { computeForgottenGems } from './gems'
 import { computeGraphAnalytics } from './graph-analytics'
 import { buildGraphData } from './graph'
+import { buildDatasetIdentity } from './labs/dataset-identity'
 import { normalizePlatform } from './platform'
 import { buildAlbumStats, buildArtistStats, buildTrackStats } from './processor/stages/aggregates'
 import { computeSummary } from './processor/stages/summary'
@@ -541,6 +542,7 @@ export function processRecords(
   options: ProcessOptions = {},
 ): ProcessedDataModel {
   const timezoneMode = options.timezoneMode ?? 'local'
+  const modelVersion = 1
 
   options.onProgress?.({
     stage: 'aggregation',
@@ -691,9 +693,12 @@ export function processRecords(
     archetypes,
     timezoneMode,
   })
+  const datasetIdentity = buildDatasetIdentity(records, timezoneMode)
 
   return {
     timezoneMode,
+    modelVersion,
+    datasetIdentity,
     records,
     summary,
     artists,

@@ -409,6 +409,8 @@ export interface ProcessedDataSummary {
 
 export interface ProcessedDataModel {
   timezoneMode: TimezoneMode
+  modelVersion: number
+  datasetIdentity: DatasetIdentity
   records: StreamRecord[]
   summary: ProcessedDataSummary
   artists: ArtistStats[]
@@ -441,6 +443,593 @@ export interface ProcessedDataModel {
   diagnostics: ProcessingDiagnostics
   stageProvenance: StageProvenance[]
 }
+
+export type LabModuleId =
+  | 'sequence-motifs'
+  | 'ritual-detector'
+  | 'chronotype-drift'
+  | 'novelty-economics'
+  | 'session-archetypes'
+  | 'bridge-dynamics'
+  | 'era-microshifts'
+  | 'compare-engine'
+  | 'counterfactuals'
+  | 'forecast-lite'
+  | 'stability-chaos'
+  | 'audio-affect-overlay'
+
+export type LabSceneId =
+  | 'intent-sankey'
+  | 'chronomap-ridgelines'
+  | 'entropy-phase-portrait'
+  | 'universe-time-slider'
+  | 'era-migration-alluvial'
+
+export type LabModuleStatus = 'idle' | 'running' | 'ready' | 'error' | 'unsupported'
+export type LabPerfTier = 'light' | 'medium' | 'heavy'
+export type LabModuleCategory = 'sequence' | 'temporal' | 'network' | 'compare' | 'forecast' | 'visual' | 'enrichment'
+export type LabOptionalInput = 'spotify-api-token' | 'ics-calendar' | 'weather-csv'
+
+export type SpotifyAuthStatus = 'disconnected' | 'authorizing' | 'connected' | 'refreshing' | 'error'
+export type SpotifyTokenSource = 'pkce' | 'manual-token'
+export type SpotifyApiCapabilityStatus = 'available' | 'restricted' | 'unauthorized' | 'rate-limited' | 'unknown'
+
+export interface SpotifyAuthSession {
+  accessToken: string
+  refreshToken?: string
+  expiresAt: number
+  tokenSource: SpotifyTokenSource
+  scopes: string[]
+  grantedAt: string
+}
+
+export interface SpotifyApiCapabilities {
+  audioFeatures: SpotifyApiCapabilityStatus
+  tracks: SpotifyApiCapabilityStatus
+  artists: SpotifyApiCapabilityStatus
+  relatedArtists: SpotifyApiCapabilityStatus
+}
+
+export type ProviderCapabilityStatus = SpotifyApiCapabilityStatus
+
+export interface ProviderCapabilities {
+  audioTraits: ProviderCapabilityStatus
+  tracks: ProviderCapabilityStatus
+  artists: ProviderCapabilityStatus
+}
+
+export type AudioTraitProviderId = 'spotify-audio-traits' | 'csv-audio-traits'
+
+export type AudioTraitMetricKey =
+  | 'danceability'
+  | 'energy'
+  | 'valence'
+  | 'acousticness'
+  | 'instrumentalness'
+  | 'speechiness'
+  | 'tempo'
+  | 'liveness'
+
+export type AudioTraitVector = Record<AudioTraitMetricKey, number>
+
+export interface TrackAudioTraitRecord {
+  trackId: string
+  providerId: AudioTraitProviderId
+  traits: AudioTraitVector
+  fetchedAt: string
+  sourceVersion: string
+  tempoBpm?: number
+}
+
+export interface AudioTraitCoverage {
+  recordRowsTotal: number
+  musicRowsEligible: number
+  rowsWithTrackUri: number
+  rowsMatchedToTrait: number
+  rowsCoverageShare: number
+  uniqueTrackIdsRequested: number
+  uniqueTrackIdsResolved: number
+  uniqueTrackCoverageShare: number
+  podcastRowsExcluded: number
+  localRowsExcluded: number
+}
+
+export interface AudioTraitSnapshot {
+  providerId: AudioTraitProviderId
+  datasetFingerprint: string
+  traitsByTrackId: Record<string, TrackAudioTraitRecord>
+  coverage: AudioTraitCoverage
+  capabilities: SpotifyApiCapabilities | ProviderCapabilities
+  warnings: string[]
+  provenance: {
+    fetchedAt: string
+    sourceVersion: string
+    providerLabel: string
+    tokenSource: SpotifyTokenSource | 'unknown'
+    scopes?: string[]
+    endpointNotes?: string[]
+  }
+}
+
+export interface DatasetIdentity {
+  id: string
+  fingerprint: string
+  importedAt: string
+  recordCount: number
+  timezoneMode: TimezoneMode
+}
+
+export interface InsightProvenance {
+  moduleId: LabModuleId | 'core'
+  computedAt: string
+  durationMs: number
+  sourceFields: string[]
+  method: string
+  assumptions: string[]
+  warnings: string[]
+}
+
+export interface ConfidenceScore {
+  value: number
+  label: 'low' | 'medium' | 'high'
+  reasons: string[]
+}
+
+export interface LabModuleManifest {
+  id: LabModuleId
+  name: string
+  category: LabModuleCategory
+  perfTier: LabPerfTier
+  requiresSpotifyApi?: boolean
+  optionalInputs?: LabOptionalInput[]
+  dependsOnCore: Array<keyof ProcessedDataModel>
+  outputVersion: number
+  description: string
+  featured?: boolean
+  comingSoon?: boolean
+}
+
+export interface LabSceneManifest {
+  id: LabSceneId
+  name: string
+  description: string
+  perfTier: LabPerfTier
+  featured?: boolean
+  comingSoon?: boolean
+  recommendedModules?: LabModuleId[]
+}
+
+export interface LabModuleResult<TPayload = unknown> {
+  id: LabModuleId
+  status: LabModuleStatus
+  payload?: TPayload
+  error?: string
+  message?: string
+  confidence?: ConfidenceScore
+  provenance?: InsightProvenance
+}
+
+export interface SequenceMotifsPayload {
+  motifs: Array<{
+    key: string
+    type: 'track' | 'artist'
+    length: number
+    occurrences: number
+    sampleSequence: string[]
+    distinctSessionCount: number
+    recurrenceScore: number
+  }>
+  surpriseJumps: Array<{
+    fromLabel: string
+    toLabel: string
+    count: number
+    rarityScore: number
+  }>
+  sessionOpeners: Array<{ label: string; count: number; share: number }>
+  sessionClosers: Array<{ label: string; count: number; share: number }>
+}
+
+export interface RitualDetectorPayload {
+  rituals: Array<{
+    key: string
+    daypart: DaypartKey
+    platform: string
+    anchorArtist: string
+    activeMonths: number
+    totalOccurrences: number
+    stabilityScore: number
+    fragilityScore: number
+  }>
+  ritualHeatmap: Array<{
+    month: string
+    ritualKey: string
+    occurrences: number
+  }>
+}
+
+export interface ChronotypeDriftPayload {
+  monthlyPeaks: Array<{
+    month: string
+    peakHour: number
+    nocturnalShare: number
+    daypartShares: Record<DaypartKey, number>
+  }>
+  yearlyDrift: Array<{
+    year: string
+    avgPeakHour: number
+    nocturnalShare: number
+    stabilityIndex: number
+  }>
+  driftSummary: {
+    peakHourDriftHours: number
+    chronotypeDirection: 'earlier' | 'later' | 'stable'
+    confidenceBasisMonths: number
+  }
+}
+
+export interface StabilityChaosPayload {
+  monthlyState: Array<{
+    month: string
+    intensity: number
+    diversity: number
+    skipRate: number
+    chaosScore: number
+    stabilityScore: number
+  }>
+  transitions: Array<{
+    fromMonth: string
+    toMonth: string
+    distance: number
+    regimeChange: boolean
+  }>
+  summary: {
+    calmMonths: number
+    volatileMonths: number
+    maxChaosMonth: string | null
+  }
+}
+
+export interface NoveltyEconomicsPayload {
+  monthlyNovelty: Array<{
+    month: string
+    uniqueArtists: number
+    repeatArtistShare: number
+    noveltyScore: number
+    loyaltyReboundScore: number
+  }>
+  cycles: Array<{
+    startMonth: string
+    endMonth: string
+    phase: 'novelty' | 'loyalty' | 'mixed'
+    strength: number
+  }>
+  summary: {
+    noveltyDebtIndex: number
+    recoveryIndex: number
+    dominantMode: 'novelty' | 'loyalty' | 'balanced'
+  }
+}
+
+export interface EraMicroshiftsPayload {
+  microshifts: Array<{
+    eraId: string
+    eraLabel: string
+    month: string
+    shiftScore: number
+    drivers: Array<'artist-turnover' | 'skip-change' | 'shuffle-change' | 'context-change'>
+    note: string
+  }>
+  eraVolatility: Array<{
+    eraId: string
+    eraLabel: string
+    volatilityScore: number
+    microshiftCount: number
+  }>
+}
+
+export interface CounterfactualsPayload {
+  scenarios: Array<{
+    id: 'no-skips' | 'no-shuffle' | 'travel-removed' | 'night-removed'
+    label: string
+    eligibility: 'eligible' | 'partial' | 'unsupported'
+    summaryDelta: {
+      totalPlaysDelta: number
+      skipRateDelta: number
+      shuffleRateDelta: number
+      nocturnalShareDelta: number
+      top10ArtistShareDelta: number
+      eclecticismDelta: number
+    }
+    notes: string[]
+  }>
+}
+
+export type CompareEngineScopeId = 'all' | 'night' | 'offline' | 'weekend' | 'travel'
+export type CompareEngineEraSelectionMode = 'auto-latest' | 'manual' | 'fallback'
+
+export interface CompareEnginePayload {
+  baseline: {
+    fingerprint: string
+    recordCount: number
+    timezoneMode: TimezoneMode
+  }
+  current: {
+    fingerprint: string
+    recordCount: number
+    timezoneMode: TimezoneMode
+  }
+  summaryDelta: {
+    totalPlaysDelta: number
+    totalHoursDelta: number
+    skipRateDelta: number
+    shuffleRateDelta: number
+    nocturnalShareDelta: number
+    top10ArtistShareDelta: number
+    eclecticismDelta: number
+    uniqueArtistsDelta: number
+    sessionDepthAvgDelta: number
+    travelShareDelta: number
+  }
+  topMetricShifts: Array<{
+    key:
+      | 'totalPlays'
+      | 'totalHours'
+      | 'skipRate'
+      | 'shuffleRate'
+      | 'nocturnalShare'
+      | 'top10ArtistShare'
+      | 'eclecticism'
+      | 'uniqueArtists'
+      | 'sessionDepthAvg'
+      | 'travelShare'
+    label: string
+    delta: number
+    absDelta: number
+    direction: 'up' | 'down' | 'flat'
+  }>
+  eraDelta: {
+    baselineEraCount: number
+    currentEraCount: number
+    delta: number
+  }
+  archetypeDelta: {
+    baselinePrimaryKey: ArchetypeKey
+    baselinePrimaryLabel: string
+    currentPrimaryKey: ArchetypeKey
+    currentPrimaryLabel: string
+    changed: boolean
+  }
+  archetypeScoreShifts: Array<{
+    key: ArchetypeKey
+    label: string
+    baselineScore: number
+    currentScore: number
+    delta: number
+    absDelta: number
+    direction: 'up' | 'down' | 'flat'
+  }>
+  eraPairDeltas: Array<{
+    pairIndex: number
+    baselineEraId: string | null
+    baselineEraLabel: string | null
+    currentEraId: string | null
+    currentEraLabel: string | null
+    durationMonthsDelta: number
+    dominanceScoreDelta: number
+    diversityScoreDelta: number
+    confidenceDelta: number
+  }>
+  eraVsEra: {
+    selection: {
+      mode: CompareEngineEraSelectionMode
+      baselineEraId: string | null
+      currentEraId: string | null
+    }
+    baselineEra: {
+      id: string
+      label: string
+      startMonth: string
+      endMonth: string
+      durationMonths: number
+      dominanceScore: number
+      diversityScore: number
+      confidence: number
+    } | null
+    currentEra: {
+      id: string
+      label: string
+      startMonth: string
+      endMonth: string
+      durationMonths: number
+      dominanceScore: number
+      diversityScore: number
+      confidence: number
+    } | null
+    delta: {
+      durationMonthsDelta: number
+      dominanceScoreDelta: number
+      diversityScoreDelta: number
+      confidenceDelta: number
+    }
+    dominantArtistOverlap: {
+      overlapShare: number
+      rankWeightedOverlapScore: number
+      sharedDominantArtists: string[]
+      rankAlignedSharedArtists: Array<{
+        artist: string
+        baselineRank: number
+        currentRank: number
+        rankDistance: number
+      }>
+      baselineOnlyDominantArtists: string[]
+      currentOnlyDominantArtists: string[]
+    }
+    changeDriverOverlap: {
+      overlapShare: number
+      sharedDriverKeys: Array<EraData['changeDrivers'][number]['key']>
+      baselineOnlyDriverKeys: Array<EraData['changeDrivers'][number]['key']>
+      currentOnlyDriverKeys: Array<EraData['changeDrivers'][number]['key']>
+    }
+    notes: string[]
+  }
+  archetypeTournament: {
+    rankings: Array<{
+      rank: number
+      key: ArchetypeKey
+      label: string
+      baselineScore: number
+      currentScore: number
+      delta: number
+      absDelta: number
+      winner: 'baseline' | 'current' | 'tie'
+      direction: 'up' | 'down' | 'flat'
+    }>
+    summary: {
+      totalArchetypes: number
+      currentWins: number
+      baselineWins: number
+      ties: number
+      topSwingKey: ArchetypeKey | null
+      topSwingLabel: string | null
+    }
+  }
+  scope: {
+    id: CompareEngineScopeId
+    label: string
+  }
+  sliceDelta: {
+    baselineRecords: number
+    currentRecords: number
+    totalHoursDelta: number
+    skipRateDelta: number
+    shuffleRateDelta: number
+    uniqueArtistsDelta: number
+    nocturnalShareDelta: number
+  }
+  notes: string[]
+}
+
+export interface ForecastLitePayload {
+  nextMonth: string
+  horizonMonths: 1
+  bands: {
+    plays: { low: number; mid: number; high: number }
+    totalHours: { low: number; mid: number; high: number }
+    skipRate: { low: number; mid: number; high: number }
+    shuffleRate: { low: number; mid: number; high: number }
+  }
+  trendSignals: Array<{
+    key: 'plays' | 'totalHours' | 'skipRate' | 'shuffleRate'
+    label: string
+    direction: 'up' | 'down' | 'flat'
+    strength: number
+    basisMonths: number
+  }>
+  anomalyRisk: {
+    level: 'low' | 'medium' | 'high'
+    score: number
+    reasons: string[]
+  }
+  basisMonths: string[]
+}
+
+export interface AudioAffectOverlayPayload {
+  coverage: AudioTraitCoverage
+  overallCentroid: AudioTraitVector
+  daypartCentroids: Record<DaypartKey, AudioTraitVector & { sampleRows: number }>
+  eraCentroids: Array<{
+    eraId: string
+    eraLabel: string
+    sampleRows: number
+    centroid: AudioTraitVector
+    spread: Partial<Record<AudioTraitMetricKey, number>>
+  }>
+  skipTraitDeltas?: {
+    matchedSkippedRows: number
+    matchedCompletedRows: number
+    deltas: Partial<Record<AudioTraitMetricKey, number>>
+  }
+  capabilities: SpotifyApiCapabilities | ProviderCapabilities
+  notes: string[]
+}
+
+export interface LabModulePayloadMap {
+  'sequence-motifs': SequenceMotifsPayload
+  'ritual-detector': RitualDetectorPayload
+  'chronotype-drift': ChronotypeDriftPayload
+  'novelty-economics': NoveltyEconomicsPayload
+  'session-archetypes': unknown
+  'bridge-dynamics': unknown
+  'era-microshifts': EraMicroshiftsPayload
+  'compare-engine': CompareEnginePayload
+  'counterfactuals': CounterfactualsPayload
+  'forecast-lite': ForecastLitePayload
+  'stability-chaos': StabilityChaosPayload
+  'audio-affect-overlay': AudioAffectOverlayPayload
+}
+
+export interface LabDatasetSnapshot {
+  timezoneMode: ProcessedDataModel['timezoneMode']
+  modelVersion: ProcessedDataModel['modelVersion']
+  datasetIdentity: ProcessedDataModel['datasetIdentity']
+  records: ProcessedDataModel['records']
+  summary: ProcessedDataModel['summary']
+  monthly: ProcessedDataModel['monthly']
+  yearly: ProcessedDataModel['yearly']
+  daily: ProcessedDataModel['daily']
+  hours: ProcessedDataModel['hours']
+  dayOfWeek: ProcessedDataModel['dayOfWeek']
+  sessions: ProcessedDataModel['sessions']
+  monthlyBehavior: ProcessedDataModel['monthlyBehavior']
+  contextAnalytics: ProcessedDataModel['contextAnalytics']
+  eras: ProcessedDataModel['eras']
+  graph: ProcessedDataModel['graph']
+  graphAnalytics: ProcessedDataModel['graphAnalytics']
+  taste: ProcessedDataModel['taste']
+  archetypes: ProcessedDataModel['archetypes']
+}
+
+export type LabCompareSnapshotSource = 'captured-current' | 'imported-zip'
+
+export interface LabCompareSnapshotEntry {
+  id: string
+  fingerprint: string
+  source: LabCompareSnapshotSource
+  label: string
+  savedAt: string
+  snapshot: LabDatasetSnapshot
+}
+
+export interface LabWorkerRunModuleRequest {
+  type: 'lab:run-module'
+  requestId: string
+  moduleId: LabModuleId
+  dataset: LabDatasetSnapshot
+  options?: Record<string, unknown>
+}
+
+export type LabWorkerRequest = LabWorkerRunModuleRequest
+
+export type LabWorkerResponse =
+  | {
+      type: 'lab:progress'
+      requestId: string
+      moduleId: LabModuleId
+      progress: number
+      message?: string
+    }
+  | {
+      type: 'lab:complete'
+      requestId: string
+      moduleId: LabModuleId
+      result: LabModuleResult
+    }
+  | {
+      type: 'lab:error'
+      requestId: string
+      moduleId?: LabModuleId
+      error: string
+    }
 
 export interface SharePayloadV1 {
   version: 1
