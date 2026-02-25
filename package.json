@@ -13,6 +13,7 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:e2e": "pnpm build && playwright test tests/e2e/smoke.spec.ts --project=chromium",
+    "test:e2e:ci": "playwright test tests/e2e/smoke.spec.ts --project=chromium",
     "test:e2e:matrix": "pnpm build && playwright test -g @matrix --project=chromium --project=webkit-desktop --project=webkit-mobile",
     "test:e2e:a11y": "pnpm build && playwright test -g @a11y --project=chromium",
     "test:e2e:visual": "pnpm build && PW_VISUAL=1 playwright test -g @visual --project=chromium --update-snapshots",
