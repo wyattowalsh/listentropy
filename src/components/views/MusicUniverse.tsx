@@ -1,5 +1,6 @@
 import {
   Component,
+  useDeferredValue,
   useCallback,
   useEffect,
   useMemo,
@@ -34,6 +35,11 @@ interface Universe3DGuardProps {
 
 interface Universe3DGuardState {
   failed: boolean
+}
+
+interface TimedStageResult<T> {
+  value: T
+  durationMs: number | null
 }
 
 class Universe3DGuard extends Component<Universe3DGuardProps, Universe3DGuardState> {
@@ -122,8 +128,65 @@ function filterEdgesByToggles(
   return [...filtered].sort((a, b) => b.weight - a.weight).slice(0, options.maxEdges)
 }
 
+function buildEdgesByNodeIndex(edges: GraphEdge[]): Map<string, GraphEdge[]> {
+  const index = new Map<string, GraphEdge[]>()
+  for (const edge of edges) {
+    const sourceList = index.get(edge.source)
+    if (sourceList) {
+      sourceList.push(edge)
+    } else {
+      index.set(edge.source, [edge])
+    }
+
+    if (edge.target === edge.source) {
+      continue
+    }
+
+    const targetList = index.get(edge.target)
+    if (targetList) {
+      targetList.push(edge)
+    } else {
+      index.set(edge.target, [edge])
+    }
+  }
+  return index
+}
+
+function isGraphPerfDebugEnabled(): boolean {
+  if (!import.meta.env.DEV || typeof window === 'undefined') {
+    return false
+  }
+
+  try {
+    const query = new URLSearchParams(window.location.search)
+    if (query.get('debugGraphPerf') === '1') {
+      return true
+    }
+    return window.localStorage.getItem('listentropy:debugGraphPerf') === '1'
+  } catch {
+    return false
+  }
+}
+
+function runTimedStage<T>(enabled: boolean, compute: () => T): TimedStageResult<T> {
+  if (!enabled || typeof performance === 'undefined') {
+    return {
+      value: compute(),
+      durationMs: null,
+    }
+  }
+
+  const start = performance.now()
+  const value = compute()
+  return {
+    value,
+    durationMs: Math.round((performance.now() - start) * 100) / 100,
+  }
+}
+
 export function MusicUniverse({ data }: MusicUniverseProps): JSX.Element {
   const webglSupported = useMemo(() => detectWebGLSupport(), [])
+  const graphPerfDebugEnabled = useMemo(() => isGraphPerfDebugEnabled(), [])
   const recordMetric = useSessionMetricsStore((state) => state.record)
 
   const [rendererStatus, setRendererStatus] = useState<GraphRendererStatus>(() => initialRendererStatus(webglSupported))
@@ -145,29 +208,80 @@ export function MusicUniverse({ data }: MusicUniverseProps): JSX.Element {
     setRendererStatus(initialRendererStatus(webglSupported))
   }, [webglSupported])
 
-  const graph = useMemo(() => {
-    const sanitized = sanitizeGraphForRender(data.graph.nodes, data.graph.edges, { maxNodes })
-    const toggledEdges = filterEdgesByToggles(sanitized.edges, {
-      showContainsEdges,
-      showCoListenEdges,
-      maxEdges,
-    })
-    const metricAnnotated = annotateGraphMetrics(sanitized.nodes, toggledEdges)
-    const laidOut = computeGraphLayout(metricAnnotated.nodes, metricAnnotated.edges)
-    return annotateGraphMetrics(laidOut.nodes, laidOut.edges)
-  }, [data.graph.edges, data.graph.nodes, maxEdges, maxNodes, showCoListenEdges, showContainsEdges])
+  const deferredMaxNodes = useDeferredValue(maxNodes)
+  const deferredMaxEdges = useDeferredValue(maxEdges)
+  const deferredShowContainsEdges = useDeferredValue(showContainsEdges)
+  const deferredShowCoListenEdges = useDeferredValue(showCoListenEdges)
+  const deferredSearch = useDeferredValue(search)
 
-  const analytics = useMemo(() => computeGraphAnalytics(graph.nodes, graph.edges), [graph.edges, graph.nodes])
+  const sanitizedGraphStage = useMemo(
+    () =>
+      runTimedStage(graphPerfDebugEnabled, () =>
+        sanitizeGraphForRender(data.graph.nodes, data.graph.edges, { maxNodes: deferredMaxNodes }),
+      ),
+    [data.graph.edges, data.graph.nodes, deferredMaxNodes, graphPerfDebugEnabled],
+  )
+
+  const filteredGraphStage = useMemo(
+    () =>
+      runTimedStage(graphPerfDebugEnabled, () => {
+        const toggledEdges = filterEdgesByToggles(sanitizedGraphStage.value.edges, {
+          showContainsEdges: deferredShowContainsEdges,
+          showCoListenEdges: deferredShowCoListenEdges,
+          maxEdges: deferredMaxEdges,
+        })
+        return {
+          nodes: sanitizedGraphStage.value.nodes,
+          edges: toggledEdges,
+        }
+      }),
+    [
+      deferredMaxEdges,
+      deferredShowCoListenEdges,
+      deferredShowContainsEdges,
+      graphPerfDebugEnabled,
+      sanitizedGraphStage,
+    ],
+  )
+
+  const annotatedGraphStage = useMemo(
+    () =>
+      runTimedStage(graphPerfDebugEnabled, () =>
+        annotateGraphMetrics(filteredGraphStage.value.nodes, filteredGraphStage.value.edges),
+      ),
+    [filteredGraphStage, graphPerfDebugEnabled],
+  )
+
+  const laidOutGraphStage = useMemo(
+    () =>
+      runTimedStage(graphPerfDebugEnabled, () =>
+        computeGraphLayout(annotatedGraphStage.value.nodes, annotatedGraphStage.value.edges),
+      ),
+    [annotatedGraphStage, graphPerfDebugEnabled],
+  )
+
+  const graph = laidOutGraphStage.value
+
+  const analyticsStage = useMemo(
+    () =>
+      runTimedStage(graphPerfDebugEnabled, () =>
+        computeGraphAnalytics(graph.nodes, graph.edges, { assumeAnnotatedMetrics: true }),
+      ),
+    [graph.edges, graph.nodes, graphPerfDebugEnabled],
+  )
+  const analytics = analyticsStage.value
 
   const nodeById = useMemo(() => new Map(graph.nodes.map((node) => [node.id, node])), [graph.nodes])
+  const edgesByNodeId = useMemo(() => buildEdgesByNodeIndex(graph.edges), [graph.edges])
+
+  const normalizedDeferredSearch = useMemo(() => deferredSearch.trim().toLowerCase(), [deferredSearch])
 
   const searchMatches = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    if (!query) {
+    if (!normalizedDeferredSearch) {
       return []
     }
-    return graph.nodes.filter((node) => node.label.toLowerCase().includes(query)).slice(0, 12)
-  }, [graph.nodes, search])
+    return graph.nodes.filter((node) => node.label.toLowerCase().includes(normalizedDeferredSearch)).slice(0, 12)
+  }, [graph.nodes, normalizedDeferredSearch])
 
   useEffect(() => {
     if (selectedNodeId && nodeById.has(selectedNodeId)) {
@@ -177,16 +291,16 @@ export function MusicUniverse({ data }: MusicUniverseProps): JSX.Element {
   }, [nodeById, selectedNodeId])
 
   useEffect(() => {
-    if (!search.trim()) {
+    if (!normalizedDeferredSearch) {
       return
     }
-    if (selectedNodeId && nodeById.get(selectedNodeId)?.label.toLowerCase().includes(search.trim().toLowerCase())) {
+    if (selectedNodeId && nodeById.get(selectedNodeId)?.label.toLowerCase().includes(normalizedDeferredSearch)) {
       return
     }
     if (searchMatches[0]) {
       setSelectedNodeId(searchMatches[0].id)
     }
-  }, [nodeById, search, searchMatches, selectedNodeId])
+  }, [nodeById, normalizedDeferredSearch, searchMatches, selectedNodeId])
 
   const inspectedNode = nodeById.get(selectedNodeId ?? hoveredNodeId ?? '') ?? null
 
@@ -194,8 +308,7 @@ export function MusicUniverse({ data }: MusicUniverseProps): JSX.Element {
     if (!inspectedNode) {
       return []
     }
-    return graph.edges
-      .filter((edge) => edge.source === inspectedNode.id || edge.target === inspectedNode.id)
+    return (edgesByNodeId.get(inspectedNode.id) ?? [])
       .map((edge) => {
         const neighborId = edge.source === inspectedNode.id ? edge.target : edge.source
         const neighbor = nodeById.get(neighborId)
@@ -207,7 +320,38 @@ export function MusicUniverse({ data }: MusicUniverseProps): JSX.Element {
         }
       })
       .sort((a, b) => b.weight - a.weight)
-  }, [graph.edges, inspectedNode, nodeById])
+  }, [edgesByNodeId, inspectedNode, nodeById])
+
+  const hasDeferredGraphUpdate =
+    deferredMaxNodes !== maxNodes ||
+    deferredMaxEdges !== maxEdges ||
+    deferredShowContainsEdges !== showContainsEdges ||
+    deferredShowCoListenEdges !== showCoListenEdges ||
+    deferredSearch !== search
+
+  const graphStageTimings = useMemo(
+    () => ({
+      sanitizeMs: sanitizedGraphStage.durationMs,
+      filterMs: filteredGraphStage.durationMs,
+      annotateMs: annotatedGraphStage.durationMs,
+      layoutMs: laidOutGraphStage.durationMs,
+      analyticsMs: analyticsStage.durationMs,
+    }),
+    [analyticsStage.durationMs, annotatedGraphStage.durationMs, filteredGraphStage.durationMs, laidOutGraphStage.durationMs, sanitizedGraphStage.durationMs],
+  )
+
+  useEffect(() => {
+    if (!graphPerfDebugEnabled) {
+      return
+    }
+
+    console.debug('[MusicUniverse] graph pipeline', {
+      nodes: graph.nodes.length,
+      edges: graph.edges.length,
+      deferredPending: hasDeferredGraphUpdate,
+      ...graphStageTimings,
+    })
+  }, [graph.edges.length, graph.nodes.length, graphPerfDebugEnabled, graphStageTimings, hasDeferredGraphUpdate])
 
   const activate3D = useCallback(() => {
     const now = Date.now()
@@ -521,6 +665,20 @@ export function MusicUniverse({ data }: MusicUniverseProps): JSX.Element {
               <p>Visible tracks: {analytics.summary.trackCount}</p>
               <p>Average weighted degree: {analytics.summary.averageWeightedDegree}</p>
             </div>
+            {graphPerfDebugEnabled ? (
+              <div className="mt-3 rounded-theme border border-border bg-surface-hover p-3 text-xs text-text-muted">
+                <p className="font-medium text-text">Graph perf debug (dev only)</p>
+                <p className="mt-1">
+                  Deferred graph update: {hasDeferredGraphUpdate ? 'pending' : 'idle'}
+                </p>
+                <p className="mt-1">
+                  sanitize {graphStageTimings.sanitizeMs ?? 0}ms · filter {graphStageTimings.filterMs ?? 0}ms · annotate {graphStageTimings.annotateMs ?? 0}ms
+                </p>
+                <p className="mt-1">
+                  layout {graphStageTimings.layoutMs ?? 0}ms · analytics {graphStageTimings.analyticsMs ?? 0}ms
+                </p>
+              </div>
+            ) : null}
             {rendererStatus.diagnosticMessage ? (
               <p className="mt-3 text-xs text-text-muted">{rendererStatus.diagnosticMessage}</p>
             ) : null}

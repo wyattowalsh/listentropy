@@ -1,5 +1,9 @@
 import type { GraphAnalytics, GraphEdge, GraphNode } from './types'
 
+interface ComputeGraphAnalyticsOptions {
+  assumeAnnotatedMetrics?: boolean
+}
+
 function round(value: number, decimals = 3): number {
   const factor = 10 ** decimals
   return Math.round(value * factor) / factor
@@ -77,9 +81,11 @@ function connectedComponents(nodes: GraphNode[], edges: GraphEdge[]): number {
     }
     count += 1
     const queue = [node.id]
+    let queueIndex = 0
     visited.add(node.id)
-    while (queue.length > 0) {
-      const current = queue.shift()!
+    while (queueIndex < queue.length) {
+      const current = queue[queueIndex]!
+      queueIndex += 1
       for (const next of adjacency.get(current) ?? []) {
         if (visited.has(next)) {
           continue
@@ -92,8 +98,14 @@ function connectedComponents(nodes: GraphNode[], edges: GraphEdge[]): number {
   return count
 }
 
-export function computeGraphAnalytics(nodes: GraphNode[], edges: GraphEdge[]): GraphAnalytics {
-  const { nodes: enrichedNodes, edges: enrichedEdges } = annotateGraphMetrics(nodes, edges)
+export function computeGraphAnalytics(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  options: ComputeGraphAnalyticsOptions = {},
+): GraphAnalytics {
+  const { nodes: enrichedNodes, edges: enrichedEdges } = options.assumeAnnotatedMetrics
+    ? { nodes, edges }
+    : annotateGraphMetrics(nodes, edges)
   const nodeById = new Map(enrichedNodes.map((node) => [node.id, node]))
 
   const artists = enrichedNodes.filter((node) => node.type === 'artist')
