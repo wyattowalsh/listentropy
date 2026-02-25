@@ -5,7 +5,10 @@ const KEYS = {
   manualToken: 'listentropy-spotify-token',
   pkceVerifier: 'listentropy-spotify-pkce-verifier',
   oauthState: 'listentropy-spotify-oauth-state',
+  pkceCreatedAt: 'listentropy-spotify-pkce-created-at',
 } as const
+
+export const SPOTIFY_PKCE_TEMP_TTL_MS = 10 * 60 * 1000
 
 function getSessionStorage(): Storage | null {
   if (typeof window === 'undefined') {
@@ -75,10 +78,12 @@ export function persistSpotifyPkceTemp(args: { codeVerifier: string; state: stri
   if (!args) {
     storage.removeItem(KEYS.pkceVerifier)
     storage.removeItem(KEYS.oauthState)
+    storage.removeItem(KEYS.pkceCreatedAt)
     return
   }
   storage.setItem(KEYS.pkceVerifier, args.codeVerifier)
   storage.setItem(KEYS.oauthState, args.state)
+  storage.setItem(KEYS.pkceCreatedAt, String(Date.now()))
 }
 
 export function loadSpotifyPkceTemp(): { codeVerifier: string; state: string } | null {
@@ -89,6 +94,21 @@ export function loadSpotifyPkceTemp(): { codeVerifier: string; state: string } |
   const codeVerifier = storage.getItem(KEYS.pkceVerifier)
   const state = storage.getItem(KEYS.oauthState)
   if (!codeVerifier || !state) {
+    return null
+  }
+  const createdAtRaw = storage.getItem(KEYS.pkceCreatedAt)
+  if (createdAtRaw == null) {
+    // Backward-compatibility for pre-TTL tabs: allow one load and start TTL now.
+    storage.setItem(KEYS.pkceCreatedAt, String(Date.now()))
+    return { codeVerifier, state }
+  }
+  const createdAt = Number.parseInt(createdAtRaw, 10)
+  if (!Number.isFinite(createdAt)) {
+    clearSpotifyPkceTemp()
+    return null
+  }
+  if (Date.now() - createdAt > SPOTIFY_PKCE_TEMP_TTL_MS) {
+    clearSpotifyPkceTemp()
     return null
   }
   return { codeVerifier, state }

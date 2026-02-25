@@ -12,15 +12,32 @@ interface PendingRequest {
   reject: (error: Error) => void
 }
 
+class LabWorkerClientError extends Error {
+  readonly kind: 'module' | 'transport'
+
+  constructor(kind: 'module' | 'transport', message: string) {
+    super(message)
+    this.kind = kind
+    this.name = 'LabWorkerClientError'
+  }
+}
+
 class LabWorkerClient {
   private worker: Worker | null = null
   private pending = new Map<string, PendingRequest>()
 
   private getWorker(): Worker {
     if (!this.worker) {
-      this.worker = new Worker(new URL('../../workers/labAnalytics.worker.ts', import.meta.url), {
-        type: 'module',
-      })
+      try {
+        this.worker = new Worker(new URL('../../workers/labAnalytics.worker.ts', import.meta.url), {
+          type: 'module',
+        })
+      } catch (error) {
+        throw new LabWorkerClientError(
+          'transport',
+          (error as Error).message || 'Failed to initialize Xenolab worker',
+        )
+      }
       this.worker.onmessage = (event: MessageEvent<LabWorkerResponse>) => {
         const message = event.data
         if (message.type === 'lab:progress') {
@@ -32,7 +49,7 @@ class LabWorkerClient {
             return
           }
           this.pending.delete(message.requestId)
-          pending.reject(new Error(message.error))
+          pending.reject(new LabWorkerClientError('module', message.error))
           return
         }
         const pending = this.pending.get(message.requestId)
@@ -43,7 +60,7 @@ class LabWorkerClient {
         pending.resolve(message.result)
       }
       this.worker.onerror = (event) => {
-        const error = new Error(event.message || 'Lab worker failed')
+        const error = new LabWorkerClientError('transport', event.message || 'Lab worker failed')
         for (const [, pending] of this.pending) {
           pending.reject(error)
         }
@@ -76,7 +93,17 @@ class LabWorkerClient {
     const worker = this.getWorker()
     return new Promise<LabModuleResult>((resolve, reject) => {
       this.pending.set(requestId, { resolve, reject })
-      worker.postMessage(request)
+      try {
+        worker.postMessage(request)
+      } catch (error) {
+        this.pending.delete(requestId)
+        reject(
+          new LabWorkerClientError(
+            'transport',
+            (error as Error).message || 'Failed to post Xenolab worker request',
+          ),
+        )
+      }
     })
   }
 
@@ -103,7 +130,10 @@ export async function runLabModuleWithFallback(
 ): Promise<LabModuleResult> {
   try {
     return await getLabWorkerClient().runModule(moduleId, dataset, options)
-  } catch {
-    return runLabModule(moduleId, dataset, options)
+  } catch (error) {
+    if (error instanceof LabWorkerClientError && error.kind === 'transport') {
+      return runLabModule(moduleId, dataset, options)
+    }
+    throw error
   }
 }

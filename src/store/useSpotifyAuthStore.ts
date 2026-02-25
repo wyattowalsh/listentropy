@@ -28,7 +28,7 @@ interface SpotifyAuthState {
   handleAuthCallback: () => Promise<boolean>
   ensureValidAccessToken: () => Promise<string | null>
   disconnect: () => void
-  setManualToken: (token: string) => void
+  setManualToken: (token: string, options?: { persist?: boolean }) => void
   clearManualToken: () => void
 }
 
@@ -196,15 +196,24 @@ export const useSpotifyAuthStore = create<SpotifyAuthState>((set, get) => ({
     clearSpotifyPkceTemp()
     set({ status: 'disconnected', session: null, error: null })
   },
-  setManualToken: (token) => {
+  setManualToken: (token, options) => {
     const trimmed = token.trim()
     if (!trimmed) {
       get().clearManualToken()
       return
     }
-    persistLegacyManualToken(trimmed)
+    const persist = options?.persist ?? false
+    if (persist) {
+      persistLegacyManualToken(trimmed)
+    } else {
+      persistLegacyManualToken('')
+      // Memory-only mode: do not leave a tab-persisted auth session behind.
+      persistSpotifyAuthSession(null)
+    }
     const session = createManualSession(trimmed)
-    persistSpotifyAuthSession(session)
+    if (persist) {
+      persistSpotifyAuthSession(session)
+    }
     set({ status: 'connected', session, error: null })
   },
   clearManualToken: () => {

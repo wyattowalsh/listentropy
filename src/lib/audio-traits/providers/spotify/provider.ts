@@ -54,16 +54,35 @@ export function createSpotifyAudioTraitProvider(): AudioTraitProvider {
       }
 
       try {
-        const features = await fetchSpotifyAudioFeaturesByTrackIds(input.accessToken, input.trackIds)
+        const { features, requestStats } = await fetchSpotifyAudioFeaturesByTrackIds(
+          input.accessToken,
+          input.trackIds,
+        )
         capabilities.audioFeatures = 'available'
         const traitsByTrackId = normalizeSpotifyAudioTraits(features)
+        const endpointNotes = [...(base.provenance.endpointNotes ?? [])]
+        const warnings = [...base.warnings]
+        endpointNotes.push(
+          `Audio features requested for ${requestStats.requestedUniqueTrackIds.toLocaleString()} unique track IDs across ${requestStats.requestChunkCount.toLocaleString()} request chunk(s).`,
+        )
+        if (requestStats.truncatedTrackIds > 0) {
+          warnings.push(
+            `Audio trait enrichment capped at ${requestStats.cappedUniqueTrackIds.toLocaleString()} unique track IDs; ${requestStats.truncatedTrackIds.toLocaleString()} additional IDs were skipped.`,
+          )
+          endpointNotes.push(
+            `Track ID cap applied: ${requestStats.cappedUniqueTrackIds.toLocaleString()} of ${requestStats.requestedUniqueTrackIds.toLocaleString()} unique IDs processed.`,
+          )
+        }
         return {
           status: 'ready',
           message: `Fetched audio traits for ${Object.keys(traitsByTrackId).length.toLocaleString()} tracks.`,
-          warnings: base.warnings,
+          warnings,
           capabilities,
           traitsByTrackId,
-          provenance: base.provenance,
+          provenance: {
+            ...base.provenance,
+            endpointNotes,
+          },
         }
       } catch (error) {
         if (error instanceof SpotifyApiHttpError) {

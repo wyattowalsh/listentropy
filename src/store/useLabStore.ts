@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
 import { parseSpotifyZip } from '@/lib/data/parser'
+import { runDataProcessorWorkerTask } from '@/lib/data/runDataProcessorWorkerTask'
 import { normalizeUploadError } from '@/lib/data/upload-errors'
 import { buildDefaultLabDatasetSnapshot } from '@/lib/labs/registry'
 import { runLabModuleWithFallback } from '@/lib/labs/worker-client'
@@ -34,23 +35,6 @@ interface ExplainabilityTarget {
 }
 
 type CompareImportMode = 'idle' | 'parsing' | 'ready' | 'error'
-
-interface WorkerProgressMessage {
-  type: 'parse:progress'
-  payload: ParseProgress
-}
-
-interface WorkerCompleteMessage {
-  type: 'parse:complete'
-  payload: ProcessedDataModel
-}
-
-interface WorkerErrorMessage {
-  type: 'parse:error'
-  payload: { message: string }
-}
-
-type WorkerMessage = WorkerProgressMessage | WorkerCompleteMessage | WorkerErrorMessage
 
 interface LabState {
   selectedModuleId: LabModuleId | null
@@ -158,32 +142,14 @@ async function processCompareZipWithWorker(
   timezoneMode: TimezoneMode,
   set: (partial: Partial<LabState>) => void,
 ): Promise<ProcessedDataModel> {
-  const worker = new Worker(new URL('../workers/dataProcessor.worker.ts', import.meta.url), {
-    type: 'module',
-  })
-
-  return new Promise<ProcessedDataModel>((resolve, reject) => {
-    worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
-      if (event.data.type === 'parse:progress') {
-        set({ compareImportProgress: event.data.payload })
-        return
-      }
-      if (event.data.type === 'parse:complete') {
-        worker.terminate()
-        resolve(event.data.payload)
-        return
-      }
-      worker.terminate()
-      reject(new Error(event.data.payload.message))
-    }
-
-    worker.onerror = (event) => {
-      worker.terminate()
-      reject(new Error(event.message || 'Compare dataset worker failed'))
-    }
-
-    worker.postMessage({ type: 'process-zip', file, timezoneMode })
-  })
+  return runDataProcessorWorkerTask(
+    { type: 'process-zip', file, timezoneMode },
+    {
+      onProgress(progress) {
+        set({ compareImportProgress: progress })
+      },
+    },
+  )
 }
 
 export const useLabStore = create<LabState>((set, get) => ({

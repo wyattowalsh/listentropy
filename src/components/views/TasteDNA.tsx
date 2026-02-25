@@ -58,7 +58,7 @@ export function TasteDNA({ data }: TasteDNAProps): JSX.Element {
     try {
       let activeToken = token.trim()
       if (activeToken) {
-        setManualToken(activeToken)
+        setManualToken(activeToken, { persist: false })
       } else {
         activeToken = (await ensureValidAccessToken()) ?? ''
       }
@@ -107,7 +107,7 @@ export function TasteDNA({ data }: TasteDNAProps): JSX.Element {
         </div>
         {!token.trim() ? (
           <p className="mt-2 text-xs text-text-muted">
-            Optional and local-first: OAuth or manual token is stored in `sessionStorage` only and used for on-demand enrichment.
+            Optional and local-first: OAuth sessions are tab-scoped, while manual tokens entered here are memory-only unless saved elsewhere.
           </p>
         ) : null}
         <p className="mt-2 text-xs text-text-muted">

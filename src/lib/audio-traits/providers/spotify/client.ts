@@ -14,6 +14,18 @@ interface SpotifyAudioFeaturesResponse {
   audio_features: Array<SpotifyAudioFeatureRecord | null>
 }
 
+export interface SpotifyAudioFeaturesRequestStats {
+  requestedUniqueTrackIds: number
+  cappedUniqueTrackIds: number
+  truncatedTrackIds: number
+  requestChunkCount: number
+}
+
+export interface SpotifyAudioFeaturesFetchResult {
+  features: SpotifyAudioFeatureRecord[]
+  requestStats: SpotifyAudioFeaturesRequestStats
+}
+
 export class SpotifyApiHttpError extends Error {
   readonly status: number
   readonly retryAfterSeconds?: number
@@ -24,6 +36,8 @@ export class SpotifyApiHttpError extends Error {
     this.retryAfterSeconds = retryAfterSeconds
   }
 }
+
+export const MAX_SPOTIFY_AUDIO_FEATURE_TRACK_IDS = 5_000
 
 function chunkArray<T>(values: T[], size: number): T[][] {
   const chunks: T[][] = []
@@ -50,15 +64,25 @@ async function spotifyGetJson<T>(accessToken: string, url: string): Promise<T> {
 export async function fetchSpotifyAudioFeaturesByTrackIds(
   accessToken: string,
   trackIds: string[],
-): Promise<SpotifyAudioFeatureRecord[]> {
-  const ids = [...new Set(trackIds.filter(Boolean))].slice(0, 5000)
+): Promise<SpotifyAudioFeaturesFetchResult> {
+  const uniqueIds = [...new Set(trackIds.filter(Boolean))]
+  const ids = uniqueIds.slice(0, MAX_SPOTIFY_AUDIO_FEATURE_TRACK_IDS)
   const results: SpotifyAudioFeatureRecord[] = []
-  for (const chunk of chunkArray(ids, 100)) {
+  const chunks = chunkArray(ids, 100)
+  for (const chunk of chunks) {
     const payload = await spotifyGetJson<SpotifyAudioFeaturesResponse>(
       accessToken,
       `https://api.spotify.com/v1/audio-features?ids=${chunk.join(',')}`,
     )
     results.push(...payload.audio_features.filter(Boolean) as SpotifyAudioFeatureRecord[])
   }
-  return results
+  return {
+    features: results,
+    requestStats: {
+      requestedUniqueTrackIds: uniqueIds.length,
+      cappedUniqueTrackIds: ids.length,
+      truncatedTrackIds: Math.max(0, uniqueIds.length - ids.length),
+      requestChunkCount: chunks.length,
+    },
+  }
 }

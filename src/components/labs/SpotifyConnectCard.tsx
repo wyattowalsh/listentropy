@@ -48,6 +48,7 @@ export function SpotifyConnectCard({
   const [manualTokenDraft, setManualTokenDraft] = useState(
     () => (auth.session?.tokenSource === 'manual-token' ? auth.session.accessToken : ''),
   )
+  const [persistManualToken, setPersistManualToken] = useState(false)
   const oauthConfig = useMemo(() => {
     try {
       return getSpotifyPkceConfig()
@@ -69,7 +70,7 @@ export function SpotifyConnectCard({
         <div>
           <CardTitle>Spotify Audio Trait Enrichment</CardTitle>
           <CardDescription className="mt-1">
-            Optional, local-only enrichment for danceability/energy/valence/tempo overlays. Tokens stay in this browser session by default.
+            Optional, local-only enrichment for danceability/energy/valence/tempo overlays. OAuth sessions are tab-scoped; manual tokens are memory-only unless you opt in to tab persistence.
           </CardDescription>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -139,8 +140,16 @@ export function SpotifyConnectCard({
       <details className="mt-3 rounded-theme border border-border bg-surface-hover p-3">
         <summary className="cursor-pointer text-sm font-medium text-text">Manual token (advanced / fallback)</summary>
         <p className="mt-2 text-xs text-text-muted">
-          Use this if OAuth PKCE is not configured or you want a temporary manual token. Token stays in sessionStorage only.
+          Use this if OAuth PKCE is not configured or you want a temporary manual token. Manual tokens are memory-only by default.
         </p>
+        <label className="mt-2 flex items-center gap-2 text-xs text-text-muted">
+          <input
+            type="checkbox"
+            checked={persistManualToken}
+            onChange={(event) => setPersistManualToken(event.currentTarget.checked)}
+          />
+          Remember manual token in this tab (`sessionStorage`)
+        </label>
         <div className="mt-2 flex flex-wrap gap-2">
           <Input
             aria-label="Spotify manual token"
@@ -149,7 +158,7 @@ export function SpotifyConnectCard({
             value={manualTokenDraft}
             onChange={(event) => setManualTokenDraft(event.currentTarget.value)}
           />
-          <Button onClick={() => auth.setManualToken(manualTokenDraft)} disabled={!manualTokenDraft.trim()}>
+          <Button onClick={() => auth.setManualToken(manualTokenDraft, { persist: persistManualToken })} disabled={!manualTokenDraft.trim()}>
             Save Token
           </Button>
           <Button

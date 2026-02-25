@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
 import { parseSpotifyZip } from '@/lib/data/parser'
+import { runDataProcessorWorkerTask } from '@/lib/data/runDataProcessorWorkerTask'
 import { normalizeUploadError } from '@/lib/data/upload-errors'
 import { processRecords } from '@/lib/processor'
 import type { ParseProgress, ProcessedDataModel, TimezoneMode } from '@/lib/types'
@@ -20,23 +21,6 @@ interface DataState {
   ingestZip: (file: File) => Promise<void>
   reset: () => void
 }
-
-interface WorkerProgressMessage {
-  type: 'parse:progress'
-  payload: ParseProgress
-}
-
-interface WorkerCompleteMessage {
-  type: 'parse:complete'
-  payload: ProcessedDataModel
-}
-
-interface WorkerErrorMessage {
-  type: 'parse:error'
-  payload: { message: string }
-}
-
-type WorkerMessage = WorkerProgressMessage | WorkerCompleteMessage | WorkerErrorMessage
 
 let timezoneReprocessRequestId = 0
 
@@ -64,34 +48,14 @@ async function processWithWorker(
   timezoneMode: TimezoneMode,
   set: (partial: Partial<DataState>) => void,
 ): Promise<ProcessedDataModel> {
-  const worker = new Worker(new URL('../workers/dataProcessor.worker.ts', import.meta.url), {
-    type: 'module',
-  })
-
-  return new Promise<ProcessedDataModel>((resolve, reject) => {
-    worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
-      if (event.data.type === 'parse:progress') {
-        set({ progress: event.data.payload })
-        return
-      }
-      if (event.data.type === 'parse:complete') {
-        resolve(event.data.payload)
-        worker.terminate()
-        return
-      }
-      if (event.data.type === 'parse:error') {
-        reject(new Error(event.data.payload.message))
-        worker.terminate()
-      }
-    }
-
-    worker.onerror = (event) => {
-      reject(new Error(event.message))
-      worker.terminate()
-    }
-
-    worker.postMessage({ type: 'process-zip', file, timezoneMode })
-  })
+  return runDataProcessorWorkerTask(
+    { type: 'process-zip', file, timezoneMode },
+    {
+      onProgress(progress) {
+        set({ progress })
+      },
+    },
+  )
 }
 
 async function processRecordsWithWorker(
@@ -99,34 +63,14 @@ async function processRecordsWithWorker(
   timezoneMode: TimezoneMode,
   set: (partial: Partial<DataState>) => void,
 ): Promise<ProcessedDataModel> {
-  const worker = new Worker(new URL('../workers/dataProcessor.worker.ts', import.meta.url), {
-    type: 'module',
-  })
-
-  return new Promise<ProcessedDataModel>((resolve, reject) => {
-    worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
-      if (event.data.type === 'parse:progress') {
-        set({ progress: event.data.payload })
-        return
-      }
-      if (event.data.type === 'parse:complete') {
-        resolve(event.data.payload)
-        worker.terminate()
-        return
-      }
-      if (event.data.type === 'parse:error') {
-        reject(new Error(event.data.payload.message))
-        worker.terminate()
-      }
-    }
-
-    worker.onerror = (event) => {
-      reject(new Error(event.message))
-      worker.terminate()
-    }
-
-    worker.postMessage({ type: 'process-records', records, timezoneMode })
-  })
+  return runDataProcessorWorkerTask(
+    { type: 'process-records', records, timezoneMode },
+    {
+      onProgress(progress) {
+        set({ progress })
+      },
+    },
+  )
 }
 
 export const useDataStore = create<DataState>((set, get) => ({
