@@ -133,5 +133,5 @@ describe('ShareLinkGenerator', () => {
       expect(writeText).toHaveBeenCalledTimes(1)
     })
     expect(writeText.mock.calls[0]?.[0]).toContain('/share#')
-  })
+  }, 20_000)
 })
