@@ -127,18 +127,54 @@ const sharePayloadV4Schema = z.object({
 
 const sharePayloadSchema = z.union([sharePayloadV1Schema, sharePayloadV2Schema, sharePayloadV3Schema, sharePayloadV4Schema])
 
+const utf8Encoder = new TextEncoder()
+const utf8Decoder = new TextDecoder('utf-8', { fatal: true })
+
+function bytesToBinaryString(bytes: Uint8Array): string {
+  let result = ''
+  const chunkSize = 0x8000
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    const chunk = bytes.subarray(index, index + chunkSize)
+    result += String.fromCharCode(...chunk)
+  }
+  return result
+}
+
+function binaryStringToBytes(binary: string): Uint8Array {
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index)
+  }
+  return bytes
+}
+
 function toBase64Url(value: string): string {
-  return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  const bytes = utf8Encoder.encode(value)
+  const base64 = typeof Buffer !== 'undefined'
+    ? Buffer.from(bytes).toString('base64')
+    : btoa(bytesToBinaryString(bytes))
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
 function fromBase64Url(value: string): string {
   const normalized = value.replace(/-/g, '+').replace(/_/g, '/')
   const padding = normalized.length % 4
   const padded = padding > 0 ? normalized.padEnd(normalized.length + (4 - padding), '=') : normalized
-  return atob(padded)
+  const bytes = typeof Buffer !== 'undefined'
+    ? Uint8Array.from(Buffer.from(padded, 'base64'))
+    : binaryStringToBytes(atob(padded))
+
+  try {
+    return utf8Decoder.decode(bytes)
+  } catch {
+    // Backward compatibility: pre-hardening links used btoa/atob over raw JS strings (latin1 semantics).
+    return bytesToBinaryString(bytes)
+  }
 }
 
-function computeChecksum(payload: Omit<SharePayload, 'checksum'>): string {
+// Advisory only: this legacy checksum is a lightweight fingerprint for accidental corruption/debugging.
+// It is not cryptographic integrity and is intentionally not enforced on decode for backwards compatibility.
+function computeAdvisoryChecksum(payload: Omit<SharePayload, 'checksum'>): string {
   const value = JSON.stringify(payload)
   let hash = 0
   for (let index = 0; index < value.length; index += 1) {
@@ -146,6 +182,13 @@ function computeChecksum(payload: Omit<SharePayload, 'checksum'>): string {
     hash |= 0
   }
   return `v${payload.version}-${Math.abs(hash)}`
+}
+
+function stripChecksum<T extends SharePayload>(payload: T): Omit<T, 'checksum'> {
+  return {
+    ...payload,
+    checksum: undefined,
+  } as unknown as Omit<T, 'checksum'>
 }
 
 function upgradeV1(payload: SharePayloadV1): SharePayloadV2 {
@@ -225,13 +268,12 @@ function upgradeV1ToV4(payload: SharePayloadV1): SharePayloadV4 {
 }
 
 export function encodeSharePayload<T extends SharePayload>(input: T): string {
-  const payloadWithoutChecksum = {
-    ...input,
-    checksum: undefined,
-  } as unknown as Omit<T, 'checksum'>
+  const payloadWithoutChecksum = stripChecksum(input)
   const payload: T = {
     ...input,
-    checksum: input.checksum === 'pending' ? computeChecksum(payloadWithoutChecksum as Omit<SharePayload, 'checksum'>) : input.checksum,
+    checksum: input.checksum === 'pending'
+      ? computeAdvisoryChecksum(payloadWithoutChecksum as Omit<SharePayload, 'checksum'>)
+      : input.checksum,
   }
   const parsed = sharePayloadSchema.parse(payload)
   return toBase64Url(JSON.stringify(parsed))

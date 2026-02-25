@@ -1,4 +1,4 @@
-import type { CompareEnginePayload, CompareEngineScopeId, LabDatasetSnapshot } from '@/lib/types'
+import type { CompareEnginePayload, CompareEngineScopeId, LabCompareDatasetSnapshot } from '@/lib/types'
 
 import {
   confidenceFromValue,
@@ -9,7 +9,7 @@ import {
 } from '@/lib/labs/modules/utils'
 
 interface CompareEngineOptions {
-  baselineSnapshot?: LabDatasetSnapshot
+  baselineSnapshot?: LabCompareDatasetSnapshot
   scopeId?: CompareEngineScopeId
   baselineEraId?: string | null
   currentEraId?: string | null
@@ -23,21 +23,26 @@ const COMPARE_SCOPE_LABELS: Record<CompareEngineScopeId, string> = {
   travel: 'Travel Listening',
 }
 
-function asLabSnapshot(value: unknown): LabDatasetSnapshot | null {
+function asLabSnapshot(value: unknown): LabCompareDatasetSnapshot | null {
   if (!value || typeof value !== 'object') {
     return null
   }
-  const candidate = value as Partial<LabDatasetSnapshot>
+  const candidate = value as Partial<LabCompareDatasetSnapshot>
   if (
     !candidate.datasetIdentity ||
     typeof candidate.datasetIdentity.fingerprint !== 'string' ||
     !candidate.summary ||
     typeof candidate.summary.totalPlays !== 'number' ||
-    !Array.isArray(candidate.records)
+    !Array.isArray(candidate.records) ||
+    !candidate.contextAnalytics?.country ||
+    typeof candidate.contextAnalytics.country.travelShare !== 'number' ||
+    !Array.isArray(candidate.eras) ||
+    !candidate.archetypes?.primary ||
+    !Array.isArray(candidate.archetypes.allScores)
   ) {
     return null
   }
-  return candidate as LabDatasetSnapshot
+  return candidate as LabCompareDatasetSnapshot
 }
 
 function delta(current: number, baseline: number, digits = 4): number {
@@ -51,7 +56,7 @@ function asScopeId(value: unknown): CompareEngineScopeId {
   return 'all'
 }
 
-function recordDate(ts: string, timezoneMode: LabDatasetSnapshot['timezoneMode']): Date {
+function recordDate(ts: string, timezoneMode: LabCompareDatasetSnapshot['timezoneMode']): Date {
   const date = new Date(ts)
   if (timezoneMode === 'utc') {
     return date
@@ -59,12 +64,12 @@ function recordDate(ts: string, timezoneMode: LabDatasetSnapshot['timezoneMode']
   return date
 }
 
-function recordHour(ts: string, timezoneMode: LabDatasetSnapshot['timezoneMode']): number {
+function recordHour(ts: string, timezoneMode: LabCompareDatasetSnapshot['timezoneMode']): number {
   const date = recordDate(ts, timezoneMode)
   return timezoneMode === 'utc' ? date.getUTCHours() : date.getHours()
 }
 
-function recordDay(ts: string, timezoneMode: LabDatasetSnapshot['timezoneMode']): number {
+function recordDay(ts: string, timezoneMode: LabCompareDatasetSnapshot['timezoneMode']): number {
   const date = recordDate(ts, timezoneMode)
   return timezoneMode === 'utc' ? date.getUTCDay() : date.getDay()
 }
@@ -73,7 +78,7 @@ function isNightHour(hour: number): boolean {
   return hour >= 23 || hour < 6
 }
 
-function filterRecordsForScope(snapshot: LabDatasetSnapshot, scopeId: CompareEngineScopeId) {
+function filterRecordsForScope(snapshot: LabCompareDatasetSnapshot, scopeId: CompareEngineScopeId) {
   const homeCountry = snapshot.contextAnalytics.country.homeCountry
   if (scopeId === 'all') {
     return snapshot.records
@@ -100,7 +105,7 @@ function filterRecordsForScope(snapshot: LabDatasetSnapshot, scopeId: CompareEng
   })
 }
 
-function summarizeSlice(snapshot: LabDatasetSnapshot, scopeId: CompareEngineScopeId) {
+function summarizeSlice(snapshot: LabCompareDatasetSnapshot, scopeId: CompareEngineScopeId) {
   const records = filterRecordsForScope(snapshot, scopeId)
   const plays = records.length
   const totalMs = records.reduce((sum, record) => sum + record.ms_played, 0)
@@ -127,11 +132,11 @@ function summarizeSlice(snapshot: LabDatasetSnapshot, scopeId: CompareEngineScop
   }
 }
 
-function sortedEras(snapshot: LabDatasetSnapshot) {
+function sortedEras(snapshot: LabCompareDatasetSnapshot) {
   return [...snapshot.eras].sort((a, b) => a.startMonth.localeCompare(b.startMonth) || a.endMonth.localeCompare(b.endMonth))
 }
 
-function findEraById(eras: LabDatasetSnapshot['eras'], eraId: string | null | undefined) {
+function findEraById(eras: LabCompareDatasetSnapshot['eras'], eraId: string | null | undefined) {
   if (!eraId) {
     return null
   }
@@ -139,7 +144,7 @@ function findEraById(eras: LabDatasetSnapshot['eras'], eraId: string | null | un
   return era ?? null
 }
 
-function buildEraSnapshot(era: LabDatasetSnapshot['eras'][number] | null) {
+function buildEraSnapshot(era: LabCompareDatasetSnapshot['eras'][number] | null) {
   if (!era) {
     return null
   }
@@ -244,7 +249,11 @@ function buildRankAwareArtistOverlap(
   }
 }
 
-function buildEraVsEra(snapshot: LabDatasetSnapshot, baseline: LabDatasetSnapshot, options?: CompareEngineOptions): CompareEnginePayload['eraVsEra'] {
+function buildEraVsEra(
+  snapshot: LabCompareDatasetSnapshot,
+  baseline: LabCompareDatasetSnapshot,
+  options?: CompareEngineOptions,
+): CompareEnginePayload['eraVsEra'] {
   const baselineEras = sortedEras(baseline)
   const currentEras = sortedEras(snapshot)
 
@@ -358,8 +367,8 @@ function buildTopMetricShifts(payload: CompareEnginePayload['summaryDelta']): Co
 }
 
 function buildArchetypeScoreShifts(
-  baseline: LabDatasetSnapshot,
-  current: LabDatasetSnapshot,
+  baseline: LabCompareDatasetSnapshot,
+  current: LabCompareDatasetSnapshot,
 ): CompareEnginePayload['archetypeScoreShifts'] {
   const baselineScores = new Map(baseline.archetypes.allScores.map((score) => [score.key, score]))
   const currentScores = new Map(current.archetypes.allScores.map((score) => [score.key, score]))
@@ -438,8 +447,8 @@ function buildArchetypeTournament(
 }
 
 function buildEraPairDeltas(
-  baseline: LabDatasetSnapshot,
-  current: LabDatasetSnapshot,
+  baseline: LabCompareDatasetSnapshot,
+  current: LabCompareDatasetSnapshot,
 ): CompareEnginePayload['eraPairDeltas'] {
   const maxPairs = Math.max(baseline.eras.length, current.eras.length)
 
@@ -462,7 +471,7 @@ function buildEraPairDeltas(
   return pairs.slice(Math.max(0, pairs.length - 6))
 }
 
-export function runCompareEngineModule(snapshot: LabDatasetSnapshot, options?: Record<string, unknown>) {
+export function runCompareEngineModule(snapshot: LabCompareDatasetSnapshot, options?: Record<string, unknown>) {
   const startedAt = getStartTime()
   const compareOptions = options as CompareEngineOptions | undefined
   const baseline = asLabSnapshot(compareOptions?.baselineSnapshot)

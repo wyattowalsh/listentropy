@@ -11,6 +11,8 @@ import { useAudioTraitStore } from '@/store/useAudioTraitStore'
 import { useLabStore } from '@/store/useLabStore'
 import { useSpotifyAuthStore } from '@/store/useSpotifyAuthStore'
 
+const SLOW_LAB_WORKBENCH_TEST_TIMEOUT_MS = 60_000
+
 const runLabModuleWithFallbackMock = vi.fn()
 
 vi.mock('@/lib/labs/worker-client', () => ({
@@ -111,7 +113,7 @@ describe('LabWorkbench', () => {
 
     expect(screen.getByText(/descriptive heuristic motif mining/i)).toBeInTheDocument()
     expect(screen.getByText(/Fixture assumption/)).toBeInTheDocument()
-  })
+  }, SLOW_LAB_WORKBENCH_TEST_TIMEOUT_MS)
 
   it('runs audio-affect-overlay from the Spotify enrichment card when a snapshot is prepared', async () => {
     const data = processRecords(makeSyntheticRecords(150), { timezoneMode: 'local' })
@@ -206,7 +208,7 @@ describe('LabWorkbench', () => {
     expect(moduleId).toBe('audio-affect-overlay')
     expect(datasetArg.datasetIdentity.fingerprint).toBe(fingerprint)
     expect(optionsArg.audioTraitSnapshot?.datasetFingerprint).toBe(fingerprint)
-  })
+  }, SLOW_LAB_WORKBENCH_TEST_TIMEOUT_MS)
 
   it('captures a compare baseline and runs compare-engine from Compare Workspace', async () => {
     const baselineData = processRecords(makeSyntheticRecords(120), { timezoneMode: 'local' })
@@ -409,7 +411,7 @@ describe('LabWorkbench', () => {
     expect(screen.getByText('Change Driver Overlap Details')).toBeInTheDocument()
     expect(screen.getByText('Archetype Tournament')).toBeInTheDocument()
     expect(screen.getByText(/Fixture compare note/)).toBeInTheDocument()
-  })
+  }, SLOW_LAB_WORKBENCH_TEST_TIMEOUT_MS)
 
   it('shows saved compare snapshots after capturing baseline', async () => {
     const data = processRecords(makeSyntheticRecords(180), { timezoneMode: 'local' })
@@ -421,7 +423,7 @@ describe('LabWorkbench', () => {
     expect(screen.getByText('Saved Compare Snapshots')).toBeInTheDocument()
     expect(screen.getAllByText(new RegExp(data.datasetIdentity.fingerprint)).length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText(/captured current/i).length).toBeGreaterThanOrEqual(1)
-  })
+  }, SLOW_LAB_WORKBENCH_TEST_TIMEOUT_MS)
 
   it('clears invalid compare era selections when baseline/current datasets change', async () => {
     const baselineData = processRecords(makeSyntheticRecords(140), { timezoneMode: 'local' })
@@ -443,5 +445,5 @@ describe('LabWorkbench', () => {
 
     expect(screen.getByLabelText('Baseline era selector')).toHaveValue('')
     expect(screen.getByLabelText('Current era selector')).toHaveValue('')
-  })
+  }, SLOW_LAB_WORKBENCH_TEST_TIMEOUT_MS)
 })

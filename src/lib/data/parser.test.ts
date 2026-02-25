@@ -1,7 +1,7 @@
 import JSZip from 'jszip'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { inspectSpotifyZipArchive, parseSpotifyZip, sanitizeRecord } from './parser'
+import { inspectSpotifyZipArchive, parseSpotifyZip, prepareSpotifyZipArchive, sanitizeRecord } from './parser'
 import type { RawSpotifyRecord } from '../types'
 
 const baseRecord: RawSpotifyRecord = {
@@ -114,5 +114,24 @@ describe('parseSpotifyZip', () => {
     expect(inspection.historyFileCount).toBe(1)
     expect(inspection.historyFiles[0]).toContain('Streaming_History_Audio')
     expect(inspection.totalEntries).toBe(2)
+  })
+
+  it('reuses a prepared archive across preflight and parse without reloading the zip', async () => {
+    const zip = new JSZip()
+    zip.file('README.txt', 'x')
+    zip.file('Streaming_History_Audio_2024-2025_0.json', JSON.stringify([{ ...baseRecord }]))
+    const blob = await zip.generateAsync({ type: 'blob' })
+    const file = new File([blob], 'spotify.zip', { type: 'application/zip' })
+    const loadSpy = vi.spyOn(JSZip, 'loadAsync')
+
+    const prepared = await prepareSpotifyZipArchive(file)
+    const inspection = await inspectSpotifyZipArchive(file)
+    const parsed = await parseSpotifyZip(file, { archive: prepared })
+
+    expect(inspection.historyFileCount).toBe(1)
+    expect(parsed).toHaveLength(1)
+    expect(loadSpy).toHaveBeenCalledTimes(1)
+
+    loadSpy.mockRestore()
   })
 })

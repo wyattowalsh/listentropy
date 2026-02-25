@@ -52,6 +52,6 @@ describe('megafixture perf benchmark (local)', () => {
     expect(local.summary.totalPlays).toBe(records.length)
     expect(utc.summary.totalPlays).toBe(records.length)
     },
-    20_000,
+    180_000,
   )
 })

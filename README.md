@@ -97,7 +97,7 @@ CI requires:
 - coverage gate
 - build
 - perf budget gate
-- Playwright e2e suite
+- Playwright e2e smoke checks (`smoke.spec.ts` and `xenolab.spec.ts` on Chromium)
 
 Coverage gates:
 

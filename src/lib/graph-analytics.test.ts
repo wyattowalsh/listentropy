@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { computeGraphAnalytics } from './graph-analytics'
+import { annotateGraphMetrics, computeGraphAnalytics } from './graph-analytics'
 import type { GraphEdge, GraphNode } from './types'
 
 const nodes: GraphNode[] = [
@@ -68,5 +68,27 @@ describe('computeGraphAnalytics', () => {
     )
     expect(bridgeEdge?.communityBridge).toBe(true)
   })
-})
 
+  it('honors pre-annotated metrics when the caller opts into the fast path', () => {
+    const annotated = annotateGraphMetrics(nodes, edges)
+    const sentinelNodes = annotated.nodes.map((node, index) => ({
+      ...node,
+      degree: 100 + index,
+      weightedDegree: 1000 + index * 10,
+      communityId: `community-${index % 2}`,
+    }))
+    const sentinelEdges = annotated.edges.map((edge) => ({
+      ...edge,
+      communityBridge: true,
+      normalizedWeight: 0.5,
+    }))
+
+    const analytics = computeGraphAnalytics(sentinelNodes, sentinelEdges, {
+      assumeAnnotatedMetrics: true,
+    })
+
+    expect(analytics.summary.averageDegree).toBe(101.5)
+    expect(analytics.summary.averageWeightedDegree).toBe(1015)
+    expect(analytics.bridgedEdges.every((edge) => edge.communityBridge)).toBe(true)
+  })
+})
