@@ -1,3 +1,5 @@
+import { spotifyGetJson } from '@/lib/audio-traits/providers/spotify/http'
+
 interface SpotifyAudioFeature {
   id: string
   danceability: number
@@ -83,20 +85,11 @@ export async function fetchSpotifyAudioFeatureProfile(
 
   const allFeatures: SpotifyAudioFeature[] = []
   for (const chunk of chunkArray(ids, 100)) {
-    const response = await fetch(
-      `https://api.spotify.com/v1/audio-features?ids=${chunk.join(',')}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    )
-
-    if (!response.ok) {
-      throw new Error(`Spotify API request failed with ${response.status}`)
-    }
-
-    const payload = (await response.json()) as SpotifyAudioFeaturesResponse
+    const payload = await spotifyGetJson<SpotifyAudioFeaturesResponse>({
+      accessToken: token,
+      url: `https://api.spotify.com/v1/audio-features?ids=${chunk.join(',')}`,
+      endpoint: 'audio-features',
+    })
     allFeatures.push(...payload.audio_features.filter(Boolean))
   }
 
@@ -133,16 +126,12 @@ export async function fetchSpotifyAudioFeatureProfile(
   return result
 }
 
-async function spotifyGet<T>(token: string, url: string): Promise<T> {
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+async function spotifyGet<T>(args: { token: string; url: string; endpoint: string }): Promise<T> {
+  return spotifyGetJson<T>({
+    accessToken: args.token,
+    url: args.url,
+    endpoint: args.endpoint,
   })
-  if (!response.ok) {
-    throw new Error(`Spotify API request failed with ${response.status}`)
-  }
-  return (await response.json()) as T
 }
 
 async function enrichArtistNeighborhood(token: string, trackIds: string[]): Promise<{
@@ -154,7 +143,11 @@ async function enrichArtistNeighborhood(token: string, trackIds: string[]): Prom
   const warnings: string[] = []
   const tracks: SpotifyTrackMetadata[] = []
   for (const chunk of chunkArray(trackIds.slice(0, 100), 50)) {
-    const payload = await spotifyGet<SpotifyTracksResponse>(token, `https://api.spotify.com/v1/tracks?ids=${chunk.join(',')}`)
+    const payload = await spotifyGet<SpotifyTracksResponse>({
+      token,
+      url: `https://api.spotify.com/v1/tracks?ids=${chunk.join(',')}`,
+      endpoint: 'tracks',
+    })
     tracks.push(...payload.tracks.filter(Boolean) as SpotifyTrackMetadata[])
   }
 
@@ -181,7 +174,11 @@ async function enrichArtistNeighborhood(token: string, trackIds: string[]): Prom
 
   const artists: SpotifyArtist[] = []
   for (const chunk of chunkArray(artistIds, 50)) {
-    const payload = await spotifyGet<SpotifyArtistsResponse>(token, `https://api.spotify.com/v1/artists?ids=${chunk.join(',')}`)
+    const payload = await spotifyGet<SpotifyArtistsResponse>({
+      token,
+      url: `https://api.spotify.com/v1/artists?ids=${chunk.join(',')}`,
+      endpoint: 'artists',
+    })
     artists.push(...payload.artists.filter(Boolean) as SpotifyArtist[])
   }
 
@@ -217,8 +214,11 @@ async function enrichArtistNeighborhood(token: string, trackIds: string[]): Prom
     let overlapCount = 0
     for (const artist of sampled) {
       const related = await spotifyGet<SpotifyRelatedArtistsResponse>(
-        token,
-        `https://api.spotify.com/v1/artists/${artist.id}/related-artists`,
+        {
+          token,
+          url: `https://api.spotify.com/v1/artists/${artist.id}/related-artists`,
+          endpoint: 'related-artists',
+        },
       )
       overlapCount += related.artists.filter((candidate) => sampledIds.has(candidate.id)).length
     }

@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { SpotifyApiHttpError } from '@/lib/audio-traits/providers/spotify/client'
+
 import { fetchSpotifyAudioFeatureProfile } from './spotify-api'
 
 function feature(id: string) {
@@ -45,18 +47,55 @@ describe('fetchSpotifyAudioFeatureProfile', () => {
     expect(result.dimensions.some((item) => item.key === 'tempo')).toBe(true)
   })
 
-  it('throws when spotify API responds with an error status', async () => {
+  it('throws an endpoint-aware SpotifyApiHttpError when audio-features returns 401', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
         ok: false,
         status: 401,
+        headers: { get: () => null },
       }),
     )
 
-    await expect(
-      fetchSpotifyAudioFeatureProfile('bad-token', ['spotify:track:abc']),
-    ).rejects.toThrow('Spotify API request failed with 401')
+    let thrown: unknown
+    try {
+      await fetchSpotifyAudioFeatureProfile('bad-token', ['spotify:track:abc'])
+    } catch (error) {
+      thrown = error
+    }
+
+    expect(thrown).toBeInstanceOf(SpotifyApiHttpError)
+    expect(thrown).toMatchObject({
+      status: 401,
+      endpoint: 'audio-features',
+    })
+    expect((thrown as Error).message).toContain('401')
+    expect((thrown as Error).message).toContain('audio-features')
+  })
+
+  it('propagates Retry-After on rate-limited audio-features responses', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+        headers: { get: (name: string) => (name === 'Retry-After' ? '17' : null) },
+      }),
+    )
+
+    let thrown: unknown
+    try {
+      await fetchSpotifyAudioFeatureProfile('token', ['spotify:track:abc'])
+    } catch (error) {
+      thrown = error
+    }
+
+    expect(thrown).toBeInstanceOf(SpotifyApiHttpError)
+    expect(thrown).toMatchObject({
+      status: 429,
+      endpoint: 'audio-features',
+      retryAfterSeconds: 17,
+    })
   })
 
   it('keeps audio feature results when artist enrichment fails', async () => {

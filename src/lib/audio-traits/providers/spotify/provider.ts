@@ -89,7 +89,7 @@ export function createSpotifyAudioTraitProvider(): AudioTraitProvider {
           capabilities.audioFeatures = capabilityFromStatus(error.status)
           const endpointNotes = [...(base.provenance.endpointNotes ?? [])]
           if (error.retryAfterSeconds !== undefined) {
-            endpointNotes.push(`Retry-After ${error.retryAfterSeconds}s`) 
+            endpointNotes.push(`Retry-After ${error.retryAfterSeconds}s`)
           }
           const messageByStatus: Record<number, string> = {
             401: 'Spotify token was rejected (401). Reconnect or refresh the token.',
