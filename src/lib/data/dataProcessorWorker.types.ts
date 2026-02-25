@@ -5,6 +5,7 @@ export type DataProcessorWorkerRequest =
       type: 'process-zip'
       file: File
       timezoneMode: TimezoneMode
+      historyFileNames?: string[]
     }
   | {
       type: 'process-records'

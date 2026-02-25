@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
 import { parseSpotifyZip } from '@/lib/data/parser'
+import type { PreparedSpotifyZipArchive, ZipInspectionResult } from '@/lib/data/parser'
 import { runDataProcessorWorkerTask } from '@/lib/data/runDataProcessorWorkerTask'
 import { normalizeUploadError } from '@/lib/data/upload-errors'
 import { processRecords } from '@/lib/processor'
@@ -8,6 +9,11 @@ import type { ParseProgress, ProcessedDataModel, TimezoneMode } from '@/lib/type
 import { useSessionMetricsStore } from '@/store/useSessionMetricsStore'
 
 type LoadMode = 'idle' | 'parsing' | 'ready' | 'error'
+
+interface ZipIngestPreflightContext {
+  inspection?: ZipInspectionResult
+  preparedArchive?: PreparedSpotifyZipArchive
+}
 
 interface DataState {
   mode: LoadMode
@@ -18,7 +24,7 @@ interface DataState {
   timezoneMode: TimezoneMode
   setUseWorker: (useWorker: boolean) => void
   setTimezoneMode: (timezoneMode: TimezoneMode) => void
-  ingestZip: (file: File) => Promise<void>
+  ingestZip: (file: File, preflight?: ZipIngestPreflightContext) => Promise<void>
   reset: () => void
 }
 
@@ -28,8 +34,10 @@ async function processWithMainThread(
   file: File,
   timezoneMode: TimezoneMode,
   set: (partial: Partial<DataState>) => void,
+  preflight?: ZipIngestPreflightContext,
 ): Promise<ProcessedDataModel> {
   const records = await parseSpotifyZip(file, {
+    archive: preflight?.preparedArchive,
     onProgress(progress) {
       set({ progress })
     },
@@ -47,9 +55,15 @@ async function processWithWorker(
   file: File,
   timezoneMode: TimezoneMode,
   set: (partial: Partial<DataState>) => void,
+  preflight?: ZipIngestPreflightContext,
 ): Promise<ProcessedDataModel> {
   return runDataProcessorWorkerTask(
-    { type: 'process-zip', file, timezoneMode },
+    {
+      type: 'process-zip',
+      file,
+      timezoneMode,
+      historyFileNames: preflight?.inspection?.historyFiles,
+    },
     {
       onProgress(progress) {
         set({ progress })
@@ -119,7 +133,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
     set({ timezoneMode })
   },
-  ingestZip: async (file) => {
+  ingestZip: async (file, preflight) => {
     try {
       useSessionMetricsStore.getState().reset()
       set({
@@ -135,8 +149,8 @@ export const useDataStore = create<DataState>((set, get) => ({
 
       const timezoneMode = get().timezoneMode
       const processed = get().useWorker
-        ? await processWithWorker(file, timezoneMode, set)
-        : await processWithMainThread(file, timezoneMode, set)
+        ? await processWithWorker(file, timezoneMode, set, preflight)
+        : await processWithMainThread(file, timezoneMode, set, preflight)
 
       useSessionMetricsStore.getState().record({
         type: 'upload_complete',

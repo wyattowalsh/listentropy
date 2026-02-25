@@ -2,12 +2,21 @@ import { UploadCloud } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { inspectSpotifyZipArchive } from '@/lib/data/parser'
+import {
+  prepareSpotifyZipArchive,
+  type PreparedSpotifyZipArchive,
+  type ZipInspectionResult,
+} from '@/lib/data/parser'
 import { normalizeUploadError } from '@/lib/data/upload-errors'
 import { cn } from '@/lib/utils'
 
+interface ZipUploadPreflightContext {
+  inspection: ZipInspectionResult
+  preparedArchive: PreparedSpotifyZipArchive
+}
+
 interface DropZoneProps {
-  onFileSelected: (file: File) => void
+  onFileSelected: (file: File, preflight?: ZipUploadPreflightContext) => void
 }
 
 export function DropZone({ onFileSelected }: DropZoneProps): JSX.Element {
@@ -35,7 +44,8 @@ export function DropZone({ onFileSelected }: DropZoneProps): JSX.Element {
       })
       setIsInspecting(true)
       try {
-        const inspection = await inspectSpotifyZipArchive(file)
+        const preparedArchive = await prepareSpotifyZipArchive(file)
+        const inspection = preparedArchive.inspection
         const missingHistoryFiles = inspection.historyFileCount === 0
         setPreflight({
           name: file.name,
@@ -50,6 +60,8 @@ export function DropZone({ onFileSelected }: DropZoneProps): JSX.Element {
         if (missingHistoryFiles) {
           return
         }
+        onFileSelected(file, { inspection, preparedArchive })
+        return
       } catch (error) {
         setPreflight({
           name: file.name,
@@ -63,7 +75,6 @@ export function DropZone({ onFileSelected }: DropZoneProps): JSX.Element {
       } finally {
         setIsInspecting(false)
       }
-      onFileSelected(file)
     },
     [onFileSelected],
   )
