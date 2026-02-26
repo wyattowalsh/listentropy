@@ -31,7 +31,7 @@ function makeRecord(index: number): StreamRecord {
   }
 }
 
-describe('megafixture perf benchmark (local)', () => {
+describe('large fixture perf benchmark (local)', () => {
   it(
     'measures process + timezone toggle latency on a large synthetic dataset',
     () => {
@@ -46,7 +46,7 @@ describe('megafixture perf benchmark (local)', () => {
     const utcMs = performance.now() - startUtc
 
     console.log(
-      `[perf-megafixture] local=${localMs.toFixed(1)}ms utc-toggle=${utcMs.toFixed(1)}ms records=${records.length.toLocaleString()}`,
+      `[perf-large-fixture] local=${localMs.toFixed(1)}ms utc-toggle=${utcMs.toFixed(1)}ms records=${records.length.toLocaleString()}`,
     )
 
     expect(local.summary.totalPlays).toBe(records.length)

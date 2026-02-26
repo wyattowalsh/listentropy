@@ -24,7 +24,7 @@
     "fixtures:generate": "node scripts/hygiene/generate-synthetic-fixture.mjs",
     "test:coverage": "vitest run --coverage",
     "perf:budget": "node scripts/perf/check-budgets.mjs",
-    "perf:megafixture": "node scripts/perf/benchmark-megafixture.mjs",
+    "perf:large-fixture": "node scripts/perf/benchmark-large-fixture.mjs",
     "deploy:pages:prepare": "node scripts/deploy/prepare-github-pages.mjs",
     "coverage:gate": "node scripts/coverage/check-coverage.mjs",
     "audit:real-data": "pnpm build && node scripts/audit/run-real-data-audit.mjs"

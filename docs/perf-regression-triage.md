@@ -3,7 +3,7 @@
 Listentropy has two performance checks:
 
 - CI budget check (`pnpm perf:budget`) for built asset sizes
-- Local synthetic benchmark (`pnpm perf:megafixture`) for processor latency
+- Local synthetic benchmark (`pnpm perf:large-fixture`) for processor latency
 
 ## 1) Build Size Budget Gate
 
@@ -27,10 +27,10 @@ If this fails:
 ## 2) Processor Latency Benchmark (Local)
 
 ```bash
-pnpm perf:megafixture
+pnpm perf:large-fixture
 ```
 
-This runs `src/lib/perf-megafixture.test.ts` and logs timings for:
+This runs `src/lib/perf-large-fixture.test.ts` and logs timings for:
 
 - initial processing (`timezoneMode: 'local'`)
 - timezone reprocessing/toggle (`timezoneMode: 'utc'`)
@@ -38,7 +38,7 @@ This runs `src/lib/perf-megafixture.test.ts` and logs timings for:
 Current benchmark shape:
 
 - synthetic dataset size: `50,000` records
-- output line: `[perf-megafixture] local=...ms utc-toggle=...ms records=50,000`
+- output line: `[perf-large-fixture] local=...ms utc-toggle=...ms records=50,000`
 
 ## Triage Checklist
 
