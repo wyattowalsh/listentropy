@@ -14,7 +14,37 @@ function getSessionStorage(): Storage | null {
   if (typeof window === 'undefined') {
     return null
   }
-  return window.sessionStorage
+  try {
+    return window.sessionStorage
+  } catch {
+    return null
+  }
+}
+
+function safeGetSessionStorageItem(storage: Storage, key: string): string | null {
+  try {
+    return storage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function safeSetSessionStorageItem(storage: Storage, key: string, value: string): boolean {
+  try {
+    storage.setItem(key, value)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function safeRemoveSessionStorageItem(storage: Storage, key: string): boolean {
+  try {
+    storage.removeItem(key)
+    return true
+  } catch {
+    return false
+  }
 }
 
 export function getSpotifyAuthStorageKeys(): typeof KEYS {
@@ -26,14 +56,14 @@ export function loadSpotifyAuthSession(): SpotifyAuthSession | null {
   if (!storage) {
     return null
   }
-  const raw = storage.getItem(KEYS.session)
+  const raw = safeGetSessionStorageItem(storage, KEYS.session)
   if (!raw) {
     return null
   }
   try {
     return JSON.parse(raw) as SpotifyAuthSession
   } catch {
-    storage.removeItem(KEYS.session)
+    safeRemoveSessionStorageItem(storage, KEYS.session)
     return null
   }
 }
@@ -44,10 +74,10 @@ export function persistSpotifyAuthSession(session: SpotifyAuthSession | null): v
     return
   }
   if (!session) {
-    storage.removeItem(KEYS.session)
+    safeRemoveSessionStorageItem(storage, KEYS.session)
     return
   }
-  storage.setItem(KEYS.session, JSON.stringify(session))
+  safeSetSessionStorageItem(storage, KEYS.session, JSON.stringify(session))
 }
 
 export function loadLegacyManualToken(): string {
@@ -55,7 +85,7 @@ export function loadLegacyManualToken(): string {
   if (!storage) {
     return ''
   }
-  return storage.getItem(KEYS.manualToken) ?? ''
+  return safeGetSessionStorageItem(storage, KEYS.manualToken) ?? ''
 }
 
 export function persistLegacyManualToken(token: string): void {
@@ -64,9 +94,9 @@ export function persistLegacyManualToken(token: string): void {
     return
   }
   if (token.trim()) {
-    storage.setItem(KEYS.manualToken, token.trim())
+    safeSetSessionStorageItem(storage, KEYS.manualToken, token.trim())
   } else {
-    storage.removeItem(KEYS.manualToken)
+    safeRemoveSessionStorageItem(storage, KEYS.manualToken)
   }
 }
 
@@ -76,14 +106,14 @@ export function persistSpotifyPkceTemp(args: { codeVerifier: string; state: stri
     return
   }
   if (!args) {
-    storage.removeItem(KEYS.pkceVerifier)
-    storage.removeItem(KEYS.oauthState)
-    storage.removeItem(KEYS.pkceCreatedAt)
+    safeRemoveSessionStorageItem(storage, KEYS.pkceVerifier)
+    safeRemoveSessionStorageItem(storage, KEYS.oauthState)
+    safeRemoveSessionStorageItem(storage, KEYS.pkceCreatedAt)
     return
   }
-  storage.setItem(KEYS.pkceVerifier, args.codeVerifier)
-  storage.setItem(KEYS.oauthState, args.state)
-  storage.setItem(KEYS.pkceCreatedAt, String(Date.now()))
+  safeSetSessionStorageItem(storage, KEYS.pkceVerifier, args.codeVerifier)
+  safeSetSessionStorageItem(storage, KEYS.oauthState, args.state)
+  safeSetSessionStorageItem(storage, KEYS.pkceCreatedAt, String(Date.now()))
 }
 
 export function loadSpotifyPkceTemp(): { codeVerifier: string; state: string } | null {
@@ -91,15 +121,15 @@ export function loadSpotifyPkceTemp(): { codeVerifier: string; state: string } |
   if (!storage) {
     return null
   }
-  const codeVerifier = storage.getItem(KEYS.pkceVerifier)
-  const state = storage.getItem(KEYS.oauthState)
+  const codeVerifier = safeGetSessionStorageItem(storage, KEYS.pkceVerifier)
+  const state = safeGetSessionStorageItem(storage, KEYS.oauthState)
   if (!codeVerifier || !state) {
     return null
   }
-  const createdAtRaw = storage.getItem(KEYS.pkceCreatedAt)
+  const createdAtRaw = safeGetSessionStorageItem(storage, KEYS.pkceCreatedAt)
   if (createdAtRaw == null) {
     // Backward-compatibility for pre-TTL tabs: allow one load and start TTL now.
-    storage.setItem(KEYS.pkceCreatedAt, String(Date.now()))
+    safeSetSessionStorageItem(storage, KEYS.pkceCreatedAt, String(Date.now()))
     return { codeVerifier, state }
   }
   const createdAt = Number.parseInt(createdAtRaw, 10)

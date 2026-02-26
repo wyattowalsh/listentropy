@@ -78,14 +78,15 @@ See:
 
 CI enforces performance budgets after build:
 
-- Entry JS gzip: `<= 450 KiB`
+- Bootstrap entry chunk JS gzip: `<= 450 KiB`
 - Largest async chunk gzip: `<= 300 KiB`
 - Worker chunk gzip: `<= 150 KiB`
+- Initial page JS gzip (entry + JS modulepreloads): reported for visibility by `pnpm perf:budget` (informational in current gate)
 - Regression tolerance: max `+5%` from baseline unless explicitly overridden
 
 ### Chunk Warning Policy
 
-Vite chunk-size warnings are treated as local development signal only. CI perf budgets (`pnpm perf:budget`) are the release gate and source of truth. If Vite major behavior changes, update chunking strategy and regenerate perf baselines together.
+Vite chunk-size warnings are treated as local development signal only. CI perf budgets (`pnpm perf:budget`) are the release gate and source of truth for the enforced thresholds above, and also report true initial page JS (entry + modulepreloads) for visibility. If Vite major behavior changes, update chunking strategy and regenerate perf baselines together.
 
 ## Coverage and Quality Gates
 

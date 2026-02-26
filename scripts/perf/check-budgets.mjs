@@ -22,17 +22,37 @@ function formatKiB(bytes) {
   return `${(bytes / 1024).toFixed(1)} KiB`
 }
 
-const budgets = JSON.parse(readText(budgetPath))
-const html = readText(join(distDir, 'index.html'))
-const entryMatch = html.match(/src="\/assets\/([^\"]+\.js)"/)
-if (!entryMatch) {
-  throw new Error('Could not determine entry script from dist/index.html')
+function getEntryModuleScriptFile(html) {
+  const entryMatch = html.match(
+    /<script\b(?=[^>]*\btype="module")(?=[^>]*\bsrc="\/assets\/([^\"]+\.js)")/i,
+  )
+  if (!entryMatch) {
+    throw new Error('Could not determine entry script from dist/index.html')
+  }
+  return entryMatch[1]
 }
 
-const entryFile = entryMatch[1]
+function getModulepreloadJsFiles(html) {
+  const matches = html.matchAll(
+    /<link\b(?=[^>]*\brel="modulepreload")(?=[^>]*\bhref="\/assets\/([^\"]+\.js)")/gi,
+  )
+  const files = []
+  for (const match of matches) {
+    if (match[1]) {
+      files.push(match[1])
+    }
+  }
+  return files
+}
+
+const budgets = JSON.parse(readText(budgetPath))
+const html = readText(join(distDir, 'index.html'))
+const entryFile = getEntryModuleScriptFile(html)
 const assetFiles = readdirSync(assetsDir).filter((file) => file.endsWith('.js'))
 const entryPath = join(assetsDir, entryFile)
 const entryGzip = toBytes(entryPath)
+const initialJsFiles = [...new Set([entryFile, ...getModulepreloadJsFiles(html)])]
+const initialJsGzip = initialJsFiles.reduce((total, file) => total + toBytes(join(assetsDir, file)), 0)
 
 const asyncCandidates = assetFiles
   .filter((file) => file !== entryFile && !file.includes('worker'))
@@ -54,7 +74,7 @@ const workerChunk = workerCandidates.sort((a, b) => b.gzip - a.gzip)[0] ?? {
 
 const checks = [
   {
-    name: 'entry gzip',
+    name: 'bootstrap entry chunk gzip',
     actual: entryGzip,
     limit: budgets.entryGzip,
     baseline: budgets.baseline.entryGzip,
@@ -99,6 +119,13 @@ for (const check of checks) {
     `${check.name}: ${formatKiB(check.actual)} | hard limit ${formatKiB(check.limit)} | baseline ${formatKiB(check.baseline)} (${check.file})`,
   )
 }
+
+const initialJsPreview = initialJsFiles.length > 6
+  ? `${initialJsFiles.slice(0, 6).join(', ')}, ...`
+  : initialJsFiles.join(', ')
+console.log(
+  `initial page JS gzip (informational, entry + modulepreloads): ${formatKiB(initialJsGzip)} | ${initialJsFiles.length} file(s) [${initialJsPreview}]`,
+)
 
 if (failures.length > 0) {
   console.error('\nPerformance budget check failed:')

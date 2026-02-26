@@ -1,5 +1,37 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+const originalSessionStorage = window.sessionStorage
+
+function installSessionStorageGetterThatThrows(): void {
+  const getter = (): never => {
+    throw new DOMException('Access denied', 'SecurityError')
+  }
+
+  Object.defineProperty(window, 'sessionStorage', {
+    configurable: true,
+    get: getter,
+  })
+  if (globalThis !== window) {
+    Object.defineProperty(globalThis, 'sessionStorage', {
+      configurable: true,
+      get: getter,
+    })
+  }
+}
+
+function restoreSessionStorage(): void {
+  Object.defineProperty(window, 'sessionStorage', {
+    configurable: true,
+    value: originalSessionStorage,
+  })
+  if (globalThis !== window) {
+    Object.defineProperty(globalThis, 'sessionStorage', {
+      configurable: true,
+      value: originalSessionStorage,
+    })
+  }
+}
+
 async function loadModules() {
   vi.resetModules()
   const storage = await import('@/lib/spotify-auth/storage')
@@ -259,5 +291,25 @@ describe('useSpotifyAuthStore oauth callback and refresh flows', () => {
     expect(state.status).toBe('error')
     expect(state.error).toBe('Spotify token request failed with 401')
     expect(state.session).toEqual(expiredSession)
+  })
+})
+
+describe('useSpotifyAuthStore storage resilience', () => {
+  afterEach(() => {
+    restoreSessionStorage()
+    vi.restoreAllMocks()
+    vi.unstubAllEnvs()
+    vi.resetModules()
+  })
+
+  it('initializes safely when sessionStorage access is denied during module import', async () => {
+    installSessionStorageGetterThatThrows()
+
+    const { useSpotifyAuthStore } = await loadModules()
+    const state = useSpotifyAuthStore.getState()
+
+    expect(state.status).toBe('disconnected')
+    expect(state.session).toBeNull()
+    expect(state.error).toBeNull()
   })
 })
