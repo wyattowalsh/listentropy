@@ -4,12 +4,12 @@ import type { ExperienceLevel } from '@/lib/types'
 
 const STORAGE_KEY = 'listentropy-experience-level'
 
-type BehaviorKey = 'advanced_tab_visit' | 'share_action'
+type BehaviorKey = 'full_tab_visit' | 'share_action'
 
 interface ExperienceState {
   experienceLevel: ExperienceLevel
   behaviorSignals: {
-    advancedTabVisits: number
+    fullTabVisits: number
     shareActions: number
   }
   setExperienceLevel: (level: ExperienceLevel) => void
@@ -18,14 +18,14 @@ interface ExperienceState {
 
 function getStoredLevel(): ExperienceLevel {
   if (typeof window === 'undefined' || typeof window.localStorage?.getItem !== 'function') {
-    return 'advanced'
+    return 'full'
   }
   const value = window.localStorage.getItem(STORAGE_KEY)
   if (value === 'guided') {
-    persistLevel('advanced')
-    return 'advanced'
+    persistLevel('full')
+    return 'full'
   }
-  return 'advanced'
+  return 'full'
 }
 
 function persistLevel(level: ExperienceLevel): void {
@@ -38,7 +38,7 @@ function persistLevel(level: ExperienceLevel): void {
 export const useExperienceStore = create<ExperienceState>((set, get) => ({
   experienceLevel: getStoredLevel(),
   behaviorSignals: {
-    advancedTabVisits: 0,
+    fullTabVisits: 0,
     shareActions: 0,
   },
   setExperienceLevel: (level) => {
@@ -48,10 +48,10 @@ export const useExperienceStore = create<ExperienceState>((set, get) => ({
   recordBehavior: (key) => {
     const current = get()
     const nextSignals = {
-      advancedTabVisits:
-        key === 'advanced_tab_visit'
-          ? current.behaviorSignals.advancedTabVisits + 1
-          : current.behaviorSignals.advancedTabVisits,
+      fullTabVisits:
+        key === 'full_tab_visit'
+          ? current.behaviorSignals.fullTabVisits + 1
+          : current.behaviorSignals.fullTabVisits,
       shareActions:
         key === 'share_action'
           ? current.behaviorSignals.shareActions + 1
@@ -59,13 +59,13 @@ export const useExperienceStore = create<ExperienceState>((set, get) => ({
     }
     const shouldPromote =
       current.experienceLevel === 'guided' &&
-      (nextSignals.advancedTabVisits >= 3 || nextSignals.shareActions >= 5)
+      (nextSignals.fullTabVisits >= 3 || nextSignals.shareActions >= 5)
 
     if (shouldPromote) {
-      persistLevel('advanced')
+      persistLevel('full')
       set({
         behaviorSignals: nextSignals,
-        experienceLevel: 'advanced',
+        experienceLevel: 'full',
       })
       return
     }

@@ -1,2 +1,2 @@
-export { runForecastLiteModule } from './forecast-lite'
+export { runForecastSnapshotModule } from './forecast-snapshot'
 

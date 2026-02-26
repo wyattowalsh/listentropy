@@ -35,18 +35,18 @@ export function ShareLinkGenerator({
 }: ShareLinkGeneratorProps): JSX.Element {
   const [includeName, setIncludeName] = useState(false)
   const [anonymize, setAnonymize] = useState(false)
-  const [richConfirmed, setRichConfirmed] = useState(false)
+  const [profileWarningConfirmed, setProfileWarningConfirmed] = useState(false)
   const [copied, setCopied] = useState(false)
   const themeKey = useThemeStore((state) => state.themeKey)
   const recordMetric = useSessionMetricsStore((state) => state.record)
-  const richModePendingConfirmation = includeName && !richConfirmed
+  const profileModePendingConfirmation = includeName && !profileWarningConfirmed
 
   const payload = useMemo(() => {
     const context = data.contextAnalytics
-    const includeNameInPayload = includeName && richConfirmed
+    const includeNameInPayload = includeName && profileWarningConfirmed
     const build = (compact: boolean): SharePayloadV4 => ({
       version: 4,
-      privacyLevel: includeNameInPayload ? 'rich' : 'aggregate',
+      privacyLevel: includeNameInPayload ? 'profiled' : 'aggregate',
       checksum: 'pending',
       generatedAt: new Date().toISOString(),
       timezoneMode: data.timezoneMode,
@@ -100,7 +100,7 @@ export function ShareLinkGenerator({
     }
     const compact = build(true)
     return { payload: compact, hash: encodeSharePayload(compact), compactMode: true }
-  }, [anonymize, data, displayName, includeName, richConfirmed, selectedCards, sharePreset, themeKey])
+  }, [anonymize, data, displayName, includeName, profileWarningConfirmed, selectedCards, sharePreset, themeKey])
 
   const link = useMemo(() => {
     const shareUrl = new URL('share', new URL(import.meta.env.BASE_URL, window.location.origin))
@@ -121,11 +121,11 @@ export function ShareLinkGenerator({
     })
   }, [payload.compactMode, payload.hash, payload.payload.selectedCards.length, payload.payload.sharePreset, recordMetric])
 
-  const canCopyRichLink = !richModePendingConfirmation
-  const visibleLink = richModePendingConfirmation ? 'Confirm rich-share warning to generate link.' : link
+  const canCopyProfileLink = !profileModePendingConfirmation
+  const visibleLink = profileModePendingConfirmation ? 'Confirm profile-share warning to generate link.' : link
 
   async function copyLink(): Promise<void> {
-    if (!canCopyRichLink) {
+    if (!canCopyProfileLink) {
       return
     }
     await navigator.clipboard.writeText(link)
@@ -150,7 +150,7 @@ export function ShareLinkGenerator({
             onChange={(event) => {
               setIncludeName(event.currentTarget.checked)
               if (!event.currentTarget.checked) {
-                setRichConfirmed(false)
+                setProfileWarningConfirmed(false)
               }
             }}
           />
@@ -181,17 +181,17 @@ export function ShareLinkGenerator({
           <div className="flex items-start gap-2">
             <AlertTriangle className="mt-[1px] h-4 w-4" />
             <p>
-              Rich mode includes more identifying profile context. Only share if you are comfortable with that exposure.
+              Profile mode includes more identifying profile context. Only share if you are comfortable with that exposure.
             </p>
           </div>
           <label className="mt-2 inline-flex items-center gap-2 text-amber-100">
             <input
-              aria-label="Confirm rich share warning"
+              aria-label="Confirm profile share warning"
               type="checkbox"
-              checked={richConfirmed}
-              onChange={(event) => setRichConfirmed(event.currentTarget.checked)}
+              checked={profileWarningConfirmed}
+              onChange={(event) => setProfileWarningConfirmed(event.currentTarget.checked)}
             />
-            I understand and want to generate a rich link.
+            I understand and want to generate a profile link.
           </label>
         </div>
       ) : (
@@ -201,7 +201,7 @@ export function ShareLinkGenerator({
       )}
 
       <div className="flex min-w-0 flex-wrap items-center gap-2 overflow-hidden">
-        <Button variant="outline" onClick={copyLink} disabled={!canCopyRichLink}>
+        <Button variant="outline" onClick={copyLink} disabled={!canCopyProfileLink}>
           {copied ? <Check className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
           {copied ? 'Copied' : 'Copy Share Link'}
         </Button>

@@ -141,13 +141,13 @@ export function DashboardApp(): JSX.Element {
   }, [])
 
   useEffect(() => {
-    const advancedViews: MainView[] = ['charts', 'timeline', 'clock', 'artist', 'habits', 'eras', 'universe', 'lab', 'extras']
-    if (advancedViews.includes(view)) {
-      recordExperienceBehavior('advanced_tab_visit')
+    const fullViews: MainView[] = ['charts', 'timeline', 'clock', 'artist', 'habits', 'eras', 'universe', 'lab', 'extras']
+    if (fullViews.includes(view)) {
+      recordExperienceBehavior('full_tab_visit')
       recordMetric({
-        type: 'advanced_tab_visit',
+        type: 'full_tab_visit',
         timestamp: new Date().toISOString(),
-        dedupeKey: `advanced-tab:${view}`,
+        dedupeKey: `full-tab:${view}`,
         metadata: { view },
       })
     }
@@ -230,7 +230,7 @@ export function DashboardApp(): JSX.Element {
       },
       artist: {
         badge: data.artists[0]?.name ?? 'Top artist',
-        detail: 'search + trend deep dive',
+        detail: 'search + trend analysis',
       },
       habits: {
         badge: pct(data.summary.skipRate),
@@ -315,7 +315,7 @@ export function DashboardApp(): JSX.Element {
         }
       case 'artist':
         return {
-          title: 'Artist Deep Dive',
+          title: 'Artist Analysis',
           description: 'Search-heavy lens for artist-specific trends and top-track composition.',
           stats: [
             { label: 'Indexed artists', value: data.artists.length.toLocaleString() },
@@ -362,7 +362,7 @@ export function DashboardApp(): JSX.Element {
           description: 'Build shareable story cards and export text/media from local analytics.',
           stats: [
             { label: 'Narrative insights', value: data.narrativeInsights.length.toString() },
-            { label: 'Quick insights', value: data.quickInsights.length.toString() },
+            { label: 'Summary insights', value: data.quickInsights.length.toString() },
             { label: 'Privacy mode', value: 'Local-only' },
           ],
         }
@@ -379,8 +379,8 @@ export function DashboardApp(): JSX.Element {
         }
       case 'taste':
         return {
-          title: 'Taste DNA + Enrichment',
-          description: 'Behavioral taste profile with optional Spotify-based enhancement overlays.',
+          title: 'Taste DNA + Spotify Overlay',
+          description: 'Behavioral taste profile with optional Spotify-based overlay data.',
           stats: [
             { label: 'Dimensions', value: data.taste.dimensions.length.toString() },
             { label: 'Yearly fingerprints', value: data.taste.yearlyFingerprints.length.toString() },

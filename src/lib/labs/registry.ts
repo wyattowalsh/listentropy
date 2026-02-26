@@ -108,8 +108,8 @@ export const labModuleManifests: LabModuleManifest[] = [
     description: 'Local in-session baseline vs current dataset comparison (Train B starter aggregate diff).',
   },
   {
-    id: 'forecast-lite',
-    name: 'Forecast Lite',
+    id: 'forecast-snapshot',
+    name: 'Forecast Snapshot',
     category: 'forecast',
     perfTier: 'medium',
     dependsOnCore: ['monthly', 'monthlyBehavior', 'datasetIdentity'],

@@ -138,7 +138,7 @@ export function SpotifyConnectCard({
       </div>
 
       <details className="mt-3 rounded-theme border border-border bg-surface-hover p-3">
-        <summary className="cursor-pointer text-sm font-medium text-text">Manual token (advanced / fallback)</summary>
+        <summary className="cursor-pointer text-sm font-medium text-text">Manual token (full mode / fallback)</summary>
         <p className="mt-2 text-xs text-text-muted">
           Use this if OAuth PKCE is not configured or you want a temporary manual token. Manual tokens are memory-only by default.
         </p>

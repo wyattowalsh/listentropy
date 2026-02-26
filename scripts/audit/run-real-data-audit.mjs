@@ -16,7 +16,7 @@ const tabExpectations = [
   { tab: 'Charts', assert: async (page) => page.getByPlaceholder('Search leaderboard...').waitFor({ state: 'visible', timeout: 30_000 }) },
   { tab: 'Timeline', assert: async (page) => page.getByRole('heading', { name: 'Listening timeline' }).waitFor({ state: 'visible', timeout: 30_000 }) },
   { tab: 'Clock', assert: async (page) => page.getByRole('heading', { name: 'Radial Clock' }).waitFor({ state: 'visible', timeout: 30_000 }) },
-  { tab: 'Artist', assert: async (page) => page.getByRole('heading', { name: 'Artist Deep Dive' }).waitFor({ state: 'visible', timeout: 30_000 }) },
+  { tab: 'Artist', assert: async (page) => page.getByRole('heading', { name: 'Artist Analysis' }).waitFor({ state: 'visible', timeout: 30_000 }) },
   { tab: 'Habits', assert: async (page) => page.getByRole('heading', { name: 'Skip and shuffle trend' }).waitFor({ state: 'visible', timeout: 30_000 }) },
   { tab: 'Context', assert: async (page) => page.getByRole('heading', { name: 'Context Intelligence' }).waitFor({ state: 'visible', timeout: 30_000 }) },
   { tab: 'Eras', assert: async (page) => page.getByRole('heading', { name: 'Music Eras' }).waitFor({ state: 'visible', timeout: 30_000 }) },
@@ -248,9 +248,9 @@ async function runAudit() {
     await page.goto(baseUrl, { waitUntil: 'domcontentloaded' })
     await page.locator('input[type="file"]').setInputFiles(zipPath)
     await page.getByRole('tab', { name: 'Overview' }).waitFor({ state: 'visible', timeout: 180_000 })
-    const unlockAdvanced = page.getByRole('button', { name: 'Unlock Advanced Analytics' })
-    if ((await unlockAdvanced.count()) > 0) {
-      await unlockAdvanced.click()
+    const unlockFull = page.getByRole('button', { name: 'Unlock Full Analytics' })
+    if ((await unlockFull.count()) > 0) {
+      await unlockFull.click()
     }
     report.timingsMs.uploadAndParse = now() - uploadStartAt
     report.checks.uploadParsed = true
@@ -310,8 +310,8 @@ async function runAudit() {
 
     const shareStartAt = now()
     await page.getByRole('tab', { name: 'Share' }).click()
-    await page.getByRole('button', { name: 'Quick Flex' }).click()
-    await page.getByRole('button', { name: 'Anonymous Brag' }).click()
+    await page.getByRole('button', { name: 'Headline Stats' }).click()
+    await page.getByRole('button', { name: 'Anonymous Highlights' }).click()
     const shareLink = await page.locator('code').first().innerText()
     if (!shareLink.includes('/share#')) {
       throw new Error('Share link did not include /share# payload hash')

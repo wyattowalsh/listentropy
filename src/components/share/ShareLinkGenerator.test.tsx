@@ -99,13 +99,13 @@ describe('ShareLinkGenerator', () => {
     })
   })
 
-  it('gates rich-link reveal and copy until warning is confirmed', async () => {
+  it('gates profile-link reveal and copy until warning is confirmed', async () => {
     render(
       <ShareLinkGenerator
         data={makeData()}
         displayName="Alicia"
         selectedCards={['title', 'numbers']}
-        sharePreset="deep-stats"
+        sharePreset="detailed-stats"
         onDisplayNameChange={vi.fn()}
       />,
     )
@@ -122,7 +122,7 @@ describe('ShareLinkGenerator', () => {
     fireEvent.click(copyButton)
     expect(writeText).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByLabelText(/confirm rich share warning/i))
+    fireEvent.click(screen.getByLabelText(/confirm profile share warning/i))
 
     expect(copyButton).toBeEnabled()
     expect(screen.getByText(/\/share#/i, { selector: 'code' })).toBeInTheDocument()

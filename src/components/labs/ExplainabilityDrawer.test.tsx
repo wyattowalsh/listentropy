@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { ExplainabilityDrawer } from '@/components/labs/ExplainabilityDrawer'
 import { getLabModuleManifest } from '@/lib/labs/registry'
-import type { AudioAffectOverlayPayload, ForecastLitePayload, LabModuleResult } from '@/lib/types'
+import type { AudioAffectOverlayPayload, ForecastSnapshotPayload, LabModuleResult } from '@/lib/types'
 
 function makeAudioAffectResult(): LabModuleResult<AudioAffectOverlayPayload> {
   return {
@@ -82,9 +82,9 @@ function makeAudioAffectResult(): LabModuleResult<AudioAffectOverlayPayload> {
   }
 }
 
-function makeForecastResult(): LabModuleResult<ForecastLitePayload> {
+function makeForecastResult(): LabModuleResult<ForecastSnapshotPayload> {
   return {
-    id: 'forecast-lite',
+    id: 'forecast-snapshot',
     status: 'ready',
     message: 'Forecast completed.',
     confidence: {
@@ -93,7 +93,7 @@ function makeForecastResult(): LabModuleResult<ForecastLitePayload> {
       reasons: ['6 monthly periods available'],
     },
     provenance: {
-      moduleId: 'forecast-lite',
+      moduleId: 'forecast-snapshot',
       computedAt: '2026-02-23T10:00:00.000Z',
       durationMs: 9,
       sourceFields: ['monthly', 'monthlyBehavior'],
@@ -137,8 +137,8 @@ describe('ExplainabilityDrawer', () => {
     expect(screen.getByText(/^available$/i)).toBeInTheDocument()
   })
 
-  it('renders forecast-lite specific forecast context details', () => {
-    const manifest = getLabModuleManifest('forecast-lite')
+  it('renders forecast-snapshot specific forecast context details', () => {
+    const manifest = getLabModuleManifest('forecast-snapshot')
     render(<ExplainabilityDrawer manifest={manifest} result={makeForecastResult()} />)
 
     expect(screen.getByText('Forecast Context')).toBeInTheDocument()

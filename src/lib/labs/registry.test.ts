@@ -8,8 +8,8 @@ import { makeSyntheticRecords } from '@/lib/labs/modules/test-helpers'
 describe('xenolab registry', () => {
   it('contains featured Train A manifests', () => {
     expect(getLabModuleManifest('sequence-motifs')?.featured).toBe(true)
-    expect(getLabModuleManifest('forecast-lite')?.featured).toBe(true)
-    expect(getLabModuleManifest('forecast-lite')?.comingSoon).not.toBe(true)
+    expect(getLabModuleManifest('forecast-snapshot')?.featured).toBe(true)
+    expect(getLabModuleManifest('forecast-snapshot')?.comingSoon).not.toBe(true)
     expect(getLabModuleManifest('audio-affect-overlay')?.comingSoon).not.toBe(true)
     expect(labSceneManifests.some((scene) => scene.id === 'intent-sankey')).toBe(true)
   })
@@ -28,9 +28,9 @@ describe('xenolab registry', () => {
     expect(isModuleSupported(manifest!, snapshot)).toMatch(/Coming soon/)
   })
 
-  it('reports enabled forecast-lite module as supported', () => {
+  it('reports enabled forecast-snapshot module as supported', () => {
     const snapshot = makeSyntheticLabSnapshot()
-    const manifest = labModuleManifests.find((item) => item.id === 'forecast-lite')
+    const manifest = labModuleManifests.find((item) => item.id === 'forecast-snapshot')
     expect(manifest).toBeDefined()
     expect(isModuleSupported(manifest!, snapshot)).toBeNull()
   })

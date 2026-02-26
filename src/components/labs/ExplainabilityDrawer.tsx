@@ -3,7 +3,7 @@ import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { ConfidenceBadge } from '@/components/labs/ConfidenceBadge'
 import type {
   AudioAffectOverlayPayload,
-  ForecastLitePayload,
+  ForecastSnapshotPayload,
   LabModuleManifest,
   LabModuleResult,
 } from '@/lib/types'
@@ -36,12 +36,12 @@ function asAudioAffectPayload(manifest?: LabModuleManifest, result?: LabModuleRe
   return payload as AudioAffectOverlayPayload
 }
 
-function asForecastLitePayload(manifest?: LabModuleManifest, result?: LabModuleResult): ForecastLitePayload | null {
-  if (manifest?.id !== 'forecast-lite' || result?.status !== 'ready' || !result.payload) {
+function asForecastSnapshotPayload(manifest?: LabModuleManifest, result?: LabModuleResult): ForecastSnapshotPayload | null {
+  if (manifest?.id !== 'forecast-snapshot' || result?.status !== 'ready' || !result.payload) {
     return null
   }
 
-  const payload = result.payload as Partial<ForecastLitePayload>
+  const payload = result.payload as Partial<ForecastSnapshotPayload>
   if (
     typeof payload.nextMonth !== 'string' ||
     !payload.anomalyRisk ||
@@ -51,12 +51,12 @@ function asForecastLitePayload(manifest?: LabModuleManifest, result?: LabModuleR
     return null
   }
 
-  return payload as ForecastLitePayload
+  return payload as ForecastSnapshotPayload
 }
 
 export function ExplainabilityDrawer({ manifest, result, onClose }: ExplainabilityDrawerProps): JSX.Element {
   const audioAffectPayload = asAudioAffectPayload(manifest, result)
-  const forecastLitePayload = asForecastLitePayload(manifest, result)
+  const forecastSnapshotPayload = asForecastSnapshotPayload(manifest, result)
   const audioTraitCapability = audioAffectPayload
     ? ('audioFeatures' in audioAffectPayload.capabilities
       ? audioAffectPayload.capabilities.audioFeatures
@@ -117,26 +117,26 @@ export function ExplainabilityDrawer({ manifest, result, onClose }: Explainabili
               ) : null}
             </div>
           ) : null}
-          {forecastLitePayload ? (
+          {forecastSnapshotPayload ? (
             <div className="rounded-theme border border-border bg-surface-hover p-3">
               <p className="text-xs text-text-muted">Forecast Context</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-3">
                 <div className="rounded-theme border border-border bg-surface p-2">
                   <p className="text-xs text-text-muted">Forecast month</p>
-                  <p className="text-sm text-text">{forecastLitePayload.nextMonth}</p>
+                  <p className="text-sm text-text">{forecastSnapshotPayload.nextMonth}</p>
                 </div>
                 <div className="rounded-theme border border-border bg-surface p-2">
                   <p className="text-xs text-text-muted">Anomaly risk</p>
-                  <p className="text-sm text-text">{forecastLitePayload.anomalyRisk.level}</p>
+                  <p className="text-sm text-text">{forecastSnapshotPayload.anomalyRisk.level}</p>
                 </div>
                 <div className="rounded-theme border border-border bg-surface p-2">
                   <p className="text-xs text-text-muted">Basis months</p>
-                  <p className="text-sm text-text">{forecastLitePayload.basisMonths.length}</p>
+                  <p className="text-sm text-text">{forecastSnapshotPayload.basisMonths.length}</p>
                 </div>
               </div>
-              {forecastLitePayload.anomalyRisk.reasons.length ? (
+              {forecastSnapshotPayload.anomalyRisk.reasons.length ? (
                 <p className="mt-2 text-xs text-text-muted">
-                  {forecastLitePayload.anomalyRisk.reasons.slice(0, 2).join(' · ')}
+                  {forecastSnapshotPayload.anomalyRisk.reasons.slice(0, 2).join(' · ')}
                 </p>
               ) : null}
             </div>

@@ -5,7 +5,7 @@ import type { SharePayload, SharePayloadV1, SharePayloadV2, SharePayloadV3, Shar
 
 const sharePayloadV1Schema = z.object({
   version: z.literal(1),
-  privacyLevel: z.union([z.literal('aggregate'), z.literal('rich')]),
+  privacyLevel: z.union([z.literal('aggregate'), z.literal('profiled')]),
   checksum: z.string().min(1),
   name: z.string().optional(),
   includeName: z.boolean(),
@@ -26,7 +26,7 @@ const sharePayloadV1Schema = z.object({
 
 const sharePayloadV2Schema = z.object({
   version: z.literal(2),
-  privacyLevel: z.union([z.literal('aggregate'), z.literal('rich')]),
+  privacyLevel: z.union([z.literal('aggregate'), z.literal('profiled')]),
   checksum: z.string().min(1),
   name: z.string().optional(),
   includeName: z.boolean(),
@@ -67,7 +67,7 @@ const sharePayloadContextSchema = z.object({
 
 const sharePayloadV3Schema = z.object({
   version: z.literal(3),
-  privacyLevel: z.union([z.literal('aggregate'), z.literal('rich')]),
+  privacyLevel: z.union([z.literal('aggregate'), z.literal('profiled')]),
   checksum: z.string().min(1),
   name: z.string().optional(),
   includeName: z.boolean(),
@@ -93,7 +93,7 @@ const sharePayloadV3Schema = z.object({
 
 const sharePayloadV4Schema = z.object({
   version: z.literal(4),
-  privacyLevel: z.union([z.literal('aggregate'), z.literal('rich')]),
+  privacyLevel: z.union([z.literal('aggregate'), z.literal('profiled')]),
   checksum: z.string().min(1),
   name: z.string().optional(),
   includeName: z.boolean(),
@@ -116,7 +116,7 @@ const sharePayloadV4Schema = z.object({
   tasteDimensions: z.array(z.number()),
   context: sharePayloadContextSchema,
   selectedCards: z.array(z.string()).min(1),
-  sharePreset: z.union([z.literal('quick-flex'), z.literal('deep-stats'), z.literal('anonymous-brag')]),
+  sharePreset: z.union([z.literal('headline-stats'), z.literal('detailed-stats'), z.literal('anonymous-highlights')]),
   themeKey: z.union([
     z.literal('spotify-dark'),
     z.literal('editorial-light'),
@@ -254,7 +254,7 @@ function upgradeV3ToV4(payload: SharePayloadV3): SharePayloadV4 {
     ...payload,
     version: 4,
     selectedCards: [...SHARE_CARD_NAMES],
-    sharePreset: 'deep-stats',
+    sharePreset: 'detailed-stats',
     themeKey: 'spotify-dark',
   }
 }

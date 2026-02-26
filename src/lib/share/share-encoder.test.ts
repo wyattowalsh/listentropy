@@ -41,7 +41,7 @@ function makeV4Payload(overrides: Partial<SharePayloadV4> = {}): SharePayloadV4 
       incognitoRate: 0.01,
     },
     selectedCards: ['title', 'numbers', 'archetype'],
-    sharePreset: 'quick-flex',
+    sharePreset: 'headline-stats',
     themeKey: 'editorial-light',
     ...overrides,
   }
@@ -222,7 +222,7 @@ describe('share payload encoder', () => {
     const decoded = decodeSharePayload(encoded)
     expect(decoded.version).toBe(4)
     if (decoded.version === 4) {
-      expect(decoded.sharePreset).toBe('quick-flex')
+      expect(decoded.sharePreset).toBe('headline-stats')
       expect(decoded.themeKey).toBe('editorial-light')
       expect(decoded.selectedCards).toEqual(['title', 'numbers', 'archetype'])
     }
@@ -265,12 +265,23 @@ describe('share payload encoder', () => {
     expect(upgraded.version).toBe(4)
     if (upgraded.version === 4) {
       expect(upgraded.selectedCards.length).toBeGreaterThan(0)
-      expect(upgraded.sharePreset).toBe('deep-stats')
+      expect(upgraded.sharePreset).toBe('detailed-stats')
     }
   })
 
   it('rejects invalid payloads', () => {
     expect(() => decodeSharePayload('not-valid')).toThrow()
+  })
+
+  it.each([
+    { label: 'legacy privacy literal', overrides: { privacyLevel: 'rich' } },
+    { label: 'legacy preset quick-flex', overrides: { sharePreset: 'quick-flex' } },
+    { label: 'legacy preset deep-stats', overrides: { sharePreset: 'deep-stats' } },
+    { label: 'legacy preset anonymous-brag', overrides: { sharePreset: 'anonymous-brag' } },
+  ])('rejects deprecated v4 naming literals ($label)', ({ overrides }) => {
+    const rawPayload = { ...makeV4Payload(), ...overrides }
+    const encoded = legacyToBase64Url(JSON.stringify(rawPayload))
+    expect(() => decodeSharePayload(encoded)).toThrow()
   })
 
   it.each([
@@ -282,7 +293,7 @@ describe('share payload encoder', () => {
   ])('round-trips UTF-8 text safely for $label payloads', ({ text }) => {
     const payload = makeV4Payload({
       includeName: true,
-      privacyLevel: 'rich',
+      privacyLevel: 'profiled',
       name: text,
       topArtists: [[text, 42]],
       topTracks: [[`${text} Track`, text, 7]],
@@ -305,7 +316,7 @@ describe('share payload encoder', () => {
   it('decodes legacy latin1/base64url payloads for backward compatibility', () => {
     const payload = makeV4Payload({
       includeName: true,
-      privacyLevel: 'rich',
+      privacyLevel: 'profiled',
       name: 'André',
       topArtists: [['Café del Mar', 10]],
       topTracks: [['Canción', 'Café del Mar', 3]],

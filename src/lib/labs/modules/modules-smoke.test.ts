@@ -13,7 +13,7 @@ const implementedModules: LabModuleId[] = [
   'era-microshifts',
   'compare-engine',
   'counterfactuals',
-  'forecast-lite',
+  'forecast-snapshot',
   'audio-affect-overlay',
 ]
 

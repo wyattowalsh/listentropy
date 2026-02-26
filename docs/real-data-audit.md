@@ -13,7 +13,7 @@ SPOTIFY_ZIP_PATH=/absolute/path/to/my_spotify_data.zip pnpm audit:real-data
 - Zip presence, readability, and Spotify history file structure
 - Upload + parse flow completes in browser
 - Top-level tab traversal renders without crashes
-- Guided-mode and advanced unlock flows render correctly
+- Guided-mode and full unlock flows render correctly
 - Context Intelligence view headings render
 - Weekly timeline labels look ISO-like (`YYYY-W##`) with realistic spread
 - Timezone toggle works (`Local Time` / `UTC`)

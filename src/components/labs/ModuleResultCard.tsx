@@ -3,7 +3,7 @@ import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { ConfidenceBadge } from '@/components/labs/ConfidenceBadge'
 import type {
   AudioAffectOverlayPayload,
-  ForecastLitePayload,
+  ForecastSnapshotPayload,
   LabModuleManifest,
   LabModuleResult,
   LabModuleStatus,
@@ -46,11 +46,11 @@ function asAudioAffectOverlayPayload(manifest: LabModuleManifest, result?: LabMo
   return payload as AudioAffectOverlayPayload
 }
 
-function asForecastLitePayload(manifest: LabModuleManifest, result?: LabModuleResult): ForecastLitePayload | null {
-  if (manifest.id !== 'forecast-lite' || result?.status !== 'ready' || !result.payload) {
+function asForecastSnapshotPayload(manifest: LabModuleManifest, result?: LabModuleResult): ForecastSnapshotPayload | null {
+  if (manifest.id !== 'forecast-snapshot' || result?.status !== 'ready' || !result.payload) {
     return null
   }
-  const payload = result.payload as Partial<ForecastLitePayload>
+  const payload = result.payload as Partial<ForecastSnapshotPayload>
   if (
     typeof payload.nextMonth !== 'string' ||
     !payload.bands ||
@@ -61,7 +61,7 @@ function asForecastLitePayload(manifest: LabModuleManifest, result?: LabModuleRe
   ) {
     return null
   }
-  return payload as ForecastLitePayload
+  return payload as ForecastSnapshotPayload
 }
 
 function percent(value: number): string {
@@ -74,7 +74,7 @@ function score100(value: number): string {
 
 export function ModuleResultCard({ manifest, status, result, onRun, onRetry, onExplain }: ModuleResultCardProps): JSX.Element {
   const audioAffectPayload = asAudioAffectOverlayPayload(manifest, result)
-  const forecastLitePayload = asForecastLitePayload(manifest, result)
+  const forecastSnapshotPayload = asForecastSnapshotPayload(manifest, result)
   const audioTraitCapability = audioAffectPayload
     ? ('audioFeatures' in audioAffectPayload.capabilities
       ? audioAffectPayload.capabilities.audioFeatures
@@ -170,22 +170,22 @@ export function ModuleResultCard({ manifest, status, result, onRun, onRetry, onE
           </div>
         </div>
       ) : null}
-      {forecastLitePayload ? (
+      {forecastSnapshotPayload ? (
         <div className="mt-3 space-y-3 rounded-theme border border-border bg-surface-hover p-3">
-          <p className="text-xs text-text-muted">Forecast Lite Snapshot</p>
+          <p className="text-xs text-text-muted">Forecast Snapshot</p>
 
           <div className="grid gap-2 sm:grid-cols-3">
             <div className="rounded-theme border border-border bg-surface p-2">
               <p className="text-xs text-text-muted">Forecast Month</p>
-              <p className="text-sm text-text">{forecastLitePayload.nextMonth}</p>
+              <p className="text-sm text-text">{forecastSnapshotPayload.nextMonth}</p>
             </div>
             <div className="rounded-theme border border-border bg-surface p-2">
               <p className="text-xs text-text-muted">Anomaly Risk</p>
-              <p className="text-sm text-text">{forecastLitePayload.anomalyRisk.level}</p>
+              <p className="text-sm text-text">{forecastSnapshotPayload.anomalyRisk.level}</p>
             </div>
             <div className="rounded-theme border border-border bg-surface p-2">
               <p className="text-xs text-text-muted">Basis Months</p>
-              <p className="text-sm text-text">{forecastLitePayload.basisMonths.length}</p>
+              <p className="text-sm text-text">{forecastSnapshotPayload.basisMonths.length}</p>
             </div>
           </div>
 
@@ -193,16 +193,16 @@ export function ModuleResultCard({ manifest, status, result, onRun, onRetry, onE
             <p className="text-xs text-text-muted">Forecast Bands (midpoints)</p>
             <ul className="mt-2 grid gap-2 sm:grid-cols-2 text-sm">
               <li className="rounded-theme border border-border bg-surface p-2 text-text">
-                {Math.round(forecastLitePayload.bands.plays.mid).toLocaleString()} plays
+                {Math.round(forecastSnapshotPayload.bands.plays.mid).toLocaleString()} plays
               </li>
               <li className="rounded-theme border border-border bg-surface p-2 text-text">
-                {forecastLitePayload.bands.totalHours.mid.toFixed(1)} h
+                {forecastSnapshotPayload.bands.totalHours.mid.toFixed(1)} h
               </li>
               <li className="rounded-theme border border-border bg-surface p-2 text-text">
-                {Math.round(forecastLitePayload.bands.skipRate.mid * 100)}% skip
+                {Math.round(forecastSnapshotPayload.bands.skipRate.mid * 100)}% skip
               </li>
               <li className="rounded-theme border border-border bg-surface p-2 text-text">
-                {Math.round(forecastLitePayload.bands.shuffleRate.mid * 100)}% shuffle
+                {Math.round(forecastSnapshotPayload.bands.shuffleRate.mid * 100)}% shuffle
               </li>
             </ul>
           </div>
@@ -210,7 +210,7 @@ export function ModuleResultCard({ manifest, status, result, onRun, onRetry, onE
           <div>
             <p className="text-xs text-text-muted">Trend Signals</p>
             <ul className="mt-2 space-y-1 text-sm text-text">
-              {forecastLitePayload.trendSignals.slice(0, 4).map((signal) => (
+              {forecastSnapshotPayload.trendSignals.slice(0, 4).map((signal) => (
                 <li key={signal.key}>
                   {signal.label}: {signal.direction} ({Math.round(signal.strength * 100)}%)
                 </li>

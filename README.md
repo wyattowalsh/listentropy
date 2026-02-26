@@ -7,7 +7,7 @@ Listentropy is a privacy-first Spotify listening explorer that runs 100% in your
 ## Highlights
 
 - Fully client-side data processing (no user data leaves the browser).
-- Adaptive dual-path UX: guided mode (high-signal defaults) and advanced mode (full analytics surface).
+- Adaptive dual-path UX: guided mode (high-signal defaults) and full mode (full analytics surface).
 - 12 analytics views: overview, charts, timeline, clock/calendar, artist deep dive, habits, context intelligence, eras, share studio, universe graph, taste DNA, and extras.
 - Xenolab (Train A) Lab tab for deferred, on-demand analytics modules and experimental visual scenes.
 - Share Studio with a deterministic 14-card deck, presets, PNG/ZIP export, copy-to-clipboard, and versioned share links.
@@ -42,7 +42,7 @@ Required contents inside the zip include files like:
 - No analytics trackers or telemetry beacons are included.
 - No user data is sent to external services.
 - Optional Spotify API token (Taste DNA enrichment) is stored in `sessionStorage` only.
-- Theme preference and experience mode (`guided`/`advanced`) are stored in `localStorage`.
+- Theme preference and experience mode (`guided`/`full`) are stored in `localStorage`.
 - Session KPI events are kept in-memory and can be exported manually as JSON.
 - Xenolab deferred module results are cached in-memory per dataset fingerprint and are not persisted across refreshes.
 
@@ -68,7 +68,7 @@ See:
 
 - Share links encode aggregate payloads in URL hash (`/share#...`).
 - Payload schema is versioned (`v4`) with backward-compatible decode/upgrade for `v1`/`v2`/`v3`.
-- Share presets (Quick Flex / Deep Stats / Anonymous Brag) preconfigure card selection and copy style.
+- Share presets (Headline Stats / Detailed Stats / Anonymous Highlights) preconfigure card selection and copy style.
 - Payloads preserve timezone mode semantics to keep sender/receiver story timing aligned.
 - Rich-share mode requires explicit user confirmation.
 - Optional anonymization redacts top artist/track names.
@@ -135,7 +135,7 @@ pnpm test:coverage          # run unit tests with coverage output
 pnpm coverage:gate          # enforce coverage thresholds
 pnpm perf:budget            # enforce build size budgets
 SPOTIFY_ZIP_PATH=/abs/path.zip pnpm audit:real-data
-pnpm perf:megafixture        # local synthetic 50k-record process/toggle benchmark
+pnpm perf:large-fixture        # local synthetic 50k-record process/toggle benchmark
 ```
 
 ### Real-Data Audit (Local Only)
@@ -151,7 +151,7 @@ The audit validates:
 - zip structure and history files
 - upload and parse flow
 - rendering across all top-level tabs
-- guided-mode + advanced unlock tab behavior
+- guided-mode + full unlock tab behavior
 - Context Intelligence rendering and key section presence
 - weekly timeline ISO-like labels (not collapsed to W01..W06)
 - timezone toggle behavior (`local`/`utc`)

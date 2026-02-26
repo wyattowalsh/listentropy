@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { ModuleResultCard } from '@/components/labs/ModuleResultCard'
 import { getLabModuleManifest } from '@/lib/labs/registry'
-import type { AudioAffectOverlayPayload, ForecastLitePayload, LabModuleResult } from '@/lib/types'
+import type { AudioAffectOverlayPayload, ForecastSnapshotPayload, LabModuleResult } from '@/lib/types'
 
 function makeAudioAffectResult(): LabModuleResult<AudioAffectOverlayPayload> {
   return {
@@ -110,11 +110,11 @@ describe('ModuleResultCard', () => {
     expect(screen.getByText(/traits available/i)).toBeInTheDocument()
   })
 
-  it('renders forecast-lite summary bands and anomaly risk', () => {
-    const manifest = getLabModuleManifest('forecast-lite')
+  it('renders forecast-snapshot summary bands and anomaly risk', () => {
+    const manifest = getLabModuleManifest('forecast-snapshot')
     expect(manifest).toBeDefined()
-    const result: LabModuleResult<ForecastLitePayload> = {
-      id: 'forecast-lite',
+    const result: LabModuleResult<ForecastSnapshotPayload> = {
+      id: 'forecast-snapshot',
       status: 'ready',
       message: 'Forecasted next month range from recent monthly behavior.',
       confidence: {
@@ -123,7 +123,7 @@ describe('ModuleResultCard', () => {
         reasons: ['recent monthly coverage'],
       },
       provenance: {
-        moduleId: 'forecast-lite',
+        moduleId: 'forecast-snapshot',
         computedAt: new Date().toISOString(),
         durationMs: 11,
         sourceFields: ['monthly', 'monthlyBehavior'],
@@ -164,7 +164,8 @@ describe('ModuleResultCard', () => {
       />,
     )
 
-    expect(screen.getByText('Forecast Lite Snapshot')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Forecast Snapshot' })).toBeInTheDocument()
+    expect(screen.getByText('Forecast Snapshot', { selector: 'p' })).toBeInTheDocument()
     expect(screen.getByText('Forecast Month')).toBeInTheDocument()
     expect(screen.getByText('2025-03')).toBeInTheDocument()
     expect(screen.getByText('Anomaly Risk')).toBeInTheDocument()

@@ -3,22 +3,22 @@ import type { SharePreset } from '@/lib/types'
 
 export const SHARE_PRESETS: SharePreset[] = [
   {
-    id: 'quick-flex',
-    label: 'Quick Flex',
+    id: 'headline-stats',
+    label: 'Headline Stats',
     description: 'Fast shareable brag with headline stats and persona.',
     selectedCards: ['title', 'numbers', 'archetype', 'top-artists'],
     copyTone: 'bold',
   },
   {
-    id: 'deep-stats',
-    label: 'Deep Stats',
+    id: 'detailed-stats',
+    label: 'Detailed Stats',
     description: 'Broader story arc with context and behavior cards.',
     selectedCards: [...SHARE_CARD_NAMES],
     copyTone: 'detailed',
   },
   {
-    id: 'anonymous-brag',
-    label: 'Anonymous Brag',
+    id: 'anonymous-highlights',
+    label: 'Anonymous Highlights',
     description: 'Privacy-friendly highlights focused on non-identifying signals.',
     selectedCards: ['title', 'numbers', 'clock', 'archetype', 'travel-footprint', 'offline-private'],
     copyTone: 'anonymous',

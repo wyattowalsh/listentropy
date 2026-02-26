@@ -1,8 +1,8 @@
-import type { ForecastLitePayload, LabDatasetSnapshot } from '@/lib/types'
+import type { ForecastSnapshotPayload, LabDatasetSnapshot } from '@/lib/types'
 
 import { clamp01, confidenceFromValue, getStartTime, readyResult, round, unsupportedResult } from '@/lib/labs/modules/utils'
 
-type MetricKey = keyof ForecastLitePayload['bands']
+type MetricKey = keyof ForecastSnapshotPayload['bands']
 
 interface ForecastSeriesPoint {
   key: string
@@ -54,7 +54,7 @@ function forecastBand(
   series: ForecastSeriesPoint[],
   metricKey: MetricKey,
   isRate: boolean,
-): ForecastLitePayload['bands'][MetricKey] {
+): ForecastSnapshotPayload['bands'][MetricKey] {
   const values = series.map((point) => point[metricKey])
   const last = values.at(-1) ?? 0
   const diffs = values.slice(1).map((value, index) => value - values[index])
@@ -81,7 +81,7 @@ function forecastBand(
   }
 }
 
-function buildTrendSignals(series: ForecastSeriesPoint[]): ForecastLitePayload['trendSignals'] {
+function buildTrendSignals(series: ForecastSeriesPoint[]): ForecastSnapshotPayload['trendSignals'] {
   const defs: Array<{ key: MetricKey; label: string; isRate: boolean }> = [
     { key: 'plays', label: 'Plays', isRate: false },
     { key: 'totalHours', label: 'Total Hours', isRate: false },
@@ -105,7 +105,7 @@ function buildTrendSignals(series: ForecastSeriesPoint[]): ForecastLitePayload['
   })
 }
 
-function buildAnomalyRisk(series: ForecastSeriesPoint[]): ForecastLitePayload['anomalyRisk'] {
+function buildAnomalyRisk(series: ForecastSeriesPoint[]): ForecastSnapshotPayload['anomalyRisk'] {
   const metrics: MetricKey[] = ['plays', 'totalHours', 'skipRate', 'shuffleRate']
   const scores = metrics.map((metricKey) => {
     const values = series.map((point) => point[metricKey])
@@ -133,18 +133,18 @@ function buildAnomalyRisk(series: ForecastSeriesPoint[]): ForecastLitePayload['a
   }
 }
 
-export function runForecastLiteModule(snapshot: LabDatasetSnapshot) {
+export function runForecastSnapshotModule(snapshot: LabDatasetSnapshot) {
   const startedAt = getStartTime()
   const series = buildSeries(snapshot)
   const usable = series.filter((point) => point.plays > 0)
 
   if (usable.length < 4) {
-    return unsupportedResult<ForecastLitePayload>({
-      moduleId: 'forecast-lite',
+    return unsupportedResult<ForecastSnapshotPayload>({
+      moduleId: 'forecast-snapshot',
       startedAt,
-      message: 'Need at least 4 non-empty months to generate a forecast-lite heuristic.',
+      message: 'Need at least 4 non-empty months to generate a forecast-snapshot heuristic.',
       sourceFields: ['monthly', 'monthlyBehavior', 'datasetIdentity'],
-      assumptions: ['Forecast Lite uses recent month-level aggregates and behavior rates only.'],
+      assumptions: ['Forecast Snapshot uses recent month-level aggregates and behavior rates only.'],
     })
   }
 
@@ -152,7 +152,7 @@ export function runForecastLiteModule(snapshot: LabDatasetSnapshot) {
   const lastMonth = recent.at(-1)?.key ?? usable.at(-1)?.key ?? 'unknown'
   const nextMonth = nextMonthKey(lastMonth)
 
-  const payload: ForecastLitePayload = {
+  const payload: ForecastSnapshotPayload = {
     nextMonth,
     horizonMonths: 1,
     bands: {
@@ -181,14 +181,14 @@ export function runForecastLiteModule(snapshot: LabDatasetSnapshot) {
   )
 
   return readyResult({
-    moduleId: 'forecast-lite',
+    moduleId: 'forecast-snapshot',
     startedAt,
     payload,
     confidence,
     sourceFields: ['monthly', 'monthlyBehavior', 'datasetIdentity'],
     method: 'heuristic one-step forecast from recent month aggregates with volatility bands',
     assumptions: [
-      'Forecast Lite uses the last 4-6 non-empty months only and does not model seasonality.',
+      'Forecast Snapshot uses the last 4-6 non-empty months only and does not model seasonality.',
       'Bands reflect recent volatility and trend, not formal probabilistic intervals.',
     ],
     warnings: [
@@ -196,7 +196,7 @@ export function runForecastLiteModule(snapshot: LabDatasetSnapshot) {
         ? ['High anomaly risk widens uncertainty; treat bands as exploratory guidance.']
         : []),
     ],
-    message: `Forecast Lite projects ${payload.nextMonth} using ${recent.length} recent months (${payload.anomalyRisk.level} anomaly risk).`,
+    message: `Forecast Snapshot projects ${payload.nextMonth} using ${recent.length} recent months (${payload.anomalyRisk.level} anomaly risk).`,
   })
 }
 

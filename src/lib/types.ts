@@ -1,8 +1,8 @@
 export type ContentType = 'music' | 'podcast' | 'audiobook'
 export type TimezoneMode = 'local' | 'utc'
-export type ExperienceLevel = 'guided' | 'advanced'
+export type ExperienceLevel = 'guided' | 'full'
 export type ThemeKey = 'spotify-dark' | 'editorial-light' | 'brutalist' | 'midnight'
-export type SharePresetId = 'quick-flex' | 'deep-stats' | 'anonymous-brag'
+export type SharePresetId = 'headline-stats' | 'detailed-stats' | 'anonymous-highlights'
 
 export type PlatformCategory =
   | 'iOS'
@@ -454,7 +454,7 @@ export type LabModuleId =
   | 'era-microshifts'
   | 'compare-engine'
   | 'counterfactuals'
-  | 'forecast-lite'
+  | 'forecast-snapshot'
   | 'stability-chaos'
   | 'audio-affect-overlay'
 
@@ -909,7 +909,7 @@ export interface CompareEnginePayload {
   notes: string[]
 }
 
-export interface ForecastLitePayload {
+export interface ForecastSnapshotPayload {
   nextMonth: string
   horizonMonths: 1
   bands: {
@@ -963,7 +963,7 @@ export interface LabModulePayloadMap {
   'era-microshifts': EraMicroshiftsPayload
   'compare-engine': CompareEnginePayload
   'counterfactuals': CounterfactualsPayload
-  'forecast-lite': ForecastLitePayload
+  'forecast-snapshot': ForecastSnapshotPayload
   'stability-chaos': StabilityChaosPayload
   'audio-affect-overlay': AudioAffectOverlayPayload
 }
@@ -1056,7 +1056,7 @@ export type LabWorkerResponse =
 
 export interface SharePayloadV1 {
   version: 1
-  privacyLevel: 'aggregate' | 'rich'
+  privacyLevel: 'aggregate' | 'profiled'
   checksum: string
   name?: string
   includeName: boolean
@@ -1077,7 +1077,7 @@ export interface SharePayloadV1 {
 
 export interface SharePayloadV2 {
   version: 2
-  privacyLevel: 'aggregate' | 'rich'
+  privacyLevel: 'aggregate' | 'profiled'
   checksum: string
   name?: string
   includeName: boolean
@@ -1102,7 +1102,7 @@ export interface SharePayloadV2 {
 
 export interface SharePayloadV3 {
   version: 3
-  privacyLevel: 'aggregate' | 'rich'
+  privacyLevel: 'aggregate' | 'profiled'
   checksum: string
   name?: string
   includeName: boolean
@@ -1189,8 +1189,8 @@ export type SessionMetricEventType =
   | 'share_link_generated'
   | 'share_link_copied'
   | 'asset_exported'
-  | 'advanced_mode_enabled'
-  | 'advanced_tab_visit'
+  | 'full_mode_enabled'
+  | 'full_tab_visit'
   | 'universe_mode_switched'
   | 'universe_3d_init_success'
   | 'universe_3d_init_failed'

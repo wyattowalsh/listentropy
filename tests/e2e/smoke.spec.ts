@@ -105,7 +105,7 @@ test('renders upload onboarding and privacy copy', async ({ page }) => {
 test('all top-level tabs render after upload', async ({ page }) => {
   await page.goto('/')
   await uploadFixture(page)
-  await expect(page.getByRole('button', { name: 'Unlock Advanced Analytics' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Unlock Full Analytics' })).toHaveCount(0)
 
   const chartsPanel = await openPrimaryAnalyticsTab(page, 'Charts')
   await expect(chartsPanel.getByPlaceholder('Search leaderboard...')).toBeVisible()
@@ -171,8 +171,8 @@ test('share studio supports full deck traversal and share links', async ({ page 
   await uploadFixture(page)
 
   await primaryAnalyticsTab(page, 'Share').click()
-  await page.getByRole('button', { name: 'Quick Flex' }).click()
-  await page.getByRole('button', { name: 'Deep Stats' }).click()
+  await page.getByRole('button', { name: 'Headline Stats' }).click()
+  await page.getByRole('button', { name: 'Detailed Stats' }).click()
 
   for (let index = 0; index < 13; index += 1) {
     await page.getByRole('button', { name: 'Go to next story card' }).click()
@@ -202,7 +202,7 @@ test('guided upload-to-share funnel works on mobile viewport', async ({ page }) 
   await expect(primaryAnalyticsTab(page, 'Share')).toBeVisible()
   await primaryAnalyticsTab(page, 'Share').click()
   await expect(page.getByRole('heading', { name: 'Share Studio' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Quick Flex' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Headline Stats' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Copy Share Link' })).toBeVisible()
 })
 

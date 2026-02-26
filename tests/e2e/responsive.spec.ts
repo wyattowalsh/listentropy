@@ -44,7 +44,7 @@ test('@matrix fresh upload shows tabs immediately and charts renders', async ({ 
   await page.goto('/')
   await uploadSyntheticFixture(page)
 
-  await expect(page.getByRole('button', { name: 'Unlock Advanced Analytics' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Unlock Full Analytics' })).toHaveCount(0)
   await page.getByRole('tab', { name: 'Charts' }).click()
   await expect(page.getByPlaceholder('Search leaderboard...')).toBeVisible()
 })

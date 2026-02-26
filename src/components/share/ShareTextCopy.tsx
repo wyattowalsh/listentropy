@@ -73,7 +73,7 @@ function formatVerbose(data: ProcessedDataModel): string {
   ].join('\n')
 }
 
-export function ShareTextCopy({ data, presetId = 'deep-stats', onCopied }: ShareTextCopyProps): JSX.Element {
+export function ShareTextCopy({ data, presetId = 'detailed-stats', onCopied }: ShareTextCopyProps): JSX.Element {
   const [copied, setCopied] = useState<string | null>(null)
   const preset = getSharePresetById(presetId)
   const snippets = useMemo(
