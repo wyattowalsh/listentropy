@@ -189,8 +189,8 @@ See also:
 ## Deployment
 
 - Static build output: `dist/`
-- CI workflow available in `.github/workflows/ci.yml`
-- Vercel deploy workflow in `.github/workflows/deploy-vercel.yml`
+- CI workflow available in `.github/workflows/ci.yml` (quality gate)
+- Vercel deploy workflow in `.github/workflows/deploy-vercel.yml` (production deploy after successful CI on `main`)
 - GitHub Pages deploy workflow in `.github/workflows/deploy-github-pages.yml` (optional free static hosting)
 
 ### Recommended Production Setup (Free-to-Operate)
@@ -202,6 +202,7 @@ See also:
 Guide:
 
 - `docs/deploy-vercel-cloudflare-dns-only.md`
+  - Includes the split preview/prod deployment model, Cloudflare DNS-only setup, Spotify OAuth PKCE redirect URIs, and Vercel env var configuration for preview + production
 
 ## Notes on Vite Versioning
 
