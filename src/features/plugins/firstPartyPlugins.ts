@@ -102,8 +102,8 @@ export const anomalyDetectorPlugin: PluginModule = {
 
 export const smartRediscoveryPlugin: PluginModule = {
   manifest: {
-    id: 'smart-rediscovery',
-    name: 'Smart Rediscovery',
+    id: 'rediscovery-queue',
+    name: 'Rediscovery Queue',
     version: '1.0.0',
     origin: 'first-party',
     capabilities: ['readAggregates', 'addPanel', 'addShareCard', 'runAction'],

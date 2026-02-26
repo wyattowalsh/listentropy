@@ -57,7 +57,7 @@ export function ArtistDeepDive({ data }: ArtistDeepDiveProps): JSX.Element {
   if (!selectedArtist) {
     return (
       <Card>
-        <CardTitle>Artist Deep Dive</CardTitle>
+        <CardTitle>Artist Analysis</CardTitle>
         <CardDescription>No artist found for your search.</CardDescription>
       </Card>
     )
@@ -66,7 +66,7 @@ export function ArtistDeepDive({ data }: ArtistDeepDiveProps): JSX.Element {
   return (
     <div className="space-y-4">
       <Card>
-        <CardTitle>Artist Deep Dive</CardTitle>
+        <CardTitle>Artist Analysis</CardTitle>
         <div className="mt-3 max-w-lg">
           <Input
             placeholder="Search artist..."

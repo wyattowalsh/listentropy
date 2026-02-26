@@ -25,7 +25,7 @@ export function PluginExtras({ data }: PluginExtrasProps): JSX.Element {
       'playlist-seed-export': 'creator',
       'snapshot-compare': 'analyst',
       'anomaly-detector': 'analyst',
-      'smart-rediscovery': 'creator',
+      'rediscovery-queue': 'creator',
     }
     const lowered = query.trim().toLowerCase()
     const filtered = plugins.filter((plugin) => {

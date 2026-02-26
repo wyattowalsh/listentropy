@@ -45,7 +45,7 @@ interface SpotifyRelatedArtistsResponse {
   artists: SpotifyArtist[]
 }
 
-export interface SpotifyEnhancementResult {
+export interface SpotifyAudioProfileResult {
   dimensions: Array<{ key: string; label: string; score: number }>
   fetchedTrackCount: number
   genreAffinities?: Array<{ genre: string; share: number }>
@@ -77,7 +77,7 @@ function average(values: number[]): number {
 export async function fetchSpotifyAudioFeatureProfile(
   token: string,
   trackUris: string[],
-): Promise<SpotifyEnhancementResult> {
+): Promise<SpotifyAudioProfileResult> {
   const ids = trackUris
     .map((uri) => uri.split(':')[2])
     .filter((value): value is string => Boolean(value))
@@ -93,7 +93,7 @@ export async function fetchSpotifyAudioFeatureProfile(
     allFeatures.push(...payload.audio_features.filter(Boolean))
   }
 
-  const result: SpotifyEnhancementResult = {
+  const result: SpotifyAudioProfileResult = {
     fetchedTrackCount: allFeatures.length,
     dimensions: [
       { key: 'danceability', label: 'Danceability', score: average(allFeatures.map((item) => item.danceability)) },
@@ -137,7 +137,7 @@ async function spotifyGet<T>(args: { token: string; url: string; endpoint: strin
 async function enrichArtistNeighborhood(token: string, trackIds: string[]): Promise<{
   genreAffinities: Array<{ genre: string; share: number }>
   artistAffinities: Array<{ id: string; name: string; trackRefs: number; genres: string[] }>
-  neighborhoodQuality: SpotifyEnhancementResult['neighborhoodQuality']
+  neighborhoodQuality: SpotifyAudioProfileResult['neighborhoodQuality']
   warnings: string[]
 }> {
   const warnings: string[] = []
@@ -203,7 +203,7 @@ async function enrichArtistNeighborhood(token: string, trackIds: string[]): Prom
     .sort((a, b) => b.trackRefs - a.trackRefs)
     .slice(0, 8)
 
-  let neighborhoodQuality: SpotifyEnhancementResult['neighborhoodQuality'] = null
+  let neighborhoodQuality: SpotifyAudioProfileResult['neighborhoodQuality'] = null
   try {
     const sampled = artists
       .slice()

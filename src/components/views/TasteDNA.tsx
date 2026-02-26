@@ -14,7 +14,7 @@ import { TasteFingerprint } from '@/components/charts/TasteFingerprint'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { fetchSpotifyAudioFeatureProfile, type SpotifyEnhancementResult } from '@/lib/spotify-api'
+import { fetchSpotifyAudioFeatureProfile, type SpotifyAudioProfileResult } from '@/lib/spotify-api'
 import type { ProcessedDataModel } from '@/lib/types'
 import { useSpotifyAuthStore } from '@/store/useSpotifyAuthStore'
 
@@ -36,8 +36,8 @@ export function TasteDNA({ data }: TasteDNAProps): JSX.Element {
   const [token, setToken] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [enhanced, setEnhanced] = useState<Array<{ key: string; label: string; score: number }>>([])
-  const [enhancedMeta, setEnhancedMeta] = useState<SpotifyEnhancementResult | null>(null)
+  const [overlayDimensions, setOverlayDimensions] = useState<Array<{ key: string; label: string; score: number }>>([])
+  const [spotifyProfile, setSpotifyProfile] = useState<SpotifyAudioProfileResult | null>(null)
 
   useEffect(() => {
     if (spotifySession?.tokenSource === 'manual-token') {
@@ -46,13 +46,13 @@ export function TasteDNA({ data }: TasteDNAProps): JSX.Element {
   }, [spotifySession])
 
   const combinedDimensions = useMemo(() => {
-    if (enhanced.length === 0) {
+    if (overlayDimensions.length === 0) {
       return data.taste.dimensions
     }
-    return [...data.taste.dimensions.slice(0, 6), ...enhanced]
-  }, [data.taste.dimensions, enhanced])
+    return [...data.taste.dimensions.slice(0, 6), ...overlayDimensions]
+  }, [data.taste.dimensions, overlayDimensions])
 
-  async function enhance(): Promise<void> {
+  async function loadSpotifyOverlay(): Promise<void> {
     setLoading(true)
     setError(null)
     try {
@@ -72,8 +72,8 @@ export function TasteDNA({ data }: TasteDNAProps): JSX.Element {
           .map((track) => data.trackUriIndex[`${track.name}::${track.artist}`] ?? null)
           .filter((value): value is string => Boolean(value)),
       )
-      setEnhanced(result.dimensions)
-      setEnhancedMeta(result)
+      setOverlayDimensions(result.dimensions)
+      setSpotifyProfile(result)
     } catch (caught) {
       setError((caught as Error).message)
     } finally {
@@ -86,7 +86,7 @@ export function TasteDNA({ data }: TasteDNAProps): JSX.Element {
       <Card>
         <CardTitle>Taste DNA</CardTitle>
         <CardDescription className="mt-1">
-          Behavioral profile by default. Add Spotify API enhancement for audio feature depth.
+          Behavioral profile by default. Add Spotify API overlay for audio feature depth.
         </CardDescription>
         <div className="mt-3 flex flex-wrap gap-2">
           <Input
@@ -101,8 +101,8 @@ export function TasteDNA({ data }: TasteDNAProps): JSX.Element {
           <Button variant="outline" onClick={disconnect} disabled={!spotifySession}>
             Disconnect
           </Button>
-          <Button onClick={enhance} disabled={loading}>
-            {loading ? 'Loading...' : 'Enhance with Spotify API'}
+          <Button onClick={loadSpotifyOverlay} disabled={loading}>
+            {loading ? 'Loading...' : 'Load Spotify Overlay'}
           </Button>
         </div>
         {!token.trim() ? (
@@ -116,9 +116,9 @@ export function TasteDNA({ data }: TasteDNAProps): JSX.Element {
         </p>
         {error ? <p className="mt-2 text-sm text-negative">{error}</p> : null}
         {authError ? <p className="mt-2 text-sm text-negative">{authError}</p> : null}
-        {enhancedMeta?.warnings && enhancedMeta.warnings.length > 0 ? (
+        {spotifyProfile?.warnings && spotifyProfile.warnings.length > 0 ? (
           <ul className="mt-2 list-disc pl-4 text-xs text-text-muted">
-            {enhancedMeta.warnings.map((warning) => (
+            {spotifyProfile.warnings.map((warning) => (
               <li key={warning}>{warning}</li>
             ))}
           </ul>
@@ -160,12 +160,12 @@ export function TasteDNA({ data }: TasteDNAProps): JSX.Element {
         </div>
       </Card>
 
-      {enhancedMeta?.genreAffinities && enhancedMeta.genreAffinities.length > 0 ? (
+      {spotifyProfile?.genreAffinities && spotifyProfile.genreAffinities.length > 0 ? (
         <div className="grid gap-4 xl:grid-cols-2">
           <Card>
             <CardTitle>Genre Affinity Overlay</CardTitle>
             <div className="mt-3 grid gap-2 md:grid-cols-2">
-              {enhancedMeta.genreAffinities.slice(0, 8).map((genre) => (
+              {spotifyProfile.genreAffinities.slice(0, 8).map((genre) => (
                 <div key={genre.genre} className="rounded-theme border border-border bg-surface-hover p-3">
                   <p className="text-sm text-text">{genre.genre}</p>
                   <p className="text-xs text-text-muted">{Math.round(genre.share * 100)}% of sampled artists</p>
@@ -176,13 +176,13 @@ export function TasteDNA({ data }: TasteDNAProps): JSX.Element {
           <Card>
             <CardTitle>Artist Neighborhood Quality</CardTitle>
             <p className="mt-2 text-sm text-text-muted">
-              {enhancedMeta.neighborhoodQuality?.endpointSupported
-                ? `Related-artist overlap score ${Math.round((enhancedMeta.neighborhoodQuality.score ?? 0) * 100)}% from ${enhancedMeta.neighborhoodQuality.sampledArtists} sampled artists.`
+              {spotifyProfile.neighborhoodQuality?.endpointSupported
+                ? `Related-artist overlap score ${Math.round((spotifyProfile.neighborhoodQuality.score ?? 0) * 100)}% from ${spotifyProfile.neighborhoodQuality.sampledArtists} sampled artists.`
                 : 'Related-artist endpoint unavailable for this token; genre affinity overlay is still applied.'}
             </p>
-            {enhancedMeta.artistAffinities && enhancedMeta.artistAffinities.length > 0 ? (
+            {spotifyProfile.artistAffinities && spotifyProfile.artistAffinities.length > 0 ? (
               <ol className="mt-3 space-y-2">
-                {enhancedMeta.artistAffinities.slice(0, 6).map((artist) => (
+                {spotifyProfile.artistAffinities.slice(0, 6).map((artist) => (
                   <li key={artist.id} className="flex items-center justify-between gap-2 text-sm">
                     <span className="text-text">
                       {artist.name}
