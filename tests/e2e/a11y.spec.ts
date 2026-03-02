@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
+import type { Locator } from '@playwright/test'
 
 import { uploadSyntheticFixture } from './helpers/spotifyFixture'
 
@@ -9,6 +10,13 @@ async function expectNoAxeViolations(page: Parameters<typeof test>[0]['page']): 
     .analyze()
 
   expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([])
+}
+
+async function expectTouchTargetAtLeast(locator: Locator, minSize = 40): Promise<void> {
+  const box = await locator.boundingBox()
+  expect(box).not.toBeNull()
+  expect(box!.width).toBeGreaterThanOrEqual(minSize)
+  expect(box!.height).toBeGreaterThanOrEqual(minSize)
 }
 
 test.beforeEach(async ({ page }) => {
@@ -42,5 +50,39 @@ test('@a11y invalid upload error screen has no axe violations', async ({ page })
   })
 
   await expect(page.getByText(/valid \.zip archive/i)).toBeVisible()
+  await expectNoAxeViolations(page)
+})
+
+test('@a11y redesign surfaces keep semantics, touch targets, and contrast-safe states', async ({ page }) => {
+  await page.goto('/')
+  await uploadSyntheticFixture(page)
+
+  const resetButton = page.getByRole('button', { name: 'Reset uploaded data' })
+  await expect(resetButton).toBeVisible()
+  await expectTouchTargetAtLeast(resetButton)
+
+  await page.getByRole('tab', { name: 'Explore' }).click()
+  await expect(page.getByRole('heading', { name: 'Explore', level: 2 })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Explore section navigation' })).toBeVisible()
+  await expectNoAxeViolations(page)
+
+  await page.getByRole('tab', { name: 'Taste DNA' }).click()
+  await expect(page.getByRole('heading', { name: 'Taste DNA', level: 2 })).toBeVisible()
+  await expectNoAxeViolations(page)
+
+  await page.getByRole('button', { name: 'Advanced', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Advanced', level: 2 })).toBeVisible()
+  await expectNoAxeViolations(page)
+
+  await page.getByRole('combobox', { name: 'Advanced section' }).selectOption('network')
+  await expect(page.getByRole('heading', { name: 'Music Universe Graph', level: 2 })).toBeVisible()
+  await expectNoAxeViolations(page)
+
+  await page.getByRole('combobox', { name: 'Advanced section' }).selectOption('artist')
+  await expect(page.getByRole('heading', { name: 'Artist Analysis', level: 2 })).toBeVisible()
+  await expectNoAxeViolations(page)
+
+  await page.getByRole('combobox', { name: 'Advanced section' }).selectOption('plugins')
+  await expect(page.getByRole('heading', { name: 'Plugin Extras', level: 2 })).toBeVisible()
   await expectNoAxeViolations(page)
 })

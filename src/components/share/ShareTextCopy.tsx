@@ -78,16 +78,36 @@ export function ShareTextCopy({ data, presetId = 'detailed-stats', onCopied }: S
   const preset = getSharePresetById(presetId)
   const snippets = useMemo(
     () => ({
-      preset: [
-        `${preset.label} • ${Math.round(data.summary.totalHours).toLocaleString()}h`,
-        `${data.archetypes.primary.label} ${data.archetypes.primary.emoji}`,
-        `Travel ${Math.round(data.contextAnalytics.country.travelShare * 100)}% • Skip ${Math.round(data.summary.skipRate * 100)}%`,
-        'listentropy.com',
-      ].join(' | '),
-      twitter: formatTwitter(data),
-      reddit: formatReddit(data),
-      discord: formatDiscord(data),
-      verbose: formatVerbose(data),
+      preset: {
+        title: 'Preset summary',
+        hint: 'One-line highlight for captions and quick posts.',
+        text: [
+          `${preset.label} • ${Math.round(data.summary.totalHours).toLocaleString()}h`,
+          `${data.archetypes.primary.label} ${data.archetypes.primary.emoji}`,
+          `Travel ${Math.round(data.contextAnalytics.country.travelShare * 100)}% • Skip ${Math.round(data.summary.skipRate * 100)}%`,
+          'listentropy.com',
+        ].join(' | '),
+      },
+      twitter: {
+        title: 'Twitter / X',
+        hint: 'Thread-friendly multiline format with stats.',
+        text: formatTwitter(data),
+      },
+      reddit: {
+        title: 'Reddit markdown',
+        hint: 'Ready for markdown posts with ranked artists.',
+        text: formatReddit(data),
+      },
+      discord: {
+        title: 'Discord status',
+        hint: 'Compact single-line flex for chat.',
+        text: formatDiscord(data),
+      },
+      verbose: {
+        title: 'Verbose summary',
+        hint: 'Detailed copy for notes, docs, or bios.',
+        text: formatVerbose(data),
+      },
     }),
     [data, preset],
   )
@@ -100,18 +120,25 @@ export function ShareTextCopy({ data, presetId = 'detailed-stats', onCopied }: S
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {(Object.entries(snippets) as Array<[string, string]>).map(([label, text]) => (
-        <Button
-          key={label}
-          variant="outline"
-          onClick={() => copy(label, text)}
-          className="capitalize"
-        >
-          {copied === label ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-          Copy {label}
-        </Button>
-      ))}
+    <div className="grid gap-2 sm:grid-cols-2">
+      {(Object.entries(snippets) as Array<[string, { title: string; hint: string; text: string }]>).map(
+        ([label, snippet]) => (
+          <div key={label} className="rounded-theme border border-border bg-surface-hover/40 p-3">
+            <p className="text-sm font-medium text-text">{snippet.title}</p>
+            <p className="mt-1 text-xs text-text-muted">{snippet.hint}</p>
+            <div className="mt-3">
+              <Button
+                variant={copied === label ? 'default' : 'outline'}
+                onClick={() => copy(label, snippet.text)}
+                aria-label={`Copy ${snippet.title}`}
+              >
+                {copied === label ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied === label ? 'Copied' : 'Copy text'}
+              </Button>
+            </div>
+          </div>
+        ),
+      )}
     </div>
   )
 }

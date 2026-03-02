@@ -5,8 +5,11 @@ export interface ThemeDefinition {
     bg: string
     bgSurface: string
     bgSurfaceHover: string
+    bgSurfaceElevated: string
     accent: string
     accentMuted: string
+    accentContrast: string
+    focusRing: string
     text: string
     textMuted: string
     border: string

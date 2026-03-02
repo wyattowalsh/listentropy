@@ -213,5 +213,5 @@ test('upload-to-share funnel works on mobile viewport', async ({ page }) => {
 
 test('share route handles invalid payload gracefully', async ({ page }) => {
   await page.goto('/share#not-valid-payload')
-  await expect(page.getByRole('heading', { name: 'Invalid Share Link' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'This link needs a refresh' })).toBeVisible()
 })

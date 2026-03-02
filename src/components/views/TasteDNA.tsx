@@ -16,11 +16,33 @@ import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { getSpotifyPkceConfig } from '@/lib/spotify-auth/oauth'
 import { fetchSpotifyAudioFeatureProfile, type SpotifyAudioProfileResult } from '@/lib/spotify-api'
 import type { ProcessedDataModel } from '@/lib/types'
+import { cn } from '@/lib/utils'
 import { useSpotifyAuthStore } from '@/store/useSpotifyAuthStore'
 
 interface TasteDNAProps {
   data: ProcessedDataModel
   onOpenSpotifySetup?: () => void
+}
+
+type StatusTone = 'neutral' | 'positive' | 'warning' | 'danger'
+
+interface StatusBadgeProps {
+  label: string
+  tone: StatusTone
+}
+
+function StatusBadge({ label, tone }: StatusBadgeProps): JSX.Element {
+  const toneClassName: Record<StatusTone, string> = {
+    neutral: 'border-border bg-surface text-text-muted',
+    positive: 'border-accent/40 bg-accent/10 text-accent',
+    warning: 'border-border bg-surface-hover text-text',
+    danger: 'border-negative/40 bg-surface text-negative',
+  }
+  return (
+    <span className={cn('inline-flex rounded-full border px-2 py-1 text-xs font-semibold', toneClassName[tone])}>
+      {label}
+    </span>
+  )
 }
 
 export function TasteDNA({ data, onOpenSpotifySetup }: TasteDNAProps): JSX.Element {
@@ -36,6 +58,8 @@ export function TasteDNA({ data, onOpenSpotifySetup }: TasteDNAProps): JSX.Eleme
   const [error, setError] = useState<string | null>(null)
   const [overlayDimensions, setOverlayDimensions] = useState<Array<{ key: string; label: string; score: number }>>([])
   const [spotifyProfile, setSpotifyProfile] = useState<SpotifyAudioProfileResult | null>(null)
+  const [showAllDimensions, setShowAllDimensions] = useState(false)
+  const [showAllSpotifyNotes, setShowAllSpotifyNotes] = useState(false)
   const oauthConfigured = useMemo(() => {
     try {
       return Boolean(getSpotifyPkceConfig().clientId)
@@ -50,6 +74,52 @@ export function TasteDNA({ data, onOpenSpotifySetup }: TasteDNAProps): JSX.Eleme
     }
     return [...data.taste.dimensions.slice(0, 6), ...overlayDimensions]
   }, [data.taste.dimensions, overlayDimensions])
+  const spotifyConnected = Boolean(spotifySession)
+  const hasEnrichment = overlayDimensions.length > 0
+  const isAuthBusy = spotifyAuthStatus === 'authorizing' || spotifyAuthStatus === 'refreshing'
+
+  const connectionBadgeLabel =
+    spotifyAuthStatus === 'authorizing'
+      ? 'Authorizing'
+      : spotifyAuthStatus === 'refreshing'
+        ? 'Refreshing session'
+        : spotifyAuthStatus === 'error'
+          ? 'Auth error'
+          : spotifyConnected
+            ? 'Connected'
+            : 'Disconnected'
+  const connectionTone: StatusTone = spotifyConnected
+    ? 'positive'
+    : spotifyAuthStatus === 'error'
+      ? 'danger'
+      : isAuthBusy
+        ? 'warning'
+        : 'neutral'
+
+  const overlayBadgeLabel = loading
+    ? 'Loading overlay'
+    : hasEnrichment
+      ? 'Enriched'
+      : 'Base profile'
+  const overlayTone: StatusTone = loading
+    ? 'warning'
+    : hasEnrichment
+      ? 'positive'
+      : 'neutral'
+
+  const nextStepText = !spotifyConnected
+    ? oauthConfigured
+      ? 'Step 1: login with Spotify. Step 2: load the overlay when the session is connected.'
+      : 'Spotify OAuth is not configured in this build. Open Advanced setup to use manual token fallback.'
+    : loading
+      ? 'Fetching audio features and artist neighborhood context from Spotify…'
+      : hasEnrichment
+        ? 'Overlay is active. Refresh at any time to re-run enrichment with the current session.'
+        : 'Session is ready. Load Spotify overlay to enrich Taste DNA dimensions and artist context.'
+
+  const tasteStorySummary = hasEnrichment
+    ? `Spotify overlay is active with ${overlayDimensions.length} enrichment dimensions and ${combinedDimensions.length} total dimensions in view.`
+    : `Base profile is active across ${combinedDimensions.length} dimensions. Connect Spotify for additional audio feature context.`
 
   async function loadSpotifyOverlay(): Promise<void> {
     setLoading(true)
@@ -76,72 +146,109 @@ export function TasteDNA({ data, onOpenSpotifySetup }: TasteDNAProps): JSX.Eleme
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <Card>
-        <CardTitle>Taste DNA</CardTitle>
+        <CardTitle as="h2">Taste DNA</CardTitle>
         <CardDescription className="mt-1">
           Behavioral profile by default. Add Spotify API overlay for audio feature depth.
         </CardDescription>
-        <div className="mt-3 rounded-theme border border-border bg-surface-hover p-3">
-          <p className="text-sm text-text">
-            {spotifySession
-              ? 'Spotify overlay is connected and reusable across views.'
-              : 'Spotify overlay is optional, but this is the canonical way to enrich Taste DNA.'}
-          </p>
-          {!spotifySession ? (
-            <div className="mt-3 rounded-theme border border-accent/40 bg-accent/10 p-3">
-              <p className="text-sm font-semibold text-text">Connect Spotify to unlock richer audio features</p>
-              <p className="mt-1 text-xs text-text-muted">
-                Adds audio traits, genre affinities, and neighborhood quality overlays to your Taste DNA.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {oauthConfigured ? (
-                  <Button
-                    onClick={() => void connectSpotify()}
-                    disabled={spotifyAuthStatus === 'authorizing'}
-                    className="w-full justify-center px-5 py-3 text-base sm:w-auto"
-                  >
-                    {spotifyAuthStatus === 'authorizing' ? 'Redirecting…' : 'Login with Spotify'}
-                  </Button>
-                ) : (
-                  <div className="w-full rounded-theme border border-border bg-surface px-3 py-2 text-sm text-text-muted">
-                    Spotify OAuth is not enabled in this build. Use Advanced setup for manual token fallback.
-                  </div>
-                )}
-                <Button
-                  variant="outline"
-                  onClick={onOpenSpotifySetup}
-                  className="w-full sm:w-auto"
-                >
-                  Open Advanced Setup
-                </Button>
-              </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="rounded-theme border border-border bg-surface-hover p-3">
+            <p className="text-xs uppercase tracking-[0.12em] text-text-muted">Connection state</p>
+            <div className="mt-2 flex items-center gap-2">
+              <StatusBadge label={connectionBadgeLabel} tone={connectionTone} />
+              {spotifySession ? (
+                <span className="text-xs text-text-muted">source {spotifySession.tokenSource}</span>
+              ) : null}
             </div>
-          ) : null}
-          <div className="mt-2 flex flex-wrap gap-2">
-            {spotifySession ? (
-              <Button variant="outline" onClick={onOpenSpotifySetup}>
-                Manage Spotify Setup
-              </Button>
-            ) : null}
-            <Button onClick={loadSpotifyOverlay} disabled={loading}>
-              {loading ? 'Loading...' : 'Load Spotify Overlay'}
-            </Button>
+            <p className="mt-2 text-xs text-text-muted">
+              {spotifyConnected
+                ? 'Connected session is reusable across views.'
+                : 'Spotify connection is optional but required for overlay enrichment.'}
+            </p>
+          </div>
+          <div className="rounded-theme border border-border bg-surface-hover p-3">
+            <p className="text-xs uppercase tracking-[0.12em] text-text-muted">Overlay state</p>
+            <div className="mt-2">
+              <StatusBadge label={overlayBadgeLabel} tone={overlayTone} />
+            </div>
+            <p className="mt-2 text-xs text-text-muted">
+              {hasEnrichment
+                ? `${overlayDimensions.length} Spotify dimensions are blended into the base profile.`
+                : 'Using behavioral profile only until overlay enrichment is loaded.'}
+            </p>
           </div>
         </div>
-        <p className="mt-2 text-xs text-text-muted">
-          Auth status: {spotifyAuthStatus}
-          {spotifySession ? ` · source ${spotifySession.tokenSource}` : ''}
-        </p>
-        {error ? <p className="mt-2 text-sm text-negative">{error}</p> : null}
-        {authError ? <p className="mt-2 text-sm text-negative">{authError}</p> : null}
-        {spotifyProfile?.warnings && spotifyProfile.warnings.length > 0 ? (
-          <ul className="mt-2 list-disc pl-4 text-xs text-text-muted">
-            {spotifyProfile.warnings.map((warning) => (
-              <li key={warning}>{warning}</li>
-            ))}
-          </ul>
+        <div className="mt-3 rounded-theme border border-border bg-surface p-4">
+          <p className="text-xs uppercase tracking-[0.12em] text-text-muted">Next step</p>
+          <p className="mt-1 text-sm text-text">{nextStepText}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {spotifyConnected ? (
+              <Button onClick={loadSpotifyOverlay} disabled={loading} className="w-full sm:w-auto">
+                {loading ? 'Loading...' : hasEnrichment ? 'Refresh Spotify Overlay' : 'Load Spotify Overlay'}
+              </Button>
+            ) : oauthConfigured ? (
+              <Button
+                onClick={() => void connectSpotify()}
+                disabled={spotifyAuthStatus === 'authorizing'}
+                className="w-full sm:w-auto"
+              >
+                {spotifyAuthStatus === 'authorizing' ? 'Redirecting…' : 'Login with Spotify'}
+              </Button>
+            ) : (
+              <Button onClick={onOpenSpotifySetup} className="w-full sm:w-auto">
+                Open Advanced Setup
+              </Button>
+            )}
+            {spotifyConnected ? (
+              <Button variant="outline" onClick={onOpenSpotifySetup} className="w-full sm:w-auto">
+                Manage Spotify Setup
+              </Button>
+            ) : oauthConfigured ? (
+              <Button variant="outline" onClick={onOpenSpotifySetup} className="w-full sm:w-auto">
+                Open Advanced Setup
+              </Button>
+            ) : null}
+          </div>
+        </div>
+        {error ? (
+          <p className="mt-3 rounded-theme border border-negative/40 bg-surface px-3 py-2 text-sm text-negative" role="alert">
+            {error}
+          </p>
         ) : null}
+        {authError ? (
+          <p className="mt-2 rounded-theme border border-negative/40 bg-surface px-3 py-2 text-sm text-negative" role="alert">
+            {authError}
+          </p>
+        ) : null}
+        {spotifyProfile?.warnings && spotifyProfile.warnings.length > 0 ? (
+          <div className="mt-3 rounded-theme border border-border bg-surface-hover p-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">Spotify notes</p>
+            <ul className="mt-2 list-disc pl-4 text-xs text-text-muted">
+              {spotifyProfile.warnings
+                .slice(0, showAllSpotifyNotes ? spotifyProfile.warnings.length : 3)
+                .map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+            </ul>
+            {spotifyProfile.warnings.length > 3 ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="mt-2 px-0 text-xs"
+                aria-expanded={showAllSpotifyNotes}
+                onClick={() => setShowAllSpotifyNotes((value) => !value)}
+              >
+                {showAllSpotifyNotes ? 'Show fewer notes' : 'Show all notes'}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </Card>
+
+      <Card>
+        <p className="text-xs uppercase tracking-[0.12em] text-text-muted">Story summary</p>
+        <p className="mt-2 text-sm text-text">{tasteStorySummary}</p>
       </Card>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -169,14 +276,28 @@ export function TasteDNA({ data, onOpenSpotifySetup }: TasteDNAProps): JSX.Eleme
 
       <Card>
         <CardTitle>Dimension Breakdown</CardTitle>
+        <CardDescription className="mt-1">Key dimensions first, with optional full breakdown.</CardDescription>
         <div className="mt-3 grid gap-2 md:grid-cols-2">
-          {combinedDimensions.map((dimension) => (
-            <div key={dimension.key} className="rounded-theme border border-border bg-surface-hover p-3">
-              <p className="text-sm font-semibold text-text">{dimension.label}</p>
-              <p className="text-xs text-text-muted">{Math.round(dimension.score * 100)} / 100</p>
-            </div>
-          ))}
+          {combinedDimensions
+            .slice(0, showAllDimensions ? combinedDimensions.length : 6)
+            .map((dimension) => (
+              <div key={dimension.key} className="rounded-theme border border-border bg-surface-hover p-3">
+                <p className="text-sm font-semibold text-text">{dimension.label}</p>
+                <p className="text-xs text-text-muted">{Math.round(dimension.score * 100)} / 100</p>
+              </div>
+            ))}
         </div>
+        {combinedDimensions.length > 6 ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="mt-2 px-0 text-xs"
+            aria-expanded={showAllDimensions}
+            onClick={() => setShowAllDimensions((value) => !value)}
+          >
+            {showAllDimensions ? 'Show fewer dimensions' : 'Show all dimensions'}
+          </Button>
+        ) : null}
       </Card>
 
       {spotifyProfile?.genreAffinities && spotifyProfile.genreAffinities.length > 0 ? (

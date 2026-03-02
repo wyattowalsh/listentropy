@@ -26,6 +26,7 @@ import { useSessionMetricsStore } from '@/store/useSessionMetricsStore'
 
 interface MusicUniverseProps {
   data: ProcessedDataModel
+  analysisMode?: 'simple' | 'deep'
 }
 
 interface Universe3DGuardProps {
@@ -185,7 +186,26 @@ function runTimedStage<T>(enabled: boolean, compute: () => T): TimedStageResult<
   }
 }
 
-export function MusicUniverse({ data }: MusicUniverseProps): JSX.Element {
+function renderModeAwareDeepSection(
+  isSimpleMode: boolean,
+  title: string,
+  content: ReactNode,
+): ReactNode {
+  if (!isSimpleMode) {
+    return content
+  }
+
+  return (
+    <details className="rounded-theme border border-border bg-surface p-3">
+      <summary className="cursor-pointer text-xs uppercase tracking-[0.12em] text-text-muted">
+        {title}
+      </summary>
+      <div className="mt-3 space-y-4">{content}</div>
+    </details>
+  )
+}
+
+export function MusicUniverse({ data, analysisMode = 'deep' }: MusicUniverseProps): JSX.Element {
   const webglSupported = useMemo(() => detectWebGLSupport(), [])
   const graphPerfDebugEnabled = useMemo(() => isGraphPerfDebugEnabled(), [])
   const recordMetric = useSessionMetricsStore((state) => state.record)
@@ -448,6 +468,8 @@ export function MusicUniverse({ data }: MusicUniverseProps): JSX.Element {
   }, [recordMetric, retryKey])
 
   const is3D = rendererStatus.renderer === '3d'
+  const isSimpleMode = analysisMode === 'simple'
+  const diagnosticMessageToneClass = isSimpleMode ? 'text-text' : 'text-text-muted'
 
   const selectedNodeLabel = selectedNodeId ? nodeById.get(selectedNodeId)?.label ?? null : null
   const keyboardNavigatorNodes = useMemo(
@@ -520,11 +542,96 @@ export function MusicUniverse({ data }: MusicUniverseProps): JSX.Element {
   )
 
   const renderKey = `${is3D ? '3d' : '2d'}-${retryKey}`
+  const networkDetailPanels = (
+    <>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardTitle>Top Hubs</CardTitle>
+          <ul className="mt-3 space-y-2">
+            {analytics.hubs.slice(0, 6).map((hub) => (
+              <li key={hub.nodeId} className="flex items-center justify-between gap-3 rounded-theme border border-border bg-surface-hover px-3 py-2 text-sm">
+                <div className="min-w-0">
+                  <p className="truncate text-text">{hub.label}</p>
+                  <p className="text-xs text-text-muted">{hub.type} · degree {hub.degree}</p>
+                </div>
+                <p className="shrink-0 text-xs text-text-muted">wdeg {formatCompact(hub.weightedDegree)}</p>
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        <Card>
+          <CardTitle>Bridge Artists</CardTitle>
+          <ul className="mt-3 space-y-2">
+            {analytics.bridges.slice(0, 6).map((bridge) => (
+              <li key={bridge.nodeId} className="flex items-center justify-between gap-3 rounded-theme border border-border bg-surface-hover px-3 py-2 text-sm">
+                <div className="min-w-0">
+                  <p className="truncate text-text">{bridge.label}</p>
+                  <p className="text-xs text-text-muted">
+                    {bridge.type} · {bridge.communityCount} communities
+                  </p>
+                </div>
+                <p className="shrink-0 text-xs text-text-muted">score {bridge.bridgeScore}</p>
+              </li>
+            ))}
+            {analytics.bridges.length === 0 ? (
+              <li className="rounded-theme border border-border bg-surface-hover px-3 py-2 text-sm text-text-muted">
+                No bridge-heavy nodes in the current filtered graph.
+              </li>
+            ) : null}
+          </ul>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardTitle>Cluster Summary</CardTitle>
+          <ul className="mt-3 space-y-2">
+            {analytics.clusters.slice(0, 6).map((cluster) => (
+              <li key={cluster.communityId} className="rounded-theme border border-border bg-surface-hover px-3 py-2 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-text">{cluster.communityId}</p>
+                  <p className="shrink-0 text-xs text-text-muted">{cluster.nodeCount} nodes</p>
+                </div>
+                <p className="mt-1 text-xs text-text-muted">
+                  artists {cluster.artistCount} · tracks {cluster.trackCount} · plays {formatCompact(cluster.totalPlayCount)}
+                </p>
+                {cluster.topArtists.length > 0 ? (
+                  <p className="mt-1 truncate text-xs text-text-muted">
+                    Top artists: {cluster.topArtists.join(', ')}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        <Card>
+          <CardTitle>Co-listen Motifs</CardTitle>
+          <ul className="mt-3 space-y-2">
+            {analytics.motifs.topPairs.slice(0, 8).map((pair) => (
+              <li key={`${pair.sourceId}-${pair.targetId}`} className="rounded-theme border border-border bg-surface-hover px-3 py-2 text-sm">
+                <p className="truncate text-text">
+                  {pair.sourceLabel} ↔ {pair.targetLabel}
+                </p>
+                <p className="mt-1 text-xs text-text-muted">Co-listen weight {pair.weight}</p>
+              </li>
+            ))}
+            {analytics.motifs.topPairs.length === 0 ? (
+              <li className="rounded-theme border border-border bg-surface-hover px-3 py-2 text-sm text-text-muted">
+                Enable co-listen edges to see motif highlights.
+              </li>
+            ) : null}
+          </ul>
+        </Card>
+      </div>
+    </>
+  )
 
   return (
     <div className="min-w-0 space-y-4">
       <Card>
-        <CardTitle>Music Universe Graph</CardTitle>
+        <CardTitle as="h2">Music Universe Graph</CardTitle>
         <CardDescription className="mt-1">
           Explore artist and track constellations by co-listen and hierarchy links.
         </CardDescription>
@@ -551,78 +658,88 @@ export function MusicUniverse({ data }: MusicUniverseProps): JSX.Element {
             onRetry3D={activate3D}
           />
         </div>
-        <div className="mt-3">
-          <UniverseLegend />
-        </div>
-        {searchMatches.length > 0 ? (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {searchMatches.slice(0, 8).map((match) => (
+        <div className="mt-3 grid gap-3 xl:grid-cols-2">
+          <div className="space-y-3">
+            <UniverseLegend />
+            <div className="rounded-theme border border-border bg-surface-hover p-3">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-muted">Search quick picks</p>
+              {searchMatches.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {searchMatches.slice(0, 8).map((match) => (
+                    <button
+                      key={match.id}
+                      type="button"
+                      className={`min-h-[44px] rounded-theme border px-3 py-2 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--focus-ring-offset)] ${
+                        selectedNodeId === match.id
+                          ? 'border-accent bg-accent/10 text-text'
+                          : 'border-border text-text-muted hover:text-text'
+                      }`}
+                      onClick={() => setSelectedNodeId(match.id)}
+                    >
+                      {match.label}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-text-muted">
+                  Start typing in graph search to surface artist and track quick picks.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-theme border border-border bg-surface-hover p-3">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-muted">Graph keyboard navigator</p>
+            <p id="graph-keyboard-navigator-help" className="mt-1 text-xs text-text-muted">
+              Use Arrow Up/Down (or Previous/Next) to move through visible nodes when canvas interaction is unavailable.
+            </p>
+            <div
+              role="group"
+              aria-label="Graph keyboard navigator"
+              aria-describedby="graph-keyboard-navigator-help"
+              className="mt-2 flex flex-wrap items-end gap-2"
+              tabIndex={0}
+              onKeyDown={handleKeyboardNavigatorKeyDown}
+            >
+              <label className="min-w-[15rem] flex-1 text-xs text-text-muted">
+                Graph node navigator
+                <select
+                  className="mt-1 h-10 w-full rounded-theme border border-border bg-surface px-2 text-sm text-text"
+                  aria-label="Graph node navigator"
+                  value={selectedNodeId ?? ''}
+                  onChange={(event) => setSelectedNodeId(event.currentTarget.value || null)}
+                >
+                  <option value="">No node selected</option>
+                  {keyboardNavigatorNodes.map((node) => (
+                    <option key={node.id} value={node.id}>
+                      {node.label} · {node.type}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <button
-                key={match.id}
                 type="button"
-                className={`rounded-theme border px-2 py-1 text-xs transition ${
-                  selectedNodeId === match.id
-                    ? 'border-accent bg-accent/10 text-accent'
-                    : 'border-border text-text-muted hover:text-text'
-                }`}
-                onClick={() => setSelectedNodeId(match.id)}
+                className="min-h-[44px] rounded-theme border border-border px-3 py-2 text-sm text-text transition hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--focus-ring-offset)] disabled:opacity-50"
+                onClick={() => handleKeyboardNavigatorStep(-1)}
+                disabled={keyboardNavigatorNodes.length === 0}
               >
-                {match.label}
+                Previous
               </button>
-            ))}
-          </div>
-        ) : null}
-        <div className="mt-3 rounded-theme border border-border bg-surface-hover p-3">
-          <p className="text-xs uppercase tracking-[0.14em] text-text-muted">Graph keyboard navigator</p>
-          <p id="graph-keyboard-navigator-help" className="mt-1 text-xs text-text-muted">
-            Use Arrow Up/Down (or Previous/Next) to move through visible nodes when canvas interaction is unavailable.
-          </p>
-          <div
-            role="group"
-            aria-label="Graph keyboard navigator"
-            aria-describedby="graph-keyboard-navigator-help"
-            className="mt-2 flex flex-wrap items-end gap-2"
-            tabIndex={0}
-            onKeyDown={handleKeyboardNavigatorKeyDown}
-          >
-            <label className="min-w-[15rem] flex-1 text-xs text-text-muted">
-              Graph node navigator
-              <select
-                className="mt-1 h-9 w-full rounded-theme border border-border bg-surface px-2 text-sm text-text"
-                aria-label="Graph node navigator"
-                value={selectedNodeId ?? ''}
-                onChange={(event) => setSelectedNodeId(event.currentTarget.value || null)}
+              <button
+                type="button"
+                className="min-h-[44px] rounded-theme border border-border px-3 py-2 text-sm text-text transition hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--focus-ring-offset)] disabled:opacity-50"
+                onClick={() => handleKeyboardNavigatorStep(1)}
+                disabled={keyboardNavigatorNodes.length === 0}
               >
-                <option value="">No node selected</option>
-                {keyboardNavigatorNodes.map((node) => (
-                  <option key={node.id} value={node.id}>
-                    {node.label} · {node.type}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              className="rounded-theme border border-border px-3 py-2 text-xs text-text transition hover:border-accent hover:text-accent disabled:opacity-50"
-              onClick={() => handleKeyboardNavigatorStep(-1)}
-              disabled={keyboardNavigatorNodes.length === 0}
-            >
-              Previous
-            </button>
-            <button
-              type="button"
-              className="rounded-theme border border-border px-3 py-2 text-xs text-text transition hover:border-accent hover:text-accent disabled:opacity-50"
-              onClick={() => handleKeyboardNavigatorStep(1)}
-              disabled={keyboardNavigatorNodes.length === 0}
-            >
-              Next
-            </button>
+                Next
+              </button>
+            </div>
+            <p role="status" aria-live="polite" className="mt-2 text-xs text-text-muted">
+              {keyboardNavigatorSelectedNode
+                ? `Selected graph node: ${keyboardNavigatorSelectedNode.label} (${keyboardNavigatorSelectedNode.type})`
+                : 'Selected graph node: none'}
+            </p>
           </div>
-          <p role="status" aria-live="polite" className="mt-2 text-xs text-text-muted">
-            {keyboardNavigatorSelectedNode
-              ? `Selected graph node: ${keyboardNavigatorSelectedNode.label} (${keyboardNavigatorSelectedNode.type})`
-              : 'Selected graph node: none'}
-          </p>
         </div>
       </Card>
 
@@ -681,87 +798,7 @@ export function MusicUniverse({ data }: MusicUniverseProps): JSX.Element {
             </div>
           </Card>
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
-              <CardTitle>Top Hubs</CardTitle>
-              <ul className="mt-3 space-y-2">
-                {analytics.hubs.slice(0, 6).map((hub) => (
-                  <li key={hub.nodeId} className="flex items-center justify-between gap-3 rounded-theme border border-border bg-surface-hover px-3 py-2 text-sm">
-                    <div className="min-w-0">
-                      <p className="truncate text-text">{hub.label}</p>
-                      <p className="text-xs text-text-muted">{hub.type} · degree {hub.degree}</p>
-                    </div>
-                    <p className="shrink-0 text-xs text-text-muted">wdeg {formatCompact(hub.weightedDegree)}</p>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-
-            <Card>
-              <CardTitle>Bridge Artists</CardTitle>
-              <ul className="mt-3 space-y-2">
-                {analytics.bridges.slice(0, 6).map((bridge) => (
-                  <li key={bridge.nodeId} className="flex items-center justify-between gap-3 rounded-theme border border-border bg-surface-hover px-3 py-2 text-sm">
-                    <div className="min-w-0">
-                      <p className="truncate text-text">{bridge.label}</p>
-                      <p className="text-xs text-text-muted">
-                        {bridge.type} · {bridge.communityCount} communities
-                      </p>
-                    </div>
-                    <p className="shrink-0 text-xs text-text-muted">score {bridge.bridgeScore}</p>
-                  </li>
-                ))}
-                {analytics.bridges.length === 0 ? (
-                  <li className="rounded-theme border border-border bg-surface-hover px-3 py-2 text-sm text-text-muted">
-                    No bridge-heavy nodes in the current filtered graph.
-                  </li>
-                ) : null}
-              </ul>
-            </Card>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
-              <CardTitle>Cluster Summary</CardTitle>
-              <ul className="mt-3 space-y-2">
-                {analytics.clusters.slice(0, 6).map((cluster) => (
-                  <li key={cluster.communityId} className="rounded-theme border border-border bg-surface-hover px-3 py-2 text-sm">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-text">{cluster.communityId}</p>
-                      <p className="shrink-0 text-xs text-text-muted">{cluster.nodeCount} nodes</p>
-                    </div>
-                    <p className="mt-1 text-xs text-text-muted">
-                      artists {cluster.artistCount} · tracks {cluster.trackCount} · plays {formatCompact(cluster.totalPlayCount)}
-                    </p>
-                    {cluster.topArtists.length > 0 ? (
-                      <p className="mt-1 truncate text-xs text-text-muted">
-                        Top artists: {cluster.topArtists.join(', ')}
-                      </p>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </Card>
-
-            <Card>
-              <CardTitle>Co-listen Motifs</CardTitle>
-              <ul className="mt-3 space-y-2">
-                {analytics.motifs.topPairs.slice(0, 8).map((pair) => (
-                  <li key={`${pair.sourceId}-${pair.targetId}`} className="rounded-theme border border-border bg-surface-hover px-3 py-2 text-sm">
-                    <p className="truncate text-text">
-                      {pair.sourceLabel} ↔ {pair.targetLabel}
-                    </p>
-                    <p className="mt-1 text-xs text-text-muted">Co-listen weight {pair.weight}</p>
-                  </li>
-                ))}
-                {analytics.motifs.topPairs.length === 0 ? (
-                  <li className="rounded-theme border border-border bg-surface-hover px-3 py-2 text-sm text-text-muted">
-                    Enable co-listen edges to see motif highlights.
-                  </li>
-                ) : null}
-              </ul>
-            </Card>
-          </div>
+          {renderModeAwareDeepSection(isSimpleMode, 'Deep network breakdown', networkDetailPanels)}
         </div>
 
         <div className="min-w-0 space-y-4">
@@ -779,12 +816,43 @@ export function MusicUniverse({ data }: MusicUniverseProps): JSX.Element {
           />
           <Card>
             <CardTitle>View Diagnostics</CardTitle>
-            <div className="mt-3 grid gap-2 text-sm text-text-muted">
-              <p>Renderer state: {rendererStatus.state ?? (is3D ? '3d-ready' : '2d-manual')}</p>
-              <p>Renderer mode: {rendererStatus.renderer.toUpperCase()}</p>
-              <p>Visible artists: {analytics.summary.artistCount}</p>
-              <p>Visible tracks: {analytics.summary.trackCount}</p>
-              <p>Average weighted degree: {analytics.summary.averageWeightedDegree}</p>
+            <CardDescription className="mt-1">
+              Renderer health and filtered graph totals for the currently visible network.
+            </CardDescription>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-theme border border-border bg-surface-hover p-3">
+                <p className="text-[11px] uppercase tracking-[0.12em] text-text-muted">Renderer health</p>
+                <dl className="mt-2 space-y-1 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-text-muted">Mode</dt>
+                    <dd className="text-text">{rendererStatus.renderer.toUpperCase()}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-text-muted">State</dt>
+                    <dd className="text-text">{rendererStatus.state ?? (is3D ? '3d-ready' : '2d-manual')}</dd>
+                  </div>
+                </dl>
+                {rendererStatus.diagnosticMessage ? (
+                  <p className={`mt-2 text-xs ${diagnosticMessageToneClass}`}>{rendererStatus.diagnosticMessage}</p>
+                ) : null}
+              </div>
+              <div className="rounded-theme border border-border bg-surface-hover p-3">
+                <p className="text-[11px] uppercase tracking-[0.12em] text-text-muted">Filtered view</p>
+                <dl className="mt-2 space-y-1 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-text-muted">Artists</dt>
+                    <dd className="text-text">{analytics.summary.artistCount}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-text-muted">Tracks</dt>
+                    <dd className="text-text">{analytics.summary.trackCount}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-text-muted">Avg weighted degree</dt>
+                    <dd className="text-text">{analytics.summary.averageWeightedDegree}</dd>
+                  </div>
+                </dl>
+              </div>
             </div>
             {graphPerfDebugEnabled ? (
               <div className="mt-3 rounded-theme border border-border bg-surface-hover p-3 text-xs text-text-muted">
@@ -799,9 +867,6 @@ export function MusicUniverse({ data }: MusicUniverseProps): JSX.Element {
                   layout {graphStageTimings.layoutMs ?? 0}ms · analytics {graphStageTimings.analyticsMs ?? 0}ms
                 </p>
               </div>
-            ) : null}
-            {rendererStatus.diagnosticMessage ? (
-              <p className="mt-3 text-xs text-text-muted">{rendererStatus.diagnosticMessage}</p>
             ) : null}
           </Card>
         </div>

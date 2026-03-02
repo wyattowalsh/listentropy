@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -127,6 +127,8 @@ export function StoryCardDeck({
 
   const current = cards[clampedIndex] ?? cards[0]
   const dimensions = exportDimensions(aspect)
+  const atStart = clampedIndex === 0
+  const atEnd = clampedIndex === cards.length - 1 && cards.length > 0
 
   const hiddenCards = cards.map((card) => (
     <div
@@ -160,21 +162,28 @@ export function StoryCardDeck({
           <Button
             variant="outline"
             aria-label="Go to previous story card"
-            onClick={() => setIndex((value) => Math.max(0, value - 1))}
-            disabled={clampedIndex === 0}
+            onClick={() => setIndex(Math.max(0, clampedIndex - 1))}
+            disabled={atStart}
           >
             <ChevronLeft className="h-4 w-4" />
             Prev
           </Button>
-          <Button
-            variant="outline"
-            aria-label="Go to next story card"
-            onClick={() => setIndex((value) => Math.min(cards.length - 1, value + 1))}
-            disabled={clampedIndex === cards.length - 1}
-          >
-            Next
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+          {atEnd ? (
+            <Button aria-label="Restart story card deck" onClick={() => setIndex(0)}>
+              <RotateCcw className="h-4 w-4" />
+              Restart
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              aria-label="Go to next story card"
+              onClick={() => setIndex(Math.min(cards.length - 1, clampedIndex + 1))}
+              disabled={cards.length === 0}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -188,6 +197,24 @@ export function StoryCardDeck({
           />
         </div>
       </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {cards.map((card, cardIndex) => (
+          <button
+            key={`tab-${card.key}`}
+            type="button"
+            aria-label={`Go to card ${cardIndex + 1}: ${card.title}`}
+            onClick={() => setIndex(cardIndex)}
+            className={`h-2.5 w-6 rounded-full transition ${
+              cardIndex === clampedIndex ? 'bg-accent' : 'bg-surface-hover hover:bg-text-muted/50'
+            }`}
+          />
+        ))}
+      </div>
+      {atEnd ? (
+        <p className="rounded-theme border border-accent/30 bg-accent/10 px-3 py-2 text-xs text-text-muted">
+          End of deck reached — restart to review, or export this card set.
+        </p>
+      ) : null}
       <div
         ref={stagingRootRef}
         className="pointer-events-none fixed left-0 top-0 h-0 w-0 overflow-hidden"

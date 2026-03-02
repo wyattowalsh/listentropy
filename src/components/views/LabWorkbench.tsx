@@ -17,9 +17,10 @@ import { useLabStore } from '@/store/useLabStore'
 
 interface LabWorkbenchProps {
   data: ProcessedDataModel
+  analysisMode?: 'simple' | 'deep'
 }
 
-export function LabWorkbench({ data }: LabWorkbenchProps): JSX.Element {
+export function LabWorkbench({ data, analysisMode = 'deep' }: LabWorkbenchProps): JSX.Element {
   const snapshot = useMemo(() => buildDefaultLabDatasetSnapshot(data), [data])
   const datasetFingerprint = data.datasetIdentity.fingerprint
 
@@ -100,6 +101,12 @@ export function LabWorkbench({ data }: LabWorkbenchProps): JSX.Element {
   const explainResult = explainabilityTarget ? moduleResultsByDataset[explainabilityTarget.datasetFingerprint]?.[explainabilityTarget.moduleId] : undefined
   const compareResult = results['compare-engine']
   const comparePayload = compareResult?.status === 'ready' ? (compareResult.payload as CompareEnginePayload) : undefined
+  const statusEntries = Object.values(statuses)
+  const moduleSummary = {
+    running: statusEntries.filter((status) => status === 'running').length,
+    ready: statusEntries.filter((status) => status === 'ready').length,
+    error: statusEntries.filter((status) => status === 'error').length,
+  }
 
   useEffect(() => {
     if (compareBaselineEraId && compareBaselineSnapshot) {
@@ -161,9 +168,27 @@ export function LabWorkbench({ data }: LabWorkbenchProps): JSX.Element {
   return (
     <div className="space-y-4">
       <Card>
-        <CardTitle>Xenolab</CardTitle>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle>Xenolab</CardTitle>
+            <CardDescription className="mt-1">
+              Deferred, privacy-first analytics lab. Heavy modules run on demand and stay local to this browser session.
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.12em]">
+            <span className="rounded-theme border border-border bg-surface-hover px-2 py-1 text-text-muted">
+              running {moduleSummary.running}
+            </span>
+            <span className="rounded-theme border border-border bg-surface-hover px-2 py-1 text-text-muted">
+              ready {moduleSummary.ready}
+            </span>
+            <span className="rounded-theme border border-border bg-surface-hover px-2 py-1 text-text-muted">
+              errors {moduleSummary.error}
+            </span>
+          </div>
+        </div>
         <CardDescription className="mt-1">
-          Deferred, privacy-first analytics lab. Heavy modules run on demand and stay local to this browser session.
+          Workspace status updates after each module or compare execution.
         </CardDescription>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-theme border border-border bg-surface-hover p-3">
@@ -194,7 +219,9 @@ export function LabWorkbench({ data }: LabWorkbenchProps): JSX.Element {
       <section className="space-y-4" aria-labelledby="xenolab-module-gallery">
         <div>
           <h2 id="xenolab-module-gallery" className="font-heading text-xl text-text">Module Gallery</h2>
-          <p className="mt-1 text-sm text-text-muted">Launch analytics modules on demand. Results are cached per dataset fingerprint.</p>
+          <p className="mt-1 text-sm text-text-muted">
+            Launch analytics modules on demand. Core tracks stay visible while secondary modules are tucked behind progressive disclosure.
+          </p>
         </div>
         <ModuleGallery
           manifests={labModuleManifests}
@@ -225,6 +252,10 @@ export function LabWorkbench({ data }: LabWorkbenchProps): JSX.Element {
         <div className="min-w-0 space-y-4">
           <div aria-labelledby="xenolab-compare-workspace">
             <h2 id="xenolab-compare-workspace" className="font-heading text-xl text-text">Compare Workspace</h2>
+            <p className="mt-1 text-sm text-text-muted">
+              Baseline capture, import orchestration, and compare-engine analytics in one panel.
+              {analysisMode === 'simple' ? ' Deep diagnostics stay available under expandable sections.' : ''}
+            </p>
             <CompareWorkspacePanel
               currentSnapshot={snapshot}
               baselineSnapshot={compareBaselineSnapshot}
@@ -255,6 +286,7 @@ export function LabWorkbench({ data }: LabWorkbenchProps): JSX.Element {
                 void runCompareAgainstBaseline(snapshot)
               }}
               onExplainCompare={() => setExplainabilityTarget({ datasetFingerprint, moduleId: 'compare-engine' })}
+              analysisMode={analysisMode}
             />
             {comparePayload ? (
               <p className="mt-2 text-xs text-text-muted">
@@ -263,15 +295,15 @@ export function LabWorkbench({ data }: LabWorkbenchProps): JSX.Element {
             ) : null}
           </div>
 
-          <div aria-labelledby="xenolab-counterfactuals">
-            <h2 id="xenolab-counterfactuals" className="font-heading text-xl text-text">Counterfactuals</h2>
-            <p className="mt-1 text-sm text-text-muted">Run the Counterfactuals module to populate this panel with scenario deltas.</p>
+          <details className="rounded-theme border border-border bg-surface p-3" aria-labelledby="xenolab-counterfactuals">
+            <summary id="xenolab-counterfactuals" className="cursor-pointer font-heading text-xl text-text">Counterfactuals</summary>
+            <p className="mt-2 text-sm text-text-muted">Run the Counterfactuals module to populate this panel with scenario deltas.</p>
             <Card className="mt-2">
               <CardDescription>
                 Quick path: run <span className="font-semibold text-text">Counterfactuals</span> in the Module Gallery, then inspect the result card and Explainability panel.
               </CardDescription>
             </Card>
-          </div>
+          </details>
 
           <div aria-labelledby="xenolab-explainability">
             <h2 id="xenolab-explainability" className="font-heading text-xl text-text">Explainability Drawer</h2>
@@ -282,10 +314,12 @@ export function LabWorkbench({ data }: LabWorkbenchProps): JSX.Element {
             />
           </div>
 
-          <div aria-labelledby="xenolab-perf-queue">
-            <h2 id="xenolab-perf-queue" className="font-heading text-xl text-text">Performance Queue</h2>
-            <PerformanceQueuePanel queue={queue} manifestsById={manifestsById} />
-          </div>
+          <details className="rounded-theme border border-border bg-surface p-3" aria-labelledby="xenolab-perf-queue">
+            <summary id="xenolab-perf-queue" className="cursor-pointer font-heading text-xl text-text">Performance Queue</summary>
+            <div className="mt-2">
+              <PerformanceQueuePanel queue={queue} manifestsById={manifestsById} />
+            </div>
+          </details>
         </div>
       </section>
     </div>

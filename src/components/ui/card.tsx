@@ -6,7 +6,7 @@ export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>): J
   return (
     <div
       className={cn(
-        'rounded-theme border border-border bg-surface p-4 transition-colors [box-shadow:var(--shadow-card)]',
+        'surface-interactive rounded-theme border border-border bg-surface p-panel shadow-card transition-[background-color,border-color,box-shadow,transform] duration-normal ease-standard',
         className,
       )}
       {...props}

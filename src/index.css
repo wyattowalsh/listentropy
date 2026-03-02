@@ -3,41 +3,67 @@
 @tailwind utilities;
 
 :root {
-  --color-bg: #121212;
-  --color-surface: #181818;
-  --color-surface-hover: #282828;
-  --color-surface-elevated: #202020;
-  --color-accent: #1db954;
-  --color-accent-muted: #57e08a;
-  --color-text: #ffffff;
-  --color-text-muted: #b3b3b3;
-  --color-border: #2c2c2c;
-  --color-positive: #4ade80;
-  --color-negative: #f87171;
-  --color-chart-0: #1db954;
-  --color-chart-1: #39c76b;
-  --color-chart-2: #53d67f;
-  --color-chart-3: #7be2a0;
-  --color-chart-4: #9debbd;
-  --color-chart-5: #36a85a;
-  --color-chart-6: #2a8445;
-  --color-chart-7: #1f6636;
-  --color-chart-8: #4fef94;
-  --color-chart-9: #89ffc0;
-  --radius: 0.5rem;
-  --focus-ring: var(--color-accent);
-  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.25);
-  --space-panel: 1rem;
-  --space-panel-lg: 1.25rem;
-  --motion-fast: 160ms;
-  --motion-normal: 280ms;
-  --font-heading: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-body: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --color-bg: #0f1115;
+  --color-surface: #161b24;
+  --color-surface-hover: #1f2733;
+  --color-surface-elevated: #263142;
+  --color-accent: #c9a46b;
+  --color-accent-muted: #ddc49f;
+  --color-accent-contrast: #1b140b;
+  --color-text: #f5f7fa;
+  --color-text-muted: #a7afbe;
+  --color-border: #2b3444;
+  --color-positive: #4fb783;
+  --color-negative: #e3828a;
+  --color-chart-0: #c9a46b;
+  --color-chart-1: #8fa7d8;
+  --color-chart-2: #b7c48d;
+  --color-chart-3: #d68d7b;
+  --color-chart-4: #9c8cca;
+  --color-chart-5: #7fa7a5;
+  --color-chart-6: #d8b58f;
+  --color-chart-7: #96bce6;
+  --color-chart-8: #bdaada;
+  --color-chart-9: #7e8ca8;
+  --radius: 0.625rem;
+  --radius-sm: max(calc(var(--radius) - 0.1875rem), 0rem);
+  --radius-lg: calc(var(--radius) + 0.25rem);
+  --focus-ring: #ebd8ba;
+  --focus-ring-offset: var(--color-bg);
+  --focus-ring-width: 2px;
+  --shadow-surface: 0 1px 0 rgba(255, 255, 255, 0.02), 0 10px 24px rgba(5, 8, 14, 0.32);
+  --shadow-card: 0 18px 44px rgba(2, 6, 12, 0.42);
+  --shadow-interactive: 0 8px 18px rgba(4, 9, 17, 0.28);
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-panel: var(--space-4);
+  --space-panel-lg: var(--space-5);
+  --space-control-x: var(--space-3);
+  --space-control-y: 0.625rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 0.95rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --motion-fast: 140ms;
+  --motion-normal: 220ms;
+  --motion-slow: 360ms;
+  --motion-shimmer: 1800ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-decelerated: cubic-bezier(0, 0, 0.2, 1);
+  --font-heading: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', serif;
+  --font-body: 'Segoe UI Variable Text', 'Segoe UI', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
     monospace;
 
   font-family: var(--font-body), sans-serif;
-  line-height: 1.5;
+  line-height: 1.55;
   font-weight: 400;
   color: var(--color-text);
   background-color: var(--color-bg);
@@ -45,7 +71,9 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color var(--motion-normal) ease, color var(--motion-normal) ease;
+  transition:
+    background-color var(--motion-normal) var(--ease-standard),
+    color var(--motion-normal) var(--ease-standard);
 }
 
 * {
@@ -56,8 +84,8 @@ body {
   margin: 0;
   min-width: 320px;
   background:
-    radial-gradient(circle at 92% 4%, color-mix(in srgb, var(--color-accent) 14%, transparent), transparent 36%),
-    radial-gradient(circle at 8% 12%, color-mix(in srgb, var(--color-text) 5%, transparent), transparent 28%),
+    radial-gradient(circle at 88% 2%, color-mix(in srgb, var(--color-accent) 11%, transparent), transparent 34%),
+    radial-gradient(circle at 12% 16%, color-mix(in srgb, var(--color-text) 4%, transparent), transparent 30%),
     var(--color-bg);
   color: var(--color-text);
 }
@@ -71,12 +99,12 @@ a {
 }
 
 :focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: 2px;
 }
 
 .reveal {
-  animation: fadeSlideUp 0.4s ease-out both;
+  animation: fadeSlideUp var(--motion-normal) var(--ease-emphasized) both;
 }
 
 .reveal-1 {
@@ -99,7 +127,63 @@ a {
 }
 
 .view-enter {
-  animation: fadeSlideUp 0.3s ease-out both;
+  animation: fadeSlideUp var(--motion-fast) var(--ease-emphasized) both;
+}
+
+.section-reveal > section {
+  animation: fadeSlideUp var(--motion-normal) var(--ease-standard) both;
+}
+
+.section-reveal > section:nth-of-type(2) {
+  animation-delay: 0.04s;
+}
+
+.section-reveal > section:nth-of-type(3) {
+  animation-delay: 0.08s;
+}
+
+.section-reveal > section:nth-of-type(4) {
+  animation-delay: 0.12s;
+}
+
+.section-reveal > section:nth-of-type(5) {
+  animation-delay: 0.16s;
+}
+
+.surface-interactive {
+  transition:
+    transform var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-normal) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard);
+}
+
+.control-interactive {
+  transition:
+    transform var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .surface-interactive:hover,
+  .surface-interactive:focus-within {
+    transform: translateY(-2px);
+  }
+
+  .control-interactive:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.control-interactive:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.control-interactive:disabled {
+  transform: none;
 }
 
 @keyframes fadeSlideUp {
@@ -130,7 +214,7 @@ a {
     var(--color-surface) 75%
   );
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: shimmer var(--motion-shimmer) linear infinite;
 }
 
 .story-card {
@@ -152,5 +236,12 @@ a {
     animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
     scroll-behavior: auto !important;
+  }
+
+  .surface-interactive:hover,
+  .surface-interactive:focus-within,
+  .control-interactive:hover,
+  .control-interactive:active {
+    transform: none !important;
   }
 }

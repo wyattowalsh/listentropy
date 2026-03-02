@@ -81,13 +81,16 @@ export function ExplainabilityDrawer({ manifest, result, onClose }: Explainabili
         <p className="mt-4 text-sm text-text-muted">Select a module result to inspect its provenance.</p>
       ) : (
         <div className="mt-4 space-y-3 text-sm">
-          <div className="rounded-theme border border-border bg-surface-hover p-3">
-            <p className="text-xs text-text-muted">Module</p>
-            <p className="mt-1 text-text">{manifest.name}</p>
-          </div>
-          <div className="rounded-theme border border-border bg-surface-hover p-3">
-            <p className="text-xs text-text-muted">Method</p>
-            <p className="mt-1 text-text">{result.provenance?.method ?? 'N/A'}</p>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <div className="rounded-theme border border-border bg-surface-hover p-3">
+              <p className="text-xs uppercase tracking-[0.12em] text-text-muted">Module</p>
+              <p className="mt-1 text-text">{manifest.name}</p>
+              <p className="mt-1 text-xs text-text-muted">Status: {result.status}</p>
+            </div>
+            <div className="rounded-theme border border-border bg-surface-hover p-3">
+              <p className="text-xs uppercase tracking-[0.12em] text-text-muted">Method</p>
+              <p className="mt-1 text-text">{result.provenance?.method ?? 'N/A'}</p>
+            </div>
           </div>
           {audioAffectPayload ? (
             <div className="rounded-theme border border-border bg-surface-hover p-3">
@@ -141,29 +144,29 @@ export function ExplainabilityDrawer({ manifest, result, onClose }: Explainabili
               ) : null}
             </div>
           ) : null}
-          <div className="grid gap-3 lg:grid-cols-2">
-            <div className="rounded-theme border border-border bg-surface-hover p-3">
-              <p className="text-xs text-text-muted">Assumptions</p>
-              <ul className="mt-2 list-disc space-y-1 pl-4 text-text-muted">
-                {(result.provenance?.assumptions ?? []).map((item) => <li key={item}>{item}</li>)}
-              </ul>
-            </div>
-            <div className="rounded-theme border border-border bg-surface-hover p-3">
-              <p className="text-xs text-text-muted">Warnings</p>
-              <ul className="mt-2 list-disc space-y-1 pl-4 text-text-muted">
-                {(result.provenance?.warnings?.length ? result.provenance.warnings : ['No module warnings.']).map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-          <div className="rounded-theme border border-border bg-surface-hover p-3">
-            <p className="text-xs text-text-muted">Source fields</p>
-            <p className="mt-1 text-text">{(result.provenance?.sourceFields ?? []).join(', ') || 'N/A'}</p>
+          <details className="rounded-theme border border-border bg-surface-hover p-3" open>
+            <summary className="cursor-pointer text-xs uppercase tracking-[0.12em] text-text-muted">Assumptions</summary>
+            <ul className="mt-2 list-disc space-y-1 pl-4 text-text-muted">
+              {(result.provenance?.assumptions.length ? result.provenance.assumptions : ['No assumptions listed.']).map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </details>
+          <details className="rounded-theme border border-border bg-surface-hover p-3" open>
+            <summary className="cursor-pointer text-xs uppercase tracking-[0.12em] text-text-muted">Warnings</summary>
+            <ul className="mt-2 list-disc space-y-1 pl-4 text-text-muted">
+              {(result.provenance?.warnings?.length ? result.provenance.warnings : ['No module warnings.']).map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </details>
+          <details className="rounded-theme border border-border bg-surface-hover p-3">
+            <summary className="cursor-pointer text-xs uppercase tracking-[0.12em] text-text-muted">Source fields</summary>
+            <p className="mt-2 text-text">{(result.provenance?.sourceFields ?? []).join(', ') || 'N/A'}</p>
             <p className="mt-2 text-xs text-text-muted">
               Duration {result.provenance?.durationMs ?? 0}ms · computed {result.provenance?.computedAt ?? 'N/A'}
             </p>
-          </div>
+          </details>
         </div>
       )}
     </Card>

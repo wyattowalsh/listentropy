@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -58,17 +59,24 @@ export function SpotifyAuthCallbackPage(): JSX.Element {
           {status === 'authorizing' || status === 'refreshing'
             ? 'Finalizing Spotify OAuth in this browser session…'
             : error
-              ? error
+              ? 'We couldn\'t finish your Spotify connection yet.'
               : 'Spotify connection updated. Redirecting back to Listentropy…'}
         </CardDescription>
         {error ? (
-          <div className="mt-4 rounded-theme border border-negative/30 bg-surface-hover p-3">
-            <p className="text-xs text-text-muted">
-              OAuth callback did not complete. Confirm your Spotify app client ID and allowed redirect URI, then try again from the app.
+          <div className="mt-4 rounded-theme border border-negative/40 bg-negative/10 p-3">
+            <p className="inline-flex items-center gap-2 text-sm font-semibold text-negative">
+              <AlertTriangle className="h-4 w-4" />
+              Connection details
+            </p>
+            <p className="mt-2 text-xs text-text-muted">
+              OAuth callback did not complete. Confirm your Spotify app client ID and allowed redirect URI, then start Spotify connect again.
+            </p>
+            <p className="mt-2 rounded-theme border border-negative/40 bg-surface px-2 py-1 text-xs text-negative">
+              {error}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button variant="outline" onClick={() => navigate('/', { replace: true })}>
-                Return to app
+                Back to Listentropy Home
               </Button>
             </div>
           </div>

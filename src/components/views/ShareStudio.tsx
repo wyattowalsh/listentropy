@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Check, RotateCcw } from 'lucide-react'
 
 import { ExportButton } from '@/components/share/ExportButton'
 import { ShareLinkGenerator } from '@/components/share/ShareLinkGenerator'
@@ -38,6 +39,9 @@ export function ShareStudio({ data }: ShareStudioProps): JSX.Element {
   const recordMetric = useSessionMetricsStore((state) => state.record)
 
   const activePreset = useMemo(() => getSharePresetById(presetId), [presetId])
+  const selectedCardSet = useMemo(() => new Set(selectedCardKeys), [selectedCardKeys])
+  const allCardsSelected = selectedCardKeys.length === STORY_CARD_REGISTRY.length
+  const deckReadyForExport = selectedCardKeys.length >= 3
 
   useEffect(() => {
     recordMetric({
@@ -66,6 +70,14 @@ export function ShareStudio({ data }: ShareStudioProps): JSX.Element {
       }
       return deduped
     })
+  }
+
+  function selectAllCards(): void {
+    setSelectedCardKeys(STORY_CARD_REGISTRY.map((card) => card.key))
+  }
+
+  function resetCardsToPreset(): void {
+    setSelectedCardKeys(activePreset.selectedCards as StoryCardKey[])
   }
 
   function exportMetricsJson(): void {
@@ -105,78 +117,140 @@ export function ShareStudio({ data }: ShareStudioProps): JSX.Element {
         <div className="min-w-0 space-y-4">
           <Card className="relative">
             <CardTitle>Story Controls</CardTitle>
-            <div className="mt-3 grid gap-2">
-              <p className="text-xs uppercase tracking-[0.14em] text-text-muted">Share Presets</p>
-              <div className="flex flex-wrap gap-2">
-                {SHARE_PRESETS.map((preset) => (
-                  <Button
-                    key={preset.id}
-                    variant={presetId === preset.id ? 'default' : 'outline'}
-                    onClick={() => applyPreset(preset.id)}
-                    className={presetId === preset.id ? 'shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-accent)_35%,transparent)]' : ''}
+            <p className="mt-1 text-sm text-text-muted">
+              Follow the flow: pick a preset, tune deck presentation, then export or copy links with confidence.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.12em]">
+              <span className="rounded-full border border-border bg-surface-hover px-2 py-1 text-text-muted">1 · Preset</span>
+              <span className="rounded-full border border-border bg-surface-hover px-2 py-1 text-text-muted">2 · Deck</span>
+              <span className="rounded-full border border-border bg-surface-hover px-2 py-1 text-text-muted">3 · Export</span>
+              <span className={`rounded-full border px-2 py-1 ${deckReadyForExport ? 'border-accent/40 bg-accent/10 text-accent' : 'border-border bg-surface-hover text-text-muted'}`}>
+                {deckReadyForExport ? 'Deck ready to export' : 'Select 3+ cards for stronger story context'}
+              </span>
+            </div>
+            <div className="mt-4 grid gap-4">
+              <section className="rounded-theme border border-border bg-surface-hover/40 p-3">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-muted">Share Presets</p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {SHARE_PRESETS.map((preset) => {
+                    const isActive = presetId === preset.id
+                    return (
+                      <Button
+                        key={preset.id}
+                        variant={isActive ? 'default' : 'outline'}
+                        onClick={() => applyPreset(preset.id)}
+                        className={`justify-between ${isActive ? 'shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-accent)_35%,transparent)]' : ''}`}
+                      >
+                        <span>{preset.label}</span>
+                        {isActive ? <Check className="h-4 w-4" /> : null}
+                      </Button>
+                    )
+                  })}
+                </div>
+                <p className="mt-2 text-xs text-text-muted">{activePreset.description}</p>
+              </section>
+
+              <section className="rounded-theme border border-border bg-surface-hover/40 p-3">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-muted">Deck presentation</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <Input
+                    value={displayName}
+                    aria-label="Display name"
+                    placeholder="Display name (optional)"
+                    onChange={(event) => setDisplayName(event.currentTarget.value)}
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant={aspect === 'story' ? 'default' : 'outline'}
+                      onClick={() => setAspect('story')}
+                      aria-label="Use story 9 by 16 aspect ratio"
+                    >
+                      Story 9:16
+                    </Button>
+                    <Button
+                      variant={aspect === 'square' ? 'default' : 'outline'}
+                      onClick={() => setAspect('square')}
+                      aria-label="Use square 1 by 1 aspect ratio"
+                    >
+                      Square 1:1
+                    </Button>
+                  </div>
+                  <label
+                    className={`inline-flex items-center gap-2 rounded-theme border px-3 py-2 text-sm ${
+                      showBranding ? 'border-accent/40 bg-accent/10 text-text' : 'border-border text-text-muted'
+                    }`}
                   >
-                    {preset.label}
-                  </Button>
-                ))}
-              </div>
-              <p className="text-xs text-text-muted">{activePreset.description}</p>
-            </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <Input
-                value={displayName}
-                aria-label="Display name"
-                placeholder="Display name (optional)"
-                onChange={(event) => setDisplayName(event.currentTarget.value)}
-              />
-              <div className="flex items-center gap-2">
-                <Button
-                  variant={aspect === 'story' ? 'default' : 'outline'}
-                  onClick={() => setAspect('story')}
-                  aria-label="Use story 9 by 16 aspect ratio"
-                >
-                  Story 9:16
-                </Button>
-                <Button
-                  variant={aspect === 'square' ? 'default' : 'outline'}
-                  onClick={() => setAspect('square')}
-                  aria-label="Use square 1 by 1 aspect ratio"
-                >
-                  Square 1:1
-                </Button>
-              </div>
-              <label className="inline-flex items-center gap-2 text-sm text-text-muted">
-                <input
-                  type="checkbox"
-                  checked={showBranding}
-                  onChange={(event) => setShowBranding(event.currentTarget.checked)}
-                />
-                Show Listentropy branding
-              </label>
-              <label className="inline-flex items-center gap-2 text-sm text-text-muted">
-                <input
-                  type="checkbox"
-                  checked={showQr}
-                  onChange={(event) => setShowQr(event.currentTarget.checked)}
-                />
-                Add QR code
-              </label>
-            </div>
-            <div className="mt-4">
-              <p className="text-xs uppercase tracking-[0.14em] text-text-muted">
-                Included cards ({selectedCardKeys.length})
-              </p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {STORY_CARD_REGISTRY.map((card) => (
-                  <label key={card.key} className="inline-flex items-center gap-2 text-xs text-text-muted">
                     <input
                       type="checkbox"
-                      checked={selectedCardKeys.includes(card.key)}
-                      onChange={() => toggleCard(card.key)}
+                      checked={showBranding}
+                      onChange={(event) => setShowBranding(event.currentTarget.checked)}
                     />
-                    <span>{card.title}</span>
+                    Show Listentropy branding
                   </label>
-                ))}
-              </div>
+                  <label
+                    className={`inline-flex items-center gap-2 rounded-theme border px-3 py-2 text-sm ${
+                      showQr ? 'border-accent/40 bg-accent/10 text-text' : 'border-border text-text-muted'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={showQr}
+                      onChange={(event) => setShowQr(event.currentTarget.checked)}
+                    />
+                    Add QR code
+                  </label>
+                </div>
+              </section>
+
+              <section className="rounded-theme border border-border bg-surface-hover/40 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-muted">
+                    Included cards ({selectedCardKeys.length}/{STORY_CARD_REGISTRY.length})
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" type="button" onClick={resetCardsToPreset}>
+                      <RotateCcw className="h-4 w-4" />
+                      Reset
+                    </Button>
+                    <Button variant="ghost" type="button" onClick={selectAllCards} disabled={allCardsSelected}>
+                      Select all
+                    </Button>
+                  </div>
+                </div>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {STORY_CARD_REGISTRY.map((card, index) => {
+                    const isSelected = selectedCardSet.has(card.key)
+                    return (
+                      <button
+                        key={card.key}
+                        type="button"
+                        aria-pressed={isSelected}
+                        onClick={() => toggleCard(card.key)}
+                        className={`inline-flex min-h-[44px] items-center justify-between gap-2 rounded-theme border px-3 py-2 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--focus-ring-offset)] ${
+                          isSelected
+                            ? 'border-accent/40 bg-accent/10 text-text'
+                            : 'border-border text-text-muted hover:border-accent/40 hover:text-text'
+                        }`}
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          <span className="rounded-full border border-current/35 px-1.5 py-0.5 text-[10px]">
+                            {index + 1}
+                          </span>
+                          {card.title}
+                        </span>
+                        <span className="text-[10px] uppercase tracking-[0.12em]">
+                          {isSelected ? 'On' : 'Off'}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+                {!deckReadyForExport ? (
+                  <p className="mt-2 text-xs text-text-muted">
+                    Tip: include at least three cards so the shared story has enough context.
+                  </p>
+                ) : null}
+              </section>
             </div>
           </Card>
 

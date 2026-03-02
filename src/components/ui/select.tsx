@@ -9,7 +9,7 @@ export function Select({
   return (
     <select
       className={cn(
-        'h-10 rounded-theme border border-border bg-surface px-3 text-sm text-text focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]',
+        'control-interactive h-10 rounded-theme border border-border bg-surface px-control-x text-sm text-text transition-[border-color,box-shadow,background-color,color,transform] duration-fast ease-standard hover:border-accent/30 hover:bg-surface-hover/40 focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--focus-ring-offset)]',
         className,
       )}
       {...props}

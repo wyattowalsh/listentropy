@@ -11,6 +11,7 @@ import {
 interface ChartContainerProps {
   height: number
   ariaLabel: string
+  interactive?: boolean
   className?: string
   children: ReactNode
 }
@@ -20,7 +21,13 @@ interface ChartDimensions {
   height: number
 }
 
-export function ChartContainer({ height, ariaLabel, className, children }: ChartContainerProps): JSX.Element {
+export function ChartContainer({
+  height,
+  ariaLabel,
+  interactive = false,
+  className,
+  children,
+}: ChartContainerProps): JSX.Element {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const [dimensions, setDimensions] = useState<ChartDimensions>({ width: 0, height })
 
@@ -61,7 +68,7 @@ export function ChartContainer({ height, ariaLabel, className, children }: Chart
   return (
     <div
       ref={rootRef}
-      role="img"
+      role={interactive ? 'group' : 'img'}
       aria-label={ariaLabel}
       className={className ? `w-full min-w-0 ${className}` : 'w-full min-w-0'}
       style={{ height }}

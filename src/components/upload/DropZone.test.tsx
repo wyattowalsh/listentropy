@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { PreparedSpotifyZipArchive } from '@/lib/data/parser'
@@ -62,5 +62,29 @@ describe('DropZone', () => {
     await Promise.resolve()
 
     expect(onFileSelected).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows an action-oriented preflight error when archive has no history files', async () => {
+    prepareSpotifyZipArchiveMock.mockReset().mockResolvedValue({
+      zip: {} as PreparedSpotifyZipArchive['zip'],
+      entries: [] as PreparedSpotifyZipArchive['entries'],
+      historyEntries: [] as PreparedSpotifyZipArchive['historyEntries'],
+      inspection: {
+        totalEntries: 4,
+        historyFileCount: 0,
+        historyFiles: [],
+      },
+    } satisfies PreparedSpotifyZipArchive)
+
+    const onFileSelected = vi.fn()
+    const { container } = render(<DropZone onFileSelected={onFileSelected} />)
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(input, { target: { files: [new File(['x'], 'missing-history.zip', { type: 'application/zip' })] } })
+
+    await waitFor(() => {
+      expect(screen.getByText(/we couldn['’]t find spotify streaming history files/i)).toBeInTheDocument()
+    })
+    expect(screen.getByText(/request your data again from spotify privacy settings/i)).toBeInTheDocument()
+    expect(onFileSelected).not.toHaveBeenCalled()
   })
 })

@@ -24,11 +24,28 @@ test('@matrix universe renders graph controls, analytics, and diagnostics', asyn
   await expect(page.getByLabel('Co-listen edges')).toBeVisible()
   await expect(page.getByLabel('Contains edges')).toBeVisible()
   await expect(page.getByText('Network Analytics')).toBeVisible()
+  const simpleModeButton = page.getByRole('button', { name: 'Simple', exact: true })
+  const deepModeButton = page.getByRole('button', { name: 'Deep', exact: true })
+  await expect(simpleModeButton).toHaveAttribute('aria-pressed', 'true')
+  await expect(deepModeButton).toHaveAttribute('aria-pressed', 'false')
+
+  const deepBreakdown = page.locator('details').filter({ has: page.getByText('Deep network breakdown') })
+  await expect(deepBreakdown).toBeVisible()
+  await expect(page.getByText('Top Hubs')).toBeHidden()
+
+  await deepBreakdown.locator('summary').click()
+  await expect(deepBreakdown).toHaveAttribute('open', '')
   await expect(page.getByText('Top Hubs')).toBeVisible()
   await expect(page.getByText('Bridge Artists')).toBeVisible()
   await expect(page.getByText('Cluster Summary')).toBeVisible()
   await expect(page.getByText('Co-listen Motifs')).toBeVisible()
   await expect(page.getByText('View Diagnostics')).toBeVisible()
+
+  await deepModeButton.click()
+  await expect(deepModeButton).toHaveAttribute('aria-pressed', 'true')
+  await expect(simpleModeButton).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.locator('details').filter({ has: page.getByText('Deep network breakdown') })).toHaveCount(0)
+  await expect(page.getByText('Top Hubs')).toBeVisible()
 
   const fallbackMessage = page.getByText(/Running in 2D fallback|2D mode|3D renderer failed|3D rendering is unavailable/i)
   if ((await fallbackMessage.count()) > 0) {

@@ -22,6 +22,11 @@ export function UniverseInspector({
         <CardDescription className="mt-2">
           Hover or select a node in 3D mode, or use search to inspect an artist/track.
         </CardDescription>
+        <ul className="mt-3 space-y-1 text-xs text-text-muted">
+          <li>• Use search chips for touch-friendly node jumps.</li>
+          <li>• Use keyboard navigator buttons when canvas interaction is limited.</li>
+          <li>• Node details and neighbors appear here after selection.</li>
+        </ul>
       </Card>
     )
   }
@@ -35,11 +40,11 @@ export function UniverseInspector({
             {node.type} · plays {formatCompact(node.playCount)} · {formatHours(node.totalMs)}h
           </CardDescription>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {onFocusSelected ? (
             <button
               type="button"
-              className="rounded-theme border border-border px-3 py-2 text-xs text-text transition hover:border-accent hover:text-accent"
+              className="min-h-10 rounded-theme border border-border px-3 py-2 text-sm text-text transition hover:border-accent hover:text-accent"
               onClick={onFocusSelected}
             >
               Focus Selected
@@ -48,10 +53,10 @@ export function UniverseInspector({
           {onClearSelected ? (
             <button
               type="button"
-              className="rounded-theme border border-border px-3 py-2 text-xs text-text transition hover:border-accent hover:text-accent"
+              className="min-h-10 rounded-theme border border-border px-3 py-2 text-sm text-text transition hover:border-accent hover:text-accent"
               onClick={onClearSelected}
             >
-              Clear
+              Clear Selection
             </button>
           ) : null}
         </div>
@@ -77,12 +82,15 @@ export function UniverseInspector({
       </div>
 
       <div className="mt-4">
-        <p className="text-xs uppercase tracking-[0.14em] text-text-muted">Neighbors</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs uppercase tracking-[0.14em] text-text-muted">Neighbors</p>
+          <p className="text-xs text-text-muted">{Math.min(neighbors.length, 8)} shown</p>
+        </div>
         {neighbors.length === 0 ? (
           <p className="mt-2 text-sm text-text-muted">No visible neighbors in the current filtered graph.</p>
         ) : (
           <ul className="mt-2 space-y-2">
-            {neighbors.slice(0, 8).map((neighbor) => (
+            {neighbors.slice(0, 8).map((neighbor, index) => (
               <li
                 key={`${neighbor.id}-${neighbor.weight}`}
                 className="flex items-center justify-between gap-2 rounded-theme border border-border bg-surface-hover px-3 py-2 text-sm"
@@ -91,7 +99,10 @@ export function UniverseInspector({
                   <p className="truncate text-text">{neighbor.label}</p>
                   <p className="text-xs text-text-muted">{neighbor.type}</p>
                 </div>
-                <p className="shrink-0 text-xs text-text-muted">weight {neighbor.weight}</p>
+                <div className="shrink-0 text-right">
+                  <p className="text-xs text-text-muted">#{index + 1}</p>
+                  <p className="text-xs text-text-muted">weight {neighbor.weight}</p>
+                </div>
               </li>
             ))}
           </ul>
@@ -100,4 +111,3 @@ export function UniverseInspector({
     </Card>
   )
 }
-

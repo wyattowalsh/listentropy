@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { AlertTriangle, Sparkles } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
-import { safeDecodeSharePayloadV4 } from '@/lib/share/share-encoder'
+import { decodeSharePayload, decodeSharePayloadV4 } from '@/lib/share/share-encoder'
 import { formatPercent } from '@/lib/utils'
 import { applyTheme } from '@/store/useThemeStore'
 
@@ -23,7 +24,36 @@ export function SharePage(): JSX.Element {
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
 
-  const payload = safeDecodeSharePayloadV4(hash)
+  const decoded = useMemo(() => {
+    if (!hash) {
+      return null
+    }
+    try {
+      const source = decodeSharePayload(hash)
+      return {
+        payload: decodeSharePayloadV4(hash),
+        sourceVersion: source.version,
+      }
+    } catch {
+      return null
+    }
+  }, [hash])
+  const payload = decoded?.payload ?? null
+  const sourceVersion = decoded?.sourceVersion ?? null
+  const legacyPayload = sourceVersion !== null && sourceVersion < 4
+  const hasContextSnapshot = payload
+    ? sourceVersion !== null && sourceVersion >= 3
+      ? Boolean(
+          payload.context.homeCountry ||
+          payload.context.topReasons.length > 0 ||
+          payload.context.topDeviceTransition ||
+          payload.context.domesticShare > 0 ||
+          payload.context.travelShare > 0 ||
+          payload.context.offlineRate > 0 ||
+          payload.context.incognitoRate > 0,
+        )
+      : false
+    : false
 
   useEffect(() => {
     if (payload?.themeKey) {
@@ -34,13 +64,22 @@ export function SharePage(): JSX.Element {
   if (!payload) {
     return (
       <div className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center px-4">
-        <Card className="w-full text-center">
-          <CardTitle>Invalid Share Link</CardTitle>
+        <Card className="w-full max-w-xl text-center">
+          <div className="mx-auto inline-flex h-11 w-11 items-center justify-center rounded-full border border-amber-400/40 bg-amber-500/10 text-amber-200">
+            <AlertTriangle className="h-5 w-5" />
+          </div>
+          <CardTitle className="mt-3">This link needs a refresh</CardTitle>
           <CardDescription className="mt-2">
-            This link is malformed or expired.
+            We couldn&apos;t decode this snapshot payload safely. It may be malformed, incomplete, or copied with missing characters.
           </CardDescription>
+          <p className="mt-3 text-xs text-text-muted">
+            Data privacy: decoding happens in your browser and no private data was processed.
+          </p>
+          <p className="mt-2 text-xs text-text-muted">
+            Link authenticity: shared snapshots are browser-generated and unverified in this release.
+          </p>
           <Link to="/" className="mt-4 inline-block text-accent underline">
-            Back to Listentropy
+            Create a new share snapshot
           </Link>
         </Card>
       </div>
@@ -58,6 +97,26 @@ export function SharePage(): JSX.Element {
           · {payload.dateRange[0]} — {payload.dateRange[1]} · payload v{payload.version} ·{' '}
           {payload.timezoneMode === 'utc' ? 'UTC' : 'Local Time'} · {payload.themeKey}
         </CardDescription>
+      </Card>
+      {legacyPayload ? (
+        <Card className="border-accent/30 bg-surface-hover/30">
+          <CardTitle className="inline-flex items-center gap-2 text-sm">
+            <Sparkles className="h-4 w-4 text-accent" />
+            Legacy snapshot upgraded
+          </CardTitle>
+          <CardDescription className="mt-2">
+            This link was generated with payload v{sourceVersion}. We upgraded it in-browser so it renders with the modern /share layout.
+          </CardDescription>
+        </Card>
+      ) : null}
+      <Card className="border-border bg-surface-hover/30">
+        <CardTitle className="text-sm">Privacy &amp; authenticity notes</CardTitle>
+        <CardDescription className="mt-2">
+          <span className="font-semibold text-text">Data privacy:</span> this snapshot is decoded in your browser with no upload required to view it.
+        </CardDescription>
+        <p className="mt-2 text-xs text-text-muted">
+          <span className="font-semibold text-text">Link authenticity:</span> share snapshots are browser-generated and unverified in this release.
+        </p>
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -116,29 +175,43 @@ export function SharePage(): JSX.Element {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardTitle>Context Snapshot</CardTitle>
-          <p className="mt-2 text-sm text-text-muted">
-            Home country: {payload.context.homeCountry ?? 'N/A'}
-          </p>
-          <p className="mt-2 text-sm text-text-muted">
-            Domestic {formatPercent(payload.context.domesticShare)} · Travel{' '}
-            {formatPercent(payload.context.travelShare)}
-          </p>
-          <p className="mt-2 text-sm text-text-muted">
-            Offline {formatPercent(payload.context.offlineRate)} · Incognito{' '}
-            {formatPercent(payload.context.incognitoRate)}
-          </p>
+          {hasContextSnapshot ? (
+            <>
+              <p className="mt-2 text-sm text-text-muted">
+                Home country: {payload.context.homeCountry ?? 'N/A'}
+              </p>
+              <p className="mt-2 text-sm text-text-muted">
+                Domestic {formatPercent(payload.context.domesticShare)} · Travel{' '}
+                {formatPercent(payload.context.travelShare)}
+              </p>
+              <p className="mt-2 text-sm text-text-muted">
+                Offline {formatPercent(payload.context.offlineRate)} · Incognito{' '}
+                {formatPercent(payload.context.incognitoRate)}
+              </p>
+            </>
+          ) : (
+            <p className="mt-2 text-sm text-text-muted">
+              Context details were not included in this earlier share format.
+            </p>
+          )}
         </Card>
         <Card>
           <CardTitle>Top Intent Signals</CardTitle>
-          <ol className="mt-3 space-y-2">
-            {payload.context.topReasons.map(([reason, count]) => (
-              <li key={reason} className="flex items-center justify-between text-sm text-text">
-                <span>{reason}</span>
-                <span className="text-text-muted">{count.toLocaleString()}</span>
-              </li>
-            ))}
-          </ol>
-          {payload.context.topDeviceTransition ? (
+          {payload.context.topReasons.length > 0 ? (
+            <ol className="mt-3 space-y-2">
+              {payload.context.topReasons.map(([reason, count]) => (
+                <li key={reason} className="flex items-center justify-between text-sm text-text">
+                  <span>{reason}</span>
+                  <span className="text-text-muted">{count.toLocaleString()}</span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="mt-3 text-sm text-text-muted">
+              Intent reasons were not captured in this snapshot.
+            </p>
+          )}
+          {hasContextSnapshot && payload.context.topDeviceTransition ? (
             <p className="mt-3 text-xs text-text-muted">
               Dominant device handoff: {payload.context.topDeviceTransition[0]} →{' '}
               {payload.context.topDeviceTransition[1]} (

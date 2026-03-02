@@ -28,7 +28,10 @@ export function TabNav({
   metadata,
 }: TabNavProps): JSX.Element {
   return (
-    <div className="min-w-0 space-y-2">
+    <div className="min-w-0 space-y-2.5">
+      <p className="px-1 text-[10px] uppercase tracking-[0.2em] text-accent-muted/80">
+        Primary views
+      </p>
       <Tabs
         value={value}
         onValueChange={onChange}
@@ -36,7 +39,7 @@ export function TabNav({
         idBase={PRIMARY_ANALYTICS_TABS_ID_BASE}
       >
         <TabsList
-          className="grid w-full max-w-full min-w-0 grid-cols-2 items-stretch sm:grid-cols-4"
+          className="grid w-full max-w-full min-w-0 grid-cols-2 items-stretch gap-1 rounded-theme-lg border-border/80 bg-surface/80 p-1.5 sm:grid-cols-4"
           aria-label="Primary analytics views"
         >
           {viewTabs.map((tab) => {
@@ -49,24 +52,24 @@ export function TabNav({
               <TabsTrigger
                 key={tab.key}
                 value={tab.key}
-                className="w-full min-w-0 whitespace-normal px-2 py-2 text-left align-top sm:px-3"
+                className="control-interactive w-full min-w-0 whitespace-normal border border-transparent bg-transparent px-2.5 py-2.5 text-left align-top transition-[background-color,border-color,color,box-shadow,transform] duration-fast ease-standard hover:-translate-y-px hover:border-border hover:bg-surface-hover/40 focus-visible:-translate-y-px aria-selected:border-accent/45 aria-selected:bg-accent aria-selected:text-accent-contrast sm:px-3"
                 aria-label={tab.label}
                 aria-describedby={metaDescriptionId}
               >
                 <span className="flex w-full min-w-0 flex-col items-start gap-1 leading-tight">
-                  <span>{tab.label}</span>
+                  <span className="font-medium tracking-[0.01em]">{tab.label}</span>
                   {hasMeta ? (
                     <span
                       id={metaDescriptionId}
-                      className="flex w-full min-w-0 flex-wrap items-center gap-1 text-[10px] uppercase tracking-[0.12em] opacity-90"
+                      className="flex w-full min-w-0 flex-wrap items-center gap-1 text-[10px] uppercase tracking-[0.12em] text-current/85"
                     >
                       {tabMeta?.badge ? (
-                        <span className="rounded-theme border border-current/20 px-1.5 py-0.5">
+                        <span className="rounded-theme border border-current/20 bg-bg/10 px-1.5 py-0.5">
                           {tabMeta.badge}
                         </span>
                       ) : null}
                       {tabMeta?.detail ? (
-                        <span className="min-w-0 break-words normal-case tracking-normal opacity-80">
+                        <span className="min-w-0 break-words normal-case tracking-normal text-current/75">
                           {tabMeta.detail}
                         </span>
                       ) : null}

@@ -413,6 +413,22 @@ describe('LabWorkbench', () => {
     expect(screen.getByText(/Fixture compare note/)).toBeInTheDocument()
   }, SLOW_LAB_WORKBENCH_TEST_TIMEOUT_MS)
 
+  it('keeps compare workspace controls available in simple analysis mode', async () => {
+    const data = processRecords(makeSyntheticRecords(30), { timezoneMode: 'local' })
+    const user = userEvent.setup()
+    render(<LabWorkbench data={data} analysisMode="simple" />)
+
+    await user.click(screen.getByText('Compare Scope', { selector: 'summary' }))
+    expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument()
+
+    await user.click(screen.getByText('Era vs Era Selection', { selector: 'summary' }))
+    expect(screen.getByLabelText('Baseline era selector')).toBeInTheDocument()
+    expect(screen.getByLabelText('Current era selector')).toBeInTheDocument()
+
+    await user.click(screen.getByText('Imported Compare Dataset', { selector: 'summary' }))
+    expect(screen.getByText(/No imported compare dataset yet/i)).toBeInTheDocument()
+  }, SLOW_LAB_WORKBENCH_TEST_TIMEOUT_MS)
+
   it('shows saved compare snapshots after capturing baseline', async () => {
     const data = processRecords(makeSyntheticRecords(30), { timezoneMode: 'local' })
     const user = userEvent.setup()

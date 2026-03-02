@@ -177,4 +177,21 @@ describe('ShareLinkGenerator', () => {
     expect(match).toBeTruthy()
     expect(Number(match?.[1])).toBeLessThanOrEqual(2400)
   })
+
+  it('shows distinct data privacy and unverified authenticity messaging', () => {
+    render(
+      <ShareLinkGenerator
+        data={makeData()}
+        displayName="Alicia"
+        selectedCards={['title', 'numbers']}
+        sharePreset="detailed-stats"
+        onDisplayNameChange={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText(/data privacy:/i)).toBeInTheDocument()
+    expect(screen.getByText(/profile confirmation:/i)).toBeInTheDocument()
+    expect(screen.getByText(/link authenticity:/i)).toBeInTheDocument()
+    expect(screen.getByText(/unverified in this release/i)).toBeInTheDocument()
+  })
 })

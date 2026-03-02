@@ -34,6 +34,8 @@ function asPayload<T>(result: LabModuleResult | undefined): T | undefined {
 export function SceneGallery({ data, snapshot, selectedSceneId, onSelectScene, manifests, moduleResults }: SceneGalleryProps): JSX.Element {
   const selected = selectedSceneId ?? manifests.find((manifest) => manifest.featured && !manifest.comingSoon)?.id ?? manifests[0]?.id
   const manifestById = useMemo(() => Object.fromEntries(manifests.map((manifest) => [manifest.id, manifest])) as Record<LabSceneId, LabSceneManifest>, [manifests])
+  const featured = manifests.filter((manifest) => manifest.featured || !manifest.comingSoon)
+  const experimental = manifests.filter((manifest) => !manifest.featured && manifest.comingSoon)
 
   const currentManifest = selected ? manifestById[selected] : undefined
 
@@ -61,7 +63,7 @@ export function SceneGallery({ data, snapshot, selectedSceneId, onSelectScene, m
         <CardTitle>Visual Scene Gallery</CardTitle>
         <CardDescription className="mt-1">Exotic visualizations layered on top of core and deferred Xenolab analytics.</CardDescription>
         <div className="mt-3 flex flex-wrap gap-2">
-          {manifests.map((manifest) => (
+          {featured.map((manifest) => (
             <Button
               key={manifest.id}
               variant={selected === manifest.id ? 'default' : 'outline'}
@@ -72,6 +74,33 @@ export function SceneGallery({ data, snapshot, selectedSceneId, onSelectScene, m
             </Button>
           ))}
         </div>
+        {experimental.length ? (
+          <details className="mt-3 rounded-theme border border-border bg-surface p-2">
+            <summary className="cursor-pointer text-xs uppercase tracking-[0.12em] text-text-muted">
+              Experimental Scenes ({experimental.length})
+            </summary>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {experimental.map((manifest) => (
+                <Button
+                  key={manifest.id}
+                  variant={selected === manifest.id ? 'default' : 'outline'}
+                  onClick={() => onSelectScene(manifest.id)}
+                  className="h-8 px-2 text-xs"
+                >
+                  {manifest.name}
+                  {manifest.comingSoon ? ' (Soon)' : ''}
+                </Button>
+              ))}
+            </div>
+          </details>
+        ) : null}
+        {currentManifest ? (
+          <div className="mt-3 rounded-theme border border-border bg-surface-hover p-2">
+            <p className="text-[11px] uppercase tracking-[0.12em] text-text-muted">Selected Scene</p>
+            <p className="mt-1 text-sm text-text">{currentManifest.name}</p>
+            <p className="mt-1 text-xs text-text-muted">{currentManifest.description}</p>
+          </div>
+        ) : null}
       </Card>
       <Suspense
         fallback={

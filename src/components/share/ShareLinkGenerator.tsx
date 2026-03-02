@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, Link2 } from 'lucide-react'
+import { AlertTriangle, Check, Link2, ShieldCheck } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -179,6 +179,7 @@ export function ShareLinkGenerator({
 
   const canCopyProfileLink = !profileModePendingConfirmation
   const visibleLink = profileModePendingConfirmation ? 'Confirm profile-share warning to generate link.' : link
+  const payloadUsage = Math.min(payload.hash.length / MAX_HASH_LENGTH, 1)
 
   async function copyLink(): Promise<void> {
     if (!canCopyProfileLink) {
@@ -197,8 +198,25 @@ export function ShareLinkGenerator({
   return (
     <div className="min-w-0 space-y-3 rounded-theme border border-border bg-surface p-4">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="font-heading text-sm font-semibold text-text">Shareable Link</h3>
-        <label className="inline-flex items-center gap-2 text-xs text-text-muted">
+        <div>
+          <h3 className="font-heading text-sm font-semibold text-text">Shareable Link</h3>
+          <p className="text-xs text-text-muted">Build and copy a compact browser-generated snapshot link.</p>
+        </div>
+        <span
+          className={`rounded-full border px-2 py-1 text-[11px] uppercase tracking-[0.12em] ${
+            includeName
+              ? profileWarningConfirmed
+                ? 'border-amber-400/50 bg-amber-500/10 text-amber-100'
+                : 'border-amber-500/40 bg-amber-500/10 text-amber-200'
+              : 'border-border bg-surface-hover text-text-muted'
+          }`}
+        >
+          {includeName ? (profileWarningConfirmed ? 'Profile mode' : 'Profile locked') : 'Aggregate mode'}
+        </span>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="inline-flex items-center gap-2 rounded-theme border border-border px-3 py-2 text-xs text-text-muted">
           <input
             aria-label="Include display name in share payload"
             type="checkbox"
@@ -212,17 +230,16 @@ export function ShareLinkGenerator({
           />
           Include display name
         </label>
+        <label className="inline-flex items-center gap-2 rounded-theme border border-border px-3 py-2 text-xs text-text-muted">
+          <input
+            aria-label="Anonymize top artist and track names"
+            type="checkbox"
+            checked={anonymize}
+            onChange={(event) => setAnonymize(event.currentTarget.checked)}
+          />
+          Anonymize top artists/tracks
+        </label>
       </div>
-
-      <label className="inline-flex items-center gap-2 text-xs text-text-muted">
-        <input
-          aria-label="Anonymize top artist and track names"
-          type="checkbox"
-          checked={anonymize}
-          onChange={(event) => setAnonymize(event.currentTarget.checked)}
-        />
-        Anonymize top artists/tracks
-      </label>
 
       {includeName ? (
         <Input
@@ -256,23 +273,57 @@ export function ShareLinkGenerator({
         </p>
       )}
 
-      <div className="flex min-w-0 flex-wrap items-center gap-2 overflow-hidden">
-        <Button variant="outline" onClick={copyLink} disabled={!canCopyProfileLink}>
-          {copied ? <Check className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
-          {copied ? 'Copied' : 'Copy Share Link'}
-        </Button>
-        <div className="min-w-0 basis-full overflow-hidden sm:flex-1">
+      <div className="rounded-theme border border-border bg-surface-hover/30 p-3">
+        <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-text">
+          <ShieldCheck className="h-4 w-4 text-accent" />
+          Data privacy vs authenticity
+        </p>
+        <ul className="mt-2 space-y-1.5 text-xs text-text-muted">
+          <li>
+            <span className="font-semibold text-text">Data privacy:</span> aggregate snapshots omit direct identifiers unless you opt in.
+          </li>
+          <li>
+            <span className="font-semibold text-text">Profile confirmation:</span> profile links stay locked until you confirm the warning.
+          </li>
+          <li>
+            <span className="font-semibold text-text">Link authenticity:</span> snapshots are generated in your browser and are unverified in this release.
+          </li>
+          <li>
+            <span className="font-semibold text-text">Payload fallback:</span> compact trimming keeps links inside the safety cap.
+          </li>
+        </ul>
+      </div>
+
+      <div className="space-y-2 rounded-theme border border-border bg-surface-hover/40 p-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 overflow-hidden">
+          <Button onClick={copyLink} disabled={!canCopyProfileLink}>
+            {copied ? <Check className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
+            {copied ? 'Copied' : 'Copy Share Link'}
+          </Button>
+          <p className="text-xs text-text-muted">Safe for aggregate sharing by default.</p>
+        </div>
+        <div className="min-w-0 overflow-hidden">
           <code className="block w-full truncate text-xs text-text-muted">
             {visibleLink}
           </code>
         </div>
       </div>
-      <p className="text-xs text-text-muted">
-        Link payload size: {payload.hash.length}/{MAX_HASH_LENGTH} chars.
-        {payload.compactMode
-          ? ' Compact mode trimmed some detail lists to stay within the share-link budget.'
-          : ' If the payload exceeds the budget, compact mode trims list detail automatically.'}
-      </p>
+      <div className="space-y-2">
+        <p className="text-xs text-text-muted">
+          Link payload size: {payload.hash.length}/{MAX_HASH_LENGTH} chars.
+        </p>
+        <div className="h-1.5 overflow-hidden rounded-full bg-surface-hover">
+          <div
+            className={`h-full rounded-full ${payload.compactMode ? 'bg-amber-400/80' : 'bg-accent'}`}
+            style={{ width: `${Math.max(8, payloadUsage * 100)}%` }}
+          />
+        </div>
+        <p className="text-xs text-text-muted">
+          {payload.compactMode
+            ? 'Compact mode is active to keep the share link under the payload cap.'
+            : 'If the payload exceeds the budget, compact mode trims list detail automatically.'}
+        </p>
+      </div>
     </div>
   )
 }

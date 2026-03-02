@@ -134,7 +134,10 @@ function changeIntensity(era: EraData): number {
 }
 
 export function MusicEras({ data }: MusicErasProps): JSX.Element {
+  const premiumCardClass =
+    'border-border/70 bg-surface/90 shadow-surface transition-[border-color,background-color] duration-fast hover:border-accent/25'
   const [activeEraId, setActiveEraId] = useState<string | null>(null)
+  const [showAllEraRows, setShowAllEraRows] = useState(false)
 
   const eraProfiles = useMemo(() => buildEraProfiles(data.records, data.eras), [data.records, data.eras])
 
@@ -173,12 +176,30 @@ export function MusicEras({ data }: MusicErasProps): JSX.Element {
       : null
 
   return (
-    <div className="space-y-4">
-      <Card>
+    <div className="space-y-5">
+      <Card className={premiumCardClass}>
         <CardTitle>Music Eras</CardTitle>
         <CardDescription className="mt-1">
           Artist-led era detection with change scoring, smoothing, and transition diagnostics.
         </CardDescription>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-theme border border-border/70 bg-surface-hover/70 p-3">
+            <p className="text-[11px] uppercase tracking-[0.14em] text-text-muted">Eras detected</p>
+            <p className="mt-1 text-sm text-text">{data.eras.length}</p>
+          </div>
+          <div className="rounded-theme border border-border/70 bg-surface-hover/70 p-3">
+            <p className="text-[11px] uppercase tracking-[0.14em] text-text-muted">Avg confidence</p>
+            <p className="mt-1 text-sm text-text">{formatPercent(summary.averageConfidence)}</p>
+          </div>
+          <div className="rounded-theme border border-border/70 bg-surface-hover/70 p-3">
+            <p className="text-[11px] uppercase tracking-[0.14em] text-text-muted">Avg dominance</p>
+            <p className="mt-1 text-sm text-text">{formatPercent(summary.averageDominance)}</p>
+          </div>
+          <div className="rounded-theme border border-border/70 bg-surface-hover/70 p-3">
+            <p className="text-[11px] uppercase tracking-[0.14em] text-text-muted">Era hours</p>
+            <p className="mt-1 text-sm text-text">{formatHours(summary.totalHours)}h</p>
+          </div>
+        </div>
         {sparseMessage ? (
           <div className="mt-3 rounded-theme border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
             {sparseMessage}
@@ -192,9 +213,9 @@ export function MusicEras({ data }: MusicErasProps): JSX.Element {
         </div>
       </Card>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-4">
-          <Card>
+          <Card className={premiumCardClass}>
             <CardTitle>Detected Eras</CardTitle>
             <CardDescription className="mt-1">Confidence-weighted timeline segments with transition intensity.</CardDescription>
             <div className="mt-3 space-y-2">
@@ -206,7 +227,9 @@ export function MusicEras({ data }: MusicErasProps): JSX.Element {
                     key={era.id}
                     type="button"
                     className={`w-full rounded-theme border p-3 text-left transition-colors ${
-                      active ? 'border-accent bg-accent/10' : 'border-border bg-surface-hover hover:border-accent/40'
+                      active
+                        ? 'border-accent bg-accent/10 shadow-interactive'
+                        : 'border-border/70 bg-surface-hover/70 hover:border-accent/40'
                     }`}
                     aria-pressed={active}
                     onClick={() => setActiveEraId(era.id)}
@@ -230,30 +253,30 @@ export function MusicEras({ data }: MusicErasProps): JSX.Element {
                 )
               })}
               {data.eras.length === 0 ? (
-                <p className="rounded-theme border border-border bg-surface-hover p-3 text-sm text-text-muted">
+                <p className="rounded-theme border border-border/70 bg-surface-hover/70 p-3 text-sm text-text-muted">
                   No eras detected yet.
                 </p>
               ) : null}
             </div>
           </Card>
 
-          <Card>
+          <Card className={premiumCardClass}>
             <CardTitle>Era Intelligence Summary</CardTitle>
             <CardDescription className="mt-1">High-level quality and segmentation signals across all detected eras.</CardDescription>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-theme border border-border bg-surface-hover p-3">
+              <div className="rounded-theme border border-border/70 bg-surface-hover/70 p-3">
                 <p className="text-[11px] uppercase tracking-[0.14em] text-text-muted">Avg Confidence</p>
                 <p className="mt-1 text-sm text-text">{formatPercent(summary.averageConfidence)}</p>
               </div>
-              <div className="rounded-theme border border-border bg-surface-hover p-3">
+              <div className="rounded-theme border border-border/70 bg-surface-hover/70 p-3">
                 <p className="text-[11px] uppercase tracking-[0.14em] text-text-muted">Avg Dominance</p>
                 <p className="mt-1 text-sm text-text">{formatPercent(summary.averageDominance)}</p>
               </div>
-              <div className="rounded-theme border border-border bg-surface-hover p-3">
+              <div className="rounded-theme border border-border/70 bg-surface-hover/70 p-3">
                 <p className="text-[11px] uppercase tracking-[0.14em] text-text-muted">Avg Diversity</p>
                 <p className="mt-1 text-sm text-text">{formatPercent(summary.averageDiversity)}</p>
               </div>
-              <div className="rounded-theme border border-border bg-surface-hover p-3">
+              <div className="rounded-theme border border-border/70 bg-surface-hover/70 p-3">
                 <p className="text-[11px] uppercase tracking-[0.14em] text-text-muted">Low-confidence Eras</p>
                 <p className="mt-1 text-sm text-text">{summary.lowConfidenceCount}</p>
               </div>
@@ -266,15 +289,18 @@ export function MusicEras({ data }: MusicErasProps): JSX.Element {
           <EraDetailPanel era={activeEra ?? undefined} profile={activeProfile} previousProfile={previousProfile} />
           <EraTransitionCard era={activeEra ?? undefined} previousEra={previousEra ?? undefined} />
 
-          <Card className="min-w-0">
+          <Card className={`${premiumCardClass} min-w-0`}>
             <CardTitle>Era Summary Table</CardTitle>
             <CardDescription className="mt-1">
               Duration, listening volume, dominance/diversity, and transition confidence across detected eras.
             </CardDescription>
+            <p className="mt-2 text-xs text-text-muted">
+              Key takeaway: {activeEra ? `${activeEra.label} currently anchors the detail view.` : 'Select an era to inspect transition details.'}
+            </p>
             <div className="mt-4 overflow-x-auto">
               <table className="min-w-full border-collapse text-left text-sm">
                 <thead>
-                  <tr className="border-b border-border text-xs uppercase tracking-[0.12em] text-text-muted">
+                  <tr className="border-b border-border/80 text-xs uppercase tracking-[0.12em] text-text-muted">
                     <th className="px-2 py-2">Era</th>
                     <th className="px-2 py-2">Duration</th>
                     <th className="px-2 py-2">Hours</th>
@@ -284,8 +310,8 @@ export function MusicEras({ data }: MusicErasProps): JSX.Element {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.eras.map((era) => (
-                    <tr key={era.id} className="border-b border-border/60 text-text">
+                  {data.eras.slice(0, showAllEraRows ? data.eras.length : 4).map((era) => (
+                    <tr key={era.id} className="border-b border-border/50 text-text transition-colors hover:bg-surface-hover/50">
                       <td className="px-2 py-2">
                         <button
                           type="button"
@@ -307,6 +333,16 @@ export function MusicEras({ data }: MusicErasProps): JSX.Element {
                 </tbody>
               </table>
             </div>
+            {data.eras.length > 4 ? (
+              <button
+                type="button"
+                className="mt-2 text-xs text-text-muted transition-colors hover:text-text"
+                aria-expanded={showAllEraRows}
+                onClick={() => setShowAllEraRows((value) => !value)}
+              >
+                {showAllEraRows ? 'Show fewer era rows' : 'Show all era rows'}
+              </button>
+            ) : null}
           </Card>
         </div>
       </div>

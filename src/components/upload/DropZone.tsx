@@ -1,4 +1,4 @@
-import { UploadCloud } from 'lucide-react'
+import { AlertTriangle, UploadCloud } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -121,7 +121,7 @@ export function DropZone({ onFileSelected }: DropZoneProps): JSX.Element {
       <h2 className="font-heading text-2xl text-text">Drop your Spotify data export (.zip)</h2>
       <p className="mt-3 max-w-xl text-sm text-text-muted">
         Request your data from Spotify account privacy settings, then upload the original zip.
-        Your data stays in this browser.
+        Your data stays in this browser and never leaves your device.
       </p>
       <div className="mt-4">
         <Button
@@ -151,7 +151,22 @@ export function DropZone({ onFileSelected }: DropZoneProps): JSX.Element {
               ))}
             </ul>
           ) : null}
-          {preflight.error ? <p className="mt-2 text-negative">{preflight.error}</p> : null}
+          {preflight.error ? (
+            <div className="mt-2 rounded-theme border border-negative/40 bg-negative/10 p-2">
+              <p className="inline-flex items-center gap-1.5 font-semibold text-negative">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                {/No Spotify Extended Streaming History files were found/i.test(preflight.error)
+                  ? 'We couldn\'t find Spotify streaming history files.'
+                  : 'Preflight needs attention.'}
+              </p>
+              <p className="mt-1 text-negative">{preflight.error}</p>
+              {/No Spotify Extended Streaming History files were found/i.test(preflight.error) ? (
+                <p className="mt-1 text-negative/90">
+                  Request your data again from Spotify Privacy settings, then upload the original zip.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
 

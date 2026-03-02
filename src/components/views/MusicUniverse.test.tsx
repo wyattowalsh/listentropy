@@ -30,4 +30,15 @@ describe('MusicUniverse', () => {
     expect(screen.getByRole('status')).toHaveTextContent(/Selected graph node:/i)
     expect(screen.getByText(/Selected node:/i)).toBeInTheDocument()
   })
+
+  it('keeps deep network breakdown behind an expandable section in simple mode', async () => {
+    const user = userEvent.setup()
+
+    render(<MusicUniverse data={data} analysisMode="simple" />)
+
+    const deepBreakdownSummary = screen.getByText('Deep network breakdown', { selector: 'summary' })
+    await user.click(deepBreakdownSummary)
+
+    expect(screen.getByText('Top Hubs')).toBeInTheDocument()
+  })
 })

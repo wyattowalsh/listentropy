@@ -59,5 +59,18 @@ jobs:
       - name: Performance budget gate
         run: pnpm perf:budget
 
+      - name: E2E UIUX audit lane (chromium)
+        env:
+          SPOTIFY_ZIP_PATH: ''
+        run: pnpm test:e2e:ci:uiux
+
+      - name: Upload UIUX audit artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: uiux-audit-artifacts
+          path: test-results/uiux-audit
+          if-no-files-found: warn
+
       - name: E2E required gate (chromium)
         run: pnpm test:e2e:ci:gate

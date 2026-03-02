@@ -92,6 +92,52 @@ describe('runLabModuleWithFallback', () => {
     expect(runLabModuleMock).not.toHaveBeenCalled()
   })
 
+  it('resolves worker completion messages while ignoring non-actionable worker messages', async () => {
+    vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker)
+    const { runLabModuleWithFallback } = await loadModule()
+    const snapshot = makeSyntheticLabSnapshot()
+    const workerResult = makeFallbackResult()
+
+    FakeWorker.onPostMessage = (worker, message) => {
+      const request = message as { requestId: string; moduleId: string }
+      worker.onmessage?.({
+        data: {
+          type: 'lab:progress',
+          requestId: request.requestId,
+          moduleId: request.moduleId,
+          progress: 0.5,
+        },
+      } as MessageEvent<unknown>)
+      worker.onmessage?.({
+        data: {
+          type: 'lab:error',
+          requestId: 'missing-request',
+          moduleId: request.moduleId,
+          error: 'ignore missing request',
+        },
+      } as MessageEvent<unknown>)
+      worker.onmessage?.({
+        data: {
+          type: 'lab:complete',
+          requestId: 'different-request',
+          moduleId: request.moduleId,
+          result: makeFallbackResult(),
+        },
+      } as MessageEvent<unknown>)
+      worker.onmessage?.({
+        data: {
+          type: 'lab:complete',
+          requestId: request.requestId,
+          moduleId: request.moduleId,
+          result: workerResult,
+        },
+      } as MessageEvent<unknown>)
+    }
+
+    await expect(runLabModuleWithFallback('sequence-motifs', snapshot)).resolves.toBe(workerResult)
+    expect(runLabModuleMock).not.toHaveBeenCalled()
+  })
+
   it('falls back to main-thread execution on worker transport/bootstrap failure', async () => {
     FakeWorker.constructShouldThrow = true
     vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker)
@@ -132,5 +178,53 @@ describe('runLabModuleWithFallback', () => {
 
     expect(runLabModuleMock).toHaveBeenCalledTimes(1)
     await expect(promise).resolves.toBe(fallback)
+  })
+
+  it('falls back when posting a worker request throws', async () => {
+    vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker)
+    const { runLabModuleWithFallback } = await loadModule()
+    const snapshot = makeSyntheticLabSnapshot()
+    const fallback = makeFallbackResult()
+    runLabModuleMock.mockReturnValue(fallback)
+    FakeWorker.onPostMessage = () => {
+      throw new Error('post message failed')
+    }
+
+    await expect(runLabModuleWithFallback('sequence-motifs', snapshot)).resolves.toBe(fallback)
+    expect(runLabModuleMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls back when the worker emits an error event with pending work', async () => {
+    vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker)
+    const { runLabModuleWithFallback } = await loadModule()
+    const snapshot = makeSyntheticLabSnapshot()
+    const fallback = makeFallbackResult()
+    runLabModuleMock.mockReturnValue(fallback)
+    let activeWorker: FakeWorker | null = null
+    FakeWorker.onPostMessage = (worker) => {
+      activeWorker = worker
+      worker.onerror?.({ message: 'worker runtime failure' } as ErrorEvent)
+    }
+
+    await expect(runLabModuleWithFallback('sequence-motifs', snapshot)).resolves.toBe(fallback)
+    expect((activeWorker as FakeWorker | null)?.terminated).toBe(true)
+    expect(runLabModuleMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('disposes active worker requests cleanly', async () => {
+    vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker)
+    const { getLabWorkerClient } = await loadModule()
+    const snapshot = makeSyntheticLabSnapshot()
+    let activeWorker: FakeWorker | null = null
+    FakeWorker.onPostMessage = (worker) => {
+      activeWorker = worker
+    }
+
+    const client = getLabWorkerClient()
+    const promise = client.runModule('sequence-motifs', snapshot)
+    promise.catch(() => undefined)
+    client.dispose()
+
+    expect((activeWorker as FakeWorker | null)?.terminated).toBe(true)
   })
 })

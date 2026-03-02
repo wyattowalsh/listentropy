@@ -265,26 +265,27 @@ export function DashboardApp(): JSX.Element {
         onTimezoneModeChange={setTimezoneMode}
       />
       <ViewContainer>
-        <TabNav
-          value={activePrimaryNavView}
-          onChange={(value) => {
-            setIsAdvancedOpen(false)
-            setPrimaryView(value as PrimaryMainView)
-          }}
-          metadata={tabMetadata ?? undefined}
-        />
-        <div
-          className="mt-4 min-w-0"
-          role={view === 'advanced' ? undefined : 'tabpanel'}
-          id={view === 'advanced' ? undefined : getPrimaryAnalyticsPanelId(activePrimaryNavView)}
-          aria-labelledby={view === 'advanced' ? undefined : getPrimaryAnalyticsTabId(activePrimaryNavView)}
-          aria-label={view === 'advanced' ? 'Advanced content' : undefined}
-          tabIndex={0}
-        >
-          <ViewErrorBoundary viewKey={view}>
-            <Suspense fallback={loadingFallback}>{body}</Suspense>
-          </ViewErrorBoundary>
-        </div>
+        <section className="space-y-4 sm:space-y-5">
+          <TabNav
+            value={activePrimaryNavView}
+            onChange={(value) => {
+              setIsAdvancedOpen(false)
+              setPrimaryView(value as PrimaryMainView)
+            }}
+            metadata={tabMetadata ?? undefined}
+          />
+          <div
+            className="min-w-0"
+            role="tabpanel"
+            id={getPrimaryAnalyticsPanelId(activePrimaryNavView)}
+            aria-labelledby={getPrimaryAnalyticsTabId(activePrimaryNavView)}
+            tabIndex={0}
+          >
+            <ViewErrorBoundary viewKey={view}>
+              <Suspense fallback={loadingFallback}>{body}</Suspense>
+            </ViewErrorBoundary>
+          </div>
+        </section>
       </ViewContainer>
     </div>
   )

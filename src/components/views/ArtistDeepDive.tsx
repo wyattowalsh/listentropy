@@ -17,21 +17,31 @@ import type { ProcessedDataModel } from '@/lib/types'
 
 interface ArtistDeepDiveProps {
   data: ProcessedDataModel
+  analysisMode?: 'simple' | 'deep'
 }
 
-export function ArtistDeepDive({ data }: ArtistDeepDiveProps): JSX.Element {
+export function ArtistDeepDive({ data, analysisMode = 'deep' }: ArtistDeepDiveProps): JSX.Element {
   const [query, setQuery] = useState(data.artists[0]?.name ?? '')
+  const isSimpleMode = analysisMode === 'simple'
+  const normalizedQuery = query.trim().toLowerCase()
 
   const selectedArtist = useMemo(() => {
-    if (!query) {
+    if (!normalizedQuery) {
       return data.artists[0] ?? null
     }
     return (
-      data.artists.find((artist) => artist.name.toLowerCase() === query.toLowerCase()) ??
-      data.artists.find((artist) => artist.name.toLowerCase().includes(query.toLowerCase())) ??
+      data.artists.find((artist) => artist.name.toLowerCase() === normalizedQuery) ??
+      data.artists.find((artist) => artist.name.toLowerCase().includes(normalizedQuery)) ??
       null
     )
-  }, [data.artists, query])
+  }, [data.artists, normalizedQuery])
+
+  const artistMatches = useMemo(() => {
+    if (!normalizedQuery) {
+      return data.artists.slice(0, 8)
+    }
+    return data.artists.filter((artist) => artist.name.toLowerCase().includes(normalizedQuery)).slice(0, 8)
+  }, [data.artists, normalizedQuery])
 
   const artistTracks = useMemo(() => {
     if (!selectedArtist) {
@@ -67,13 +77,38 @@ export function ArtistDeepDive({ data }: ArtistDeepDiveProps): JSX.Element {
     <div className="space-y-4">
       <Card>
         <CardTitle as="h2">Artist Analysis</CardTitle>
-        <div className="mt-3 max-w-lg">
-          <Input
-            aria-label="Search artist"
-            placeholder="Search artist..."
-            value={query}
-            onChange={(event) => setQuery(event.currentTarget.value)}
-          />
+        <CardDescription className="mt-1">
+          Search for an artist, then inspect listening trend and top tracks in one place.
+        </CardDescription>
+        <div className="mt-3 space-y-2">
+          <div className="max-w-lg">
+            <Input
+              aria-label="Search artist"
+              placeholder="Search artist..."
+              value={query}
+              onChange={(event) => setQuery(event.currentTarget.value)}
+            />
+          </div>
+          {artistMatches.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {artistMatches.map((artist) => (
+                <button
+                  key={artist.name}
+                  type="button"
+                  className={`min-h-[44px] rounded-theme border px-3 py-2 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--focus-ring-offset)] ${
+                    selectedArtist?.name === artist.name
+                      ? 'border-accent bg-accent/10 text-text'
+                      : 'border-border text-text-muted hover:text-text'
+                  }`}
+                  onClick={() => setQuery(artist.name)}
+                >
+                  {artist.name}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-text-muted">No quick matches. Try a shorter artist name fragment.</p>
+          )}
         </div>
       </Card>
 
@@ -81,16 +116,26 @@ export function ArtistDeepDive({ data }: ArtistDeepDiveProps): JSX.Element {
         <Card className="xl:col-span-1">
           <CardDescription>Selected Artist</CardDescription>
           <p className="mt-2 font-heading text-xl text-text">{selectedArtist.name}</p>
-          <p className="mt-1 text-sm text-text-muted">
-            {selectedArtist.plays.toLocaleString()} plays ·{' '}
-            {(selectedArtist.totalMs / 1000 / 60 / 60).toFixed(1)}h
-          </p>
-          <p className="mt-2 text-xs text-text-muted">
-            {selectedArtist.firstListen.slice(0, 10)} → {selectedArtist.lastListen.slice(0, 10)}
-          </p>
+          <div className="mt-3 space-y-2 text-sm text-text-muted">
+            <div className="rounded-theme border border-border bg-surface-hover p-2">
+              <p className="text-[11px] uppercase tracking-[0.12em] text-text-muted">Total plays</p>
+              <p className="mt-1 text-text">{selectedArtist.plays.toLocaleString()}</p>
+            </div>
+            <div className="rounded-theme border border-border bg-surface-hover p-2">
+              <p className="text-[11px] uppercase tracking-[0.12em] text-text-muted">Listening time</p>
+              <p className="mt-1 text-text">{(selectedArtist.totalMs / 1000 / 60 / 60).toFixed(1)}h</p>
+            </div>
+            <div className="rounded-theme border border-border bg-surface-hover p-2">
+              <p className="text-[11px] uppercase tracking-[0.12em] text-text-muted">Listening window</p>
+              <p className="mt-1 text-xs text-text-muted">
+                {selectedArtist.firstListen.slice(0, 10)} → {selectedArtist.lastListen.slice(0, 10)}
+              </p>
+            </div>
+          </div>
         </Card>
         <Card className="xl:col-span-2">
           <CardTitle>Artist trend over time</CardTitle>
+          <CardDescription className="mt-1">Monthly play-count trend for the selected artist.</CardDescription>
           <ChartContainer ariaLabel="Artist trend over time line chart" className="mt-3" height={224}>
             <LineChart data={artistTrend}>
               <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
@@ -103,15 +148,33 @@ export function ArtistDeepDive({ data }: ArtistDeepDiveProps): JSX.Element {
         </Card>
         <Card className="xl:col-span-2">
           <CardTitle>Top tracks by artist</CardTitle>
-          <ChartContainer ariaLabel="Top tracks by artist bar chart" className="mt-3" height={224}>
-            <BarChart data={artistTracks}>
-              <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
-              <XAxis dataKey="key" tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }} />
-              <YAxis tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }} />
-              <Tooltip />
-              <Bar dataKey="plays" fill="var(--color-chart-2)" />
-            </BarChart>
-          </ChartContainer>
+          <CardDescription className="mt-1">Most-played tracks currently associated with this artist.</CardDescription>
+          {isSimpleMode ? (
+            <details className="mt-3 rounded-theme border border-border bg-surface-hover p-3">
+              <summary className="cursor-pointer text-xs uppercase tracking-[0.12em] text-text-muted">
+                Show top-track breakdown
+              </summary>
+              <ChartContainer ariaLabel="Top tracks by artist bar chart" className="mt-3" height={224}>
+                <BarChart data={artistTracks}>
+                  <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
+                  <XAxis dataKey="key" tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }} />
+                  <YAxis tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }} />
+                  <Tooltip />
+                  <Bar dataKey="plays" fill="var(--color-chart-2)" />
+                </BarChart>
+              </ChartContainer>
+            </details>
+          ) : (
+            <ChartContainer ariaLabel="Top tracks by artist bar chart" className="mt-3" height={224}>
+              <BarChart data={artistTracks}>
+                <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
+                <XAxis dataKey="key" tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }} />
+                <YAxis tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }} />
+                <Tooltip />
+                <Bar dataKey="plays" fill="var(--color-chart-2)" />
+              </BarChart>
+            </ChartContainer>
+          )}
         </Card>
       </div>
     </div>

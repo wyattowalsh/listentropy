@@ -59,4 +59,21 @@ describe('ExploreDashboard', () => {
     await user.click(screen.getByRole('button', { name: /open advanced → network/i }))
     expect(onOpenAdvancedSection).toHaveBeenCalledWith('network')
   })
+
+  it('uses progressive disclosure for hero metrics with accessible expansion state', async () => {
+    const user = userEvent.setup()
+
+    render(<ExploreDashboard data={data} />)
+
+    const toggleButton = screen.getByRole('button', { name: 'Show all metrics' })
+    expect(toggleButton).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Graph nodes')).not.toBeInTheDocument()
+
+    await user.click(toggleButton)
+    expect(screen.getByRole('button', { name: 'Show fewer metrics' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Graph nodes')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Show fewer metrics' }))
+    expect(screen.getByRole('button', { name: 'Show all metrics' })).toHaveAttribute('aria-expanded', 'false')
+  })
 })

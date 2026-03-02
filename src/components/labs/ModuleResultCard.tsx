@@ -20,11 +20,23 @@ interface ModuleResultCardProps {
 
 function statusText(status: LabModuleStatus): string {
   switch (status) {
-    case 'idle': return 'Idle'
+    case 'idle': return 'Not started'
     case 'running': return 'Running…'
     case 'ready': return 'Ready'
-    case 'unsupported': return 'Unsupported'
-    case 'error': return 'Error'
+    case 'unsupported': return 'Unavailable'
+    case 'error': return 'Action needed'
+  }
+}
+
+function statusTone(status: LabModuleStatus): string {
+  switch (status) {
+    case 'running': return 'border-accent/40 bg-accent/10 text-accent'
+    case 'ready': return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+    case 'unsupported': return 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+    case 'error': return 'border-negative/40 bg-negative/10 text-negative'
+    case 'idle':
+    default:
+      return 'border-border bg-surface text-text-muted'
   }
 }
 
@@ -83,35 +95,39 @@ export function ModuleResultCard({ manifest, status, result, onRun, onRetry, onE
 
   return (
     <Card className="min-w-0">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <CardTitle>{manifest.name}</CardTitle>
-          <CardDescription className="mt-1">{manifest.description}</CardDescription>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle>{manifest.name}</CardTitle>
+            <span className={`rounded-theme border px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] ${statusTone(status)}`}>
+              {statusText(status)}
+            </span>
+          </div>
+          <CardDescription>{manifest.description}</CardDescription>
         </div>
         <ConfidenceBadge confidence={result?.confidence} />
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-text-muted">
-        <span className="rounded-theme border border-border px-2 py-1">{manifest.category}</span>
-        <span className="rounded-theme border border-border px-2 py-1">{manifest.perfTier}</span>
-        {manifest.comingSoon ? <span className="rounded-theme border border-border px-2 py-1">coming soon</span> : null}
-        <span className="rounded-theme border border-border px-2 py-1">{statusText(status)}</span>
+        <span className="rounded-theme border border-border bg-surface-hover px-2 py-1">{manifest.category}</span>
+        <span className="rounded-theme border border-border bg-surface-hover px-2 py-1">{manifest.perfTier}</span>
+        {manifest.comingSoon ? <span className="rounded-theme border border-border bg-surface-hover px-2 py-1">coming soon</span> : null}
         {audioAffectPayload ? (
           <>
-            <span className="rounded-theme border border-border px-2 py-1">
+            <span className="rounded-theme border border-border bg-surface-hover px-2 py-1">
               coverage {percent(audioAffectPayload.coverage.rowsCoverageShare)}
             </span>
-            <span className="rounded-theme border border-border px-2 py-1">
+            <span className="rounded-theme border border-border bg-surface-hover px-2 py-1">
               traits {audioTraitCapability ?? 'unknown'}
             </span>
           </>
         ) : null}
       </div>
-      {result?.message ? <p className="mt-3 text-sm text-text-muted">{result.message}</p> : null}
-      {result?.error ? <p className="mt-3 text-sm text-negative">{result.error}</p> : null}
+      {result?.message ? <p className="mt-3 rounded-theme border border-border bg-surface-hover p-2 text-sm text-text-muted">{result.message}</p> : null}
+      {result?.error ? <p className="mt-3 rounded-theme border border-negative/40 bg-negative/10 p-2 text-sm text-negative">{result.error}</p> : null}
       {audioAffectPayload ? (
         <div className="mt-3 space-y-3 rounded-theme border border-border bg-surface-hover p-3">
           <div>
-            <p className="text-xs text-text-muted">Audio Trait Coverage</p>
+            <p className="text-xs uppercase tracking-[0.12em] text-text-muted">Audio Trait Coverage</p>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               <div className="rounded-theme border border-border bg-surface p-2">
                 <p className="text-xs text-text-muted">Row Coverage</p>
@@ -137,7 +153,7 @@ export function ModuleResultCard({ manifest, status, result, onRun, onRetry, onE
           </div>
 
           <div>
-            <p className="text-xs text-text-muted">Overall Trait Centroid</p>
+            <p className="text-xs uppercase tracking-[0.12em] text-text-muted">Overall Trait Centroid</p>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               <div className="rounded-theme border border-border bg-surface p-2">
                 <p className="text-xs text-text-muted">Danceability</p>
@@ -172,7 +188,7 @@ export function ModuleResultCard({ manifest, status, result, onRun, onRetry, onE
       ) : null}
       {forecastSnapshotPayload ? (
         <div className="mt-3 space-y-3 rounded-theme border border-border bg-surface-hover p-3">
-          <p className="text-xs text-text-muted">Forecast Snapshot</p>
+          <p className="text-xs uppercase tracking-[0.12em] text-text-muted">Forecast Snapshot</p>
 
           <div className="grid gap-2 sm:grid-cols-3">
             <div className="rounded-theme border border-border bg-surface p-2">

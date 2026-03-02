@@ -98,7 +98,33 @@ describe('SpotifyAuthCallbackPage', () => {
     })
 
     expect(navigateMock).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: 'Return to app' })).toBeInTheDocument()
+    expect(screen.getByText(/we couldn't finish your spotify connection yet/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Back to Listentropy Home' })).toBeInTheDocument()
     expect(screen.getByText(/state mismatch/i)).toBeInTheDocument()
+  })
+
+  it('keeps callback progress messaging during refresh states without forcing redirect', async () => {
+    const handleAuthCallback = vi.fn(async () => false)
+
+    useSpotifyAuthStore.setState({
+      status: 'refreshing',
+      error: null,
+      handleAuthCallback,
+    })
+
+    render(<SpotifyAuthCallbackPage />)
+
+    expect(screen.getByText(/finalizing spotify oauth/i)).toBeInTheDocument()
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(handleAuthCallback).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+
+    expect(navigateMock).not.toHaveBeenCalled()
   })
 })

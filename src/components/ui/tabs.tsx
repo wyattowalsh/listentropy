@@ -45,7 +45,7 @@ export function TabsList({
       role="tablist"
       aria-orientation="horizontal"
       className={cn(
-        'flex w-full max-w-full min-w-0 items-center gap-2 overflow-x-auto rounded-theme border border-border bg-surface p-1',
+        'flex w-full max-w-full min-w-0 items-center gap-2 overflow-x-auto rounded-theme border border-border bg-surface p-1 shadow-surface transition-[background-color,border-color,box-shadow] duration-normal ease-standard',
         className,
       )}
       {...props}
@@ -105,8 +105,8 @@ export function TabsTrigger({
       tabIndex={isActive ? 0 : -1}
       data-value={value}
       className={cn(
-        'whitespace-nowrap rounded-theme px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]',
-        isActive ? 'bg-accent text-black font-semibold' : 'text-text-muted hover:text-text',
+        'control-interactive relative whitespace-nowrap rounded-theme px-control-x py-control-y text-sm leading-tight transition-[background-color,border-color,color,box-shadow,transform] duration-fast ease-standard after:pointer-events-none after:absolute after:inset-x-2 after:bottom-1 after:h-px after:origin-center after:scale-x-0 after:bg-current/65 after:transition-transform after:duration-fast after:ease-standard focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--focus-ring-offset)] aria-selected:after:scale-x-100',
+        isActive ? 'bg-accent text-accent-contrast font-semibold shadow-interactive' : 'text-text-muted hover:text-text',
         className,
       )}
       onClick={(event) => {
