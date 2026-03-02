@@ -75,10 +75,21 @@ export function computeShareCompletionRate(metrics: SessionMetrics): number {
   return completions / attempts
 }
 
+function sanitizeExportEvent(event: SessionMetricEvent): SessionMetricEvent {
+  if (!event.dedupeKey?.startsWith('share-hash:')) {
+    return event
+  }
+  return {
+    ...event,
+    dedupeKey: 'share-link-generated',
+  }
+}
+
 export function exportSessionMetricsJson(metrics: SessionMetrics): string {
   return JSON.stringify(
     {
       ...metrics,
+      events: metrics.events.map((event) => sanitizeExportEvent(event)),
       shareCompletionRate: computeShareCompletionRate(metrics),
     },
     null,

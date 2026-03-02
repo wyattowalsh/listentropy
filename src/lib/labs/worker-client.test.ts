@@ -58,12 +58,14 @@ async function loadModule() {
 
 describe('runLabModuleWithFallback', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
     runLabModuleMock.mockReset()
     FakeWorker.constructShouldThrow = false
     FakeWorker.onPostMessage = null
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
 
@@ -111,5 +113,24 @@ describe('runLabModuleWithFallback', () => {
 
     await expect(runLabModuleWithFallback('sequence-motifs', snapshot)).resolves.toBe(fallback)
     expect(runLabModuleMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls back to main thread when a worker request times out', async () => {
+    vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker)
+    const { runLabModuleWithFallback } = await loadModule()
+    const snapshot = makeSyntheticLabSnapshot()
+    const fallback = makeFallbackResult()
+    runLabModuleMock.mockReturnValue(fallback)
+    FakeWorker.onPostMessage = () => {
+      // Simulate a stuck worker that never responds.
+    }
+
+    const promise = runLabModuleWithFallback('sequence-motifs', snapshot)
+    promise.catch(() => undefined)
+
+    await vi.advanceTimersByTimeAsync(120_000)
+
+    expect(runLabModuleMock).toHaveBeenCalledTimes(1)
+    await expect(promise).resolves.toBe(fallback)
   })
 })

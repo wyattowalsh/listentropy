@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   createEmptySessionMetrics,
   computeShareCompletionRate,
+  exportSessionMetricsJson,
   recordSessionEvent,
   type SessionMetricEvent,
 } from './session-metrics'
@@ -46,5 +47,20 @@ describe('session metrics', () => {
     metrics = recordSessionEvent(metrics, 'asset_exported')
 
     expect(computeShareCompletionRate(metrics)).toBeCloseTo(1)
+  })
+
+  it('redacts raw share hashes from exported session metric dedupe keys', () => {
+    metrics = recordSessionEvent(metrics, {
+      type: 'share_link_generated',
+      timestamp: '2026-03-01T00:00:00.000Z',
+      dedupeKey: 'share-hash:super-secret-raw-hash',
+    })
+
+    const exported = JSON.parse(exportSessionMetricsJson(metrics)) as {
+      events: Array<{ dedupeKey?: string }>
+    }
+
+    expect(exported.events[0]?.dedupeKey).toBe('share-link-generated')
+    expect(exported.events[0]?.dedupeKey).not.toContain('super-secret-raw-hash')
   })
 })

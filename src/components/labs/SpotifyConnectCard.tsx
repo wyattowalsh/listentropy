@@ -74,9 +74,11 @@ export function SpotifyConnectCard({
           </CardDescription>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => void auth.connectSpotify()} disabled={!oauthConfig.clientId || auth.status === 'authorizing'}>
-            {auth.status === 'authorizing' ? 'Redirecting…' : 'Connect Spotify (OAuth)'}
-          </Button>
+          {oauthConfig.clientId ? (
+            <Button onClick={() => void auth.connectSpotify()} disabled={auth.status === 'authorizing'}>
+              {auth.status === 'authorizing' ? 'Redirecting…' : 'Connect Spotify (OAuth)'}
+            </Button>
+          ) : null}
           <Button
             variant="outline"
             onClick={() => {
@@ -129,7 +131,7 @@ export function SpotifyConnectCard({
         </div>
         <div className="rounded-theme border border-border bg-surface-hover p-3">
           <p className="text-xs text-text-muted">PKCE config</p>
-          <p className="mt-1 text-sm text-text">{oauthConfig.clientId ? 'Configured' : 'Missing VITE_SPOTIFY_CLIENT_ID'}</p>
+          <p className="mt-1 text-sm text-text">{oauthConfig.clientId ? 'Configured' : 'OAuth not configured for this build'}</p>
           <p className="mt-1 break-all text-xs text-text-muted">
             Redirect URI: {oauthConfig.redirectUri || 'N/A'}
           </p>
@@ -179,8 +181,10 @@ export function SpotifyConnectCard({
         <details className="mt-3 rounded-theme border border-border bg-surface-hover p-3">
           <summary className="cursor-pointer text-sm font-medium text-text">OAuth troubleshooting</summary>
           <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-text-muted">
-            <li>Configure `VITE_SPOTIFY_CLIENT_ID` in your local environment and restart the app.</li>
-            <li>Add the exact redirect URI shown above to your Spotify app settings.</li>
+            <li>Create or open a Spotify app in the Spotify Developer Dashboard.</li>
+            <li>Add the exact redirect URI shown above to your Spotify app redirect URI list.</li>
+            <li>Set `VITE_SPOTIFY_CLIENT_ID` in your local environment, then restart the app.</li>
+            <li>Optionally set `VITE_SPOTIFY_REDIRECT_URI` if you need a non-default callback origin/path.</li>
             <li>Prefer testing on `localhost` or `127.0.0.1` if your Spotify app redirect list is strict.</li>
             <li>If OAuth still fails, use the manual token fallback to test enrichment while debugging app settings.</li>
           </ul>

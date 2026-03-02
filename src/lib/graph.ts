@@ -21,11 +21,13 @@ export function buildGraphData(
   const topTracksPerArtist = options.topTracksPerArtist ?? 3
   const nodes: GraphNode[] = []
   const edges: GraphEdge[] = []
+  const artistNodeIds = new Set<string>()
 
   const topArtists = artists.slice(0, Math.min(100, artists.length))
   for (const artist of topArtists) {
+    const nodeId = `artist:${artist.key}`
     nodes.push({
-      id: `artist:${artist.key}`,
+      id: nodeId,
       type: 'artist',
       label: artist.name,
       playCount: artist.plays,
@@ -33,6 +35,7 @@ export function buildGraphData(
       firstListen: artist.firstListen,
       cluster: artist.key,
     })
+    artistNodeIds.add(nodeId)
   }
 
   const artistTrackCount = new Map<string, number>()
@@ -41,7 +44,7 @@ export function buildGraphData(
       break
     }
     const artistNodeId = `artist:${track.artist}`
-    if (!nodes.find((node) => node.id === artistNodeId)) {
+    if (!artistNodeIds.has(artistNodeId)) {
       continue
     }
     const count = artistTrackCount.get(track.artist) ?? 0
@@ -68,23 +71,28 @@ export function buildGraphData(
   }
 
   // Session adjacency for top co-listened artist connections.
-  const sessions = new Map<string, string[]>()
+  const sessions = new Map<string, Set<string>>()
   for (const record of records) {
     if (!record.master_metadata_album_artist_name) {
       continue
     }
     const dateKey = record.ts.slice(0, 13)
-    const list = sessions.get(dateKey) ?? []
-    list.push(record.master_metadata_album_artist_name)
-    sessions.set(dateKey, list)
+    const list = sessions.get(dateKey)
+    if (list) {
+      list.add(record.master_metadata_album_artist_name)
+    } else {
+      sessions.set(dateKey, new Set([record.master_metadata_album_artist_name]))
+    }
   }
 
   const coListenWeights = new Map<string, number>()
   for (const artistsInSession of sessions.values()) {
-    const unique = [...new Set(artistsInSession)]
+    const unique = [...artistsInSession]
     for (let i = 0; i < unique.length; i += 1) {
       for (let j = i + 1; j < unique.length; j += 1) {
-        const key = [unique[i], unique[j]].sort().join('::')
+        const left = unique[i] ?? ''
+        const right = unique[j] ?? ''
+        const key = left <= right ? `${left}::${right}` : `${right}::${left}`
         coListenWeights.set(key, (coListenWeights.get(key) ?? 0) + 1)
       }
     }
@@ -94,7 +102,7 @@ export function buildGraphData(
     const [a, b] = pair.split('::')
     const source = `artist:${a}`
     const target = `artist:${b}`
-    if (nodes.find((node) => node.id === source) && nodes.find((node) => node.id === target)) {
+    if (artistNodeIds.has(source) && artistNodeIds.has(target)) {
       edges.push({
         source,
         target,

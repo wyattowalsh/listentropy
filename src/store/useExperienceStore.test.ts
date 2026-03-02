@@ -5,7 +5,6 @@ import { useExperienceStore } from './useExperienceStore'
 describe('useExperienceStore', () => {
   beforeEach(() => {
     useExperienceStore.setState({
-      experienceLevel: 'full',
       behaviorSignals: {
         fullTabVisits: 0,
         shareActions: 0,
@@ -13,26 +12,24 @@ describe('useExperienceStore', () => {
     })
   })
 
-  it('defaults to full mode and can be manually changed', () => {
-    expect(useExperienceStore.getState().experienceLevel).toBe('full')
-    useExperienceStore.getState().setExperienceLevel('guided')
-    expect(useExperienceStore.getState().experienceLevel).toBe('guided')
+  it('tracks behavior counters without guided mode state', () => {
+    const state = useExperienceStore.getState()
+
+    expect(state.behaviorSignals).toEqual({ fullTabVisits: 0, shareActions: 0 })
+    expect('experienceLevel' in state).toBe(false)
+    expect('setExperienceLevel' in state).toBe(false)
   })
 
-  it('auto-promotes after repeated full interactions', () => {
-    useExperienceStore.setState({
-      experienceLevel: 'guided',
-      behaviorSignals: {
-        fullTabVisits: 0,
-        shareActions: 0,
-      },
-    })
+  it('increments the corresponding behavior counter', () => {
     const store = useExperienceStore.getState()
-    store.recordBehavior('full_tab_visit')
-    store.recordBehavior('full_tab_visit')
-    store.recordBehavior('full_tab_visit')
 
-    expect(useExperienceStore.getState().experienceLevel).toBe('full')
-    expect(useExperienceStore.getState().behaviorSignals.fullTabVisits).toBe(3)
+    store.recordBehavior('full_tab_visit')
+    store.recordBehavior('full_tab_visit')
+    store.recordBehavior('share_action')
+
+    expect(useExperienceStore.getState().behaviorSignals).toEqual({
+      fullTabVisits: 2,
+      shareActions: 1,
+    })
   })
 })

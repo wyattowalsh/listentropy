@@ -14,12 +14,19 @@ export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>): J
   )
 }
 
+type CardTitleTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
+
+interface CardTitleProps extends HTMLAttributes<HTMLHeadingElement> {
+  as?: CardTitleTag
+}
+
 export function CardTitle({
   className,
+  as: Component = 'h3',
   ...props
-}: HTMLAttributes<HTMLHeadingElement>): JSX.Element {
+}: CardTitleProps): JSX.Element {
   return (
-    <h3
+    <Component
       className={cn('font-heading text-base font-semibold tracking-tight text-text', className)}
       {...props}
     />

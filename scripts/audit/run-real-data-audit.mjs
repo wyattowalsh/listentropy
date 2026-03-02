@@ -13,18 +13,35 @@ const reportPath = path.join(process.cwd(), 'test-results', 'real-data-audit-rep
 const contextReportPath = path.join(process.cwd(), 'test-results', 'real-data-context-report.json')
 
 const tabExpectations = [
-  { tab: 'Charts', assert: async (page) => page.getByPlaceholder('Search leaderboard...').waitFor({ state: 'visible', timeout: 30_000 }) },
-  { tab: 'Timeline', assert: async (page) => page.getByRole('heading', { name: 'Listening timeline' }).waitFor({ state: 'visible', timeout: 30_000 }) },
-  { tab: 'Clock', assert: async (page) => page.getByRole('heading', { name: 'Radial Clock' }).waitFor({ state: 'visible', timeout: 30_000 }) },
-  { tab: 'Artist', assert: async (page) => page.getByRole('heading', { name: 'Artist Analysis' }).waitFor({ state: 'visible', timeout: 30_000 }) },
-  { tab: 'Habits', assert: async (page) => page.getByRole('heading', { name: 'Skip and shuffle trend' }).waitFor({ state: 'visible', timeout: 30_000 }) },
-  { tab: 'Context', assert: async (page) => page.getByRole('heading', { name: 'Context Intelligence' }).waitFor({ state: 'visible', timeout: 30_000 }) },
-  { tab: 'Eras', assert: async (page) => page.getByRole('heading', { name: 'Music Eras' }).waitFor({ state: 'visible', timeout: 30_000 }) },
+  {
+    tab: 'Explore',
+    assert: async (page) => {
+      await page.getByRole('button', { name: 'Rankings' }).click()
+      await page.getByPlaceholder('Search leaderboard...').waitFor({ state: 'visible', timeout: 30_000 })
+      await page.getByRole('button', { name: 'Trends' }).click()
+      await page.getByRole('heading', { name: 'Listening timeline' }).waitFor({ state: 'visible', timeout: 30_000 })
+      await page.getByRole('button', { name: 'Behavior' }).click()
+      await page.getByRole('heading', { name: 'Skip and shuffle trend' }).waitFor({ state: 'visible', timeout: 30_000 })
+      await page.getByRole('button', { name: 'Context' }).click()
+      await page.getByRole('heading', { name: 'Context Intelligence' }).waitFor({ state: 'visible', timeout: 30_000 })
+      await page.getByRole('button', { name: 'Rhythm' }).click()
+      await page.getByRole('heading', { name: 'Radial Clock' }).waitFor({ state: 'visible', timeout: 30_000 })
+      await page.getByRole('button', { name: 'Eras' }).click()
+      await page.getByRole('heading', { name: 'Music Eras' }).waitFor({ state: 'visible', timeout: 30_000 })
+    },
+  },
+  { tab: 'Taste DNA', assert: async (page) => page.getByRole('heading', { name: 'Taste DNA' }).waitFor({ state: 'visible', timeout: 30_000 }) },
   { tab: 'Share', assert: async (page) => page.getByRole('heading', { name: 'Share Studio' }).waitFor({ state: 'visible', timeout: 30_000 }) },
   {
-    tab: 'Universe',
+    tab: 'Advanced',
+    open: async (page) => page.getByRole('button', { name: 'Advanced' }).click(),
     assert: async (page) => {
-      await page.getByText('Music Universe Graph').waitFor({ state: 'visible', timeout: 30_000 })
+      await page.getByRole('heading', { name: 'Advanced' }).waitFor({ state: 'visible', timeout: 30_000 })
+      const sectionSelect = page.getByLabel('Advanced section')
+      await sectionSelect.selectOption('artist')
+      await page.getByRole('heading', { name: 'Artist Analysis' }).waitFor({ state: 'visible', timeout: 30_000 })
+      await sectionSelect.selectOption('network')
+      await page.getByRole('heading', { name: 'Music Universe Graph' }).waitFor({ state: 'visible', timeout: 30_000 })
       const crashCount = await page.getByText('This view crashed').count()
       if (crashCount > 0) {
         throw new Error('Universe view showed generic crash boundary text')
@@ -32,7 +49,6 @@ const tabExpectations = [
       await page.locator('canvas').first().waitFor({ state: 'visible', timeout: 30_000 })
     },
   },
-  { tab: 'Taste DNA', assert: async (page) => page.getByRole('heading', { name: 'Taste DNA' }).waitFor({ state: 'visible', timeout: 30_000 }) },
 ]
 
 function now() {
@@ -257,12 +273,16 @@ async function runAudit() {
 
     const tabsStartAt = now()
     for (const item of tabExpectations) {
-      await page.getByRole('tab', { name: item.tab }).click()
+      if (item.open) {
+        await item.open(page)
+      } else {
+        await page.getByRole('tab', { name: item.tab }).click()
+      }
       await item.assert(page)
-      if (item.tab === 'Universe') {
+      if (item.tab === 'Advanced') {
         report.checks.universeStable = true
       }
-      if (item.tab === 'Context') {
+      if (item.tab === 'Explore') {
         report.checks.contextRendered = true
         report.context.contextTopCountriesVisible = await page.getByText('Country footprint').first().isVisible()
       }
@@ -271,7 +291,8 @@ async function runAudit() {
     report.checks.tabsRendered = true
 
     const weeklyStartAt = now()
-    await page.getByRole('tab', { name: 'Timeline' }).click()
+    await page.getByRole('tab', { name: 'Explore' }).click()
+    await page.getByRole('button', { name: 'Trends' }).click()
     await page
       .locator('main select')
       .filter({ has: page.locator('option[value="weekly"]') })

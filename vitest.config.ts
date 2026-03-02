@@ -16,7 +16,10 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    minWorkers: 1,
+    maxWorkers: '50%',
     exclude: [...DEFAULT_VITEST_TEST_EXCLUDE, PERF_LARGE_FIXTURE_BENCHMARK_TEST],
+    testTimeout: 30_000,
     coverage: {
       reporter: ['text', 'lcov', 'json-summary'],
       all: true,

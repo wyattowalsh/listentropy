@@ -4,7 +4,7 @@ import { ExportButton } from '@/components/share/ExportButton'
 import { ShareLinkGenerator } from '@/components/share/ShareLinkGenerator'
 import { ShareTextCopy } from '@/components/share/ShareTextCopy'
 import { StoryCardDeck, type StoryAspect } from '@/components/share/StoryCardDeck'
-import type { StoryCardKey } from '@/components/share/story-card-order'
+import { STORY_CARD_REGISTRY, type StoryCardKey } from '@/components/share/story-card-order'
 import { Button } from '@/components/ui/button'
 import { Card, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -78,26 +78,26 @@ export function ShareStudio({ data }: ShareStudioProps): JSX.Element {
       <Card className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 opacity-70 [background:radial-gradient(circle_at_92%_8%,color-mix(in_srgb,var(--color-accent)_16%,transparent),transparent_42%)]" />
         <div className="relative">
-        <CardTitle>Share Studio</CardTitle>
-        <p className="mt-1 text-sm text-text-muted">
-          Build a 14-card story deck, export visuals, and generate safe share links.
-        </p>
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.14em]">
-          <span className="rounded-full border border-border bg-surface-hover px-2 py-1 text-text-muted">
-            Local-first
-          </span>
-          <span className="rounded-full border border-border bg-surface-hover px-2 py-1 text-text-muted">
-            No backend required
-          </span>
-          <span className="rounded-full border border-border bg-surface-hover px-2 py-1 text-text-muted">
-            Share payload v4
-          </span>
-          {metrics.counts.upload_complete > 0 ? (
-            <span className="rounded-full border border-accent/40 bg-accent/10 px-2 py-1 text-accent">
-              Session share completion {Math.round(computeShareCompletionRate(metrics) * 100)}%
+          <CardTitle as="h2">Share Studio</CardTitle>
+          <p className="mt-1 text-sm text-text-muted">
+            Build a 14-card story deck, export visuals, and generate safe share links.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.14em]">
+            <span className="rounded-full border border-border bg-surface-hover px-2 py-1 text-text-muted">
+              Local-first
             </span>
-          ) : null}
-        </div>
+            <span className="rounded-full border border-border bg-surface-hover px-2 py-1 text-text-muted">
+              No backend required
+            </span>
+            <span className="rounded-full border border-border bg-surface-hover px-2 py-1 text-text-muted">
+              Share payload v4
+            </span>
+            {metrics.counts.upload_complete > 0 ? (
+              <span className="rounded-full border border-accent/40 bg-accent/10 px-2 py-1 text-accent">
+                Session share completion {Math.round(computeShareCompletionRate(metrics) * 100)}%
+              </span>
+            ) : null}
+          </div>
         </div>
       </Card>
 
@@ -124,6 +124,7 @@ export function ShareStudio({ data }: ShareStudioProps): JSX.Element {
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <Input
                 value={displayName}
+                aria-label="Display name"
                 placeholder="Display name (optional)"
                 onChange={(event) => setDisplayName(event.currentTarget.value)}
               />
@@ -165,31 +166,14 @@ export function ShareStudio({ data }: ShareStudioProps): JSX.Element {
                 Included cards ({selectedCardKeys.length})
               </p>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {(
-                  [
-                    'title',
-                    'top-artists',
-                    'top-tracks',
-                    'clock',
-                    'streak',
-                    'guilty-pleasures',
-                    'forgotten-gem',
-                    'archetype',
-                    'numbers',
-                    'fingerprint',
-                    'travel-footprint',
-                    'intent-signature',
-                    'device-journey',
-                    'offline-private',
-                  ] as StoryCardKey[]
-                ).map((cardKey) => (
-                  <label key={cardKey} className="inline-flex items-center gap-2 text-xs text-text-muted">
+                {STORY_CARD_REGISTRY.map((card) => (
+                  <label key={card.key} className="inline-flex items-center gap-2 text-xs text-text-muted">
                     <input
                       type="checkbox"
-                      checked={selectedCardKeys.includes(cardKey)}
-                      onChange={() => toggleCard(cardKey)}
+                      checked={selectedCardKeys.includes(card.key)}
+                      onChange={() => toggleCard(card.key)}
                     />
-                    <span className="capitalize">{cardKey.replaceAll('-', ' ')}</span>
+                    <span>{card.title}</span>
                   </label>
                 ))}
               </div>

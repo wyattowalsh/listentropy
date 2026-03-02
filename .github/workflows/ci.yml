@@ -59,8 +59,5 @@ jobs:
       - name: Performance budget gate
         run: pnpm perf:budget
 
-      - name: E2E smoke
-        run: pnpm test:e2e:ci
-
-      - name: E2E Xenolab (chromium)
-        run: pnpm exec playwright test tests/e2e/xenolab.spec.ts --project=chromium
+      - name: E2E required gate (chromium)
+        run: pnpm test:e2e:ci:gate

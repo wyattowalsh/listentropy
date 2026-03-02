@@ -182,8 +182,16 @@ export function Universe2D({ nodes, edges, selectedNodeId }: Universe2DProps): J
 
   return (
     <div className="overflow-hidden rounded-theme border border-border bg-surface">
-      <div ref={containerRef} className="relative h-[360px] sm:h-[520px] lg:h-[640px]">
-        <canvas ref={canvasRef} className="absolute inset-0 block h-full w-full" />
+      <div
+        ref={containerRef}
+        className="relative h-[360px] sm:h-[520px] lg:h-[640px]"
+        role="img"
+        aria-label="2D music universe graph"
+      >
+        <p className="sr-only">
+          2D music universe graph canvas. Use the graph keyboard navigator controls to inspect nodes without pointer interaction.
+        </p>
+        <canvas ref={canvasRef} className="absolute inset-0 block h-full w-full" aria-hidden="true" />
       </div>
     </div>
   )

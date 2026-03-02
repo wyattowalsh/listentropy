@@ -1,7 +1,13 @@
 import JSZip from 'jszip'
 import { describe, expect, it, vi } from 'vitest'
 
-import { inspectSpotifyZipArchive, parseSpotifyZip, prepareSpotifyZipArchive, sanitizeRecord } from './parser'
+import {
+  ZIP_INGEST_LIMITS,
+  inspectSpotifyZipArchive,
+  parseSpotifyZip,
+  prepareSpotifyZipArchive,
+  sanitizeRecord,
+} from './parser'
 import type { RawSpotifyRecord } from '../types'
 
 const baseRecord: RawSpotifyRecord = {
@@ -39,6 +45,67 @@ describe('sanitizeRecord', () => {
 })
 
 describe('parseSpotifyZip', () => {
+  it('rejects zip uploads that exceed the maximum upload size', async () => {
+    const oversized = new File(['x'], 'spotify.zip', { type: 'application/zip' })
+    Object.defineProperty(oversized, 'size', {
+      value: ZIP_INGEST_LIMITS.maxZipBytes + 1,
+      configurable: true,
+    })
+
+    await expect(parseSpotifyZip(oversized)).rejects.toThrow(/too large/i)
+  })
+
+  it('rejects archives with too many entries during preflight', async () => {
+    const zip = new JSZip()
+    for (let index = 0; index < ZIP_INGEST_LIMITS.maxArchiveEntries + 1; index += 1) {
+      zip.file(`extra-${index}.txt`, 'x')
+    }
+    zip.file('Streaming_History_Audio_2024-2025_0.json', JSON.stringify([{ ...baseRecord }]))
+
+    const blob = await zip.generateAsync({ type: 'blob' })
+    const file = new File([blob], 'spotify.zip', { type: 'application/zip' })
+
+    await expect(prepareSpotifyZipArchive(file)).rejects.toThrow(/too many/i)
+  })
+
+  it('rejects archives with oversized uncompressed history entries', async () => {
+    const asyncSpy = vi.fn().mockResolvedValue(JSON.stringify([{ ...baseRecord }]))
+    const fakeHistoryEntry = {
+      name: 'Streaming_History_Audio_2024-2025_0.json',
+      dir: false,
+      async: asyncSpy,
+      _data: { uncompressedSize: ZIP_INGEST_LIMITS.maxHistoryUncompressedBytes + 1 },
+    } as unknown as JSZip.JSZipObject
+
+    const archive = {
+      zip: new JSZip(),
+      entries: [fakeHistoryEntry],
+      historyEntries: [fakeHistoryEntry],
+      inspection: {
+        totalEntries: 1,
+        historyFileCount: 1,
+        historyFiles: [fakeHistoryEntry.name],
+      },
+    }
+
+    const file = new File(['x'], 'spotify.zip', { type: 'application/zip' })
+    await expect(parseSpotifyZip(file, { archive })).rejects.toThrow(/uncompressed/i)
+    expect(asyncSpy).not.toHaveBeenCalled()
+  })
+
+  it('rejects archives that exceed the maximum parsed record count', async () => {
+    const zip = new JSZip()
+    zip.file('Streaming_History_Audio_2024-2025_0.json', JSON.stringify([{ ...baseRecord }]))
+    const blob = await zip.generateAsync({ type: 'blob' })
+    const file = new File([blob], 'spotify.zip', { type: 'application/zip' })
+    const parseSpy = vi.spyOn(JSON, 'parse').mockReturnValue(
+      new Array(ZIP_INGEST_LIMITS.maxParsedRecords + 1).fill(baseRecord),
+    )
+
+    await expect(parseSpotifyZip(file)).rejects.toThrow(/too many records/i)
+    parseSpy.mockRestore()
+  })
+
   it('parses multiple matching history files and sorts by ts', async () => {
     const zip = new JSZip()
     zip.file(

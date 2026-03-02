@@ -21,6 +21,7 @@ interface DropZoneProps {
 
 export function DropZone({ onFileSelected }: DropZoneProps): JSX.Element {
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const latestSelectionIdRef = useRef(0)
   const [isDragging, setIsDragging] = useState(false)
   const [isInspecting, setIsInspecting] = useState(false)
   const [preflight, setPreflight] = useState<{
@@ -34,6 +35,7 @@ export function DropZone({ onFileSelected }: DropZoneProps): JSX.Element {
 
   const selectFile = useCallback(
     async (file: File) => {
+      const selectionId = (latestSelectionIdRef.current += 1)
       setPreflight({
         name: file.name,
         sizeBytes: file.size,
@@ -45,6 +47,9 @@ export function DropZone({ onFileSelected }: DropZoneProps): JSX.Element {
       setIsInspecting(true)
       try {
         const preparedArchive = await prepareSpotifyZipArchive(file)
+        if (latestSelectionIdRef.current !== selectionId) {
+          return
+        }
         const inspection = preparedArchive.inspection
         const missingHistoryFiles = inspection.historyFileCount === 0
         setPreflight({
@@ -60,9 +65,15 @@ export function DropZone({ onFileSelected }: DropZoneProps): JSX.Element {
         if (missingHistoryFiles) {
           return
         }
+        if (latestSelectionIdRef.current !== selectionId) {
+          return
+        }
         onFileSelected(file, { inspection, preparedArchive })
         return
       } catch (error) {
+        if (latestSelectionIdRef.current !== selectionId) {
+          return
+        }
         setPreflight({
           name: file.name,
           sizeBytes: file.size,
@@ -73,7 +84,9 @@ export function DropZone({ onFileSelected }: DropZoneProps): JSX.Element {
         })
         return
       } finally {
-        setIsInspecting(false)
+        if (latestSelectionIdRef.current === selectionId) {
+          setIsInspecting(false)
+        }
       }
     },
     [onFileSelected],

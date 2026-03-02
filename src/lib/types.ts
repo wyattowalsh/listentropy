@@ -1,6 +1,6 @@
 export type ContentType = 'music' | 'podcast' | 'audiobook'
 export type TimezoneMode = 'local' | 'utc'
-export type ExperienceLevel = 'guided' | 'full'
+export type ExperienceLevel = 'full'
 export type ThemeKey = 'spotify-dark' | 'editorial-light' | 'brutalist' | 'midnight'
 export type SharePresetId = 'headline-stats' | 'detailed-stats' | 'anonymous-highlights'
 

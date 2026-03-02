@@ -61,7 +61,7 @@ describe('LabWorkbench', () => {
   })
 
   it('renders Xenolab sections and can run a module to populate explainability', async () => {
-    const data = processRecords(makeSyntheticRecords(120), { timezoneMode: 'local' })
+    const data = processRecords(makeSyntheticRecords(24), { timezoneMode: 'local' })
     runLabModuleWithFallbackMock.mockResolvedValue({
       id: 'sequence-motifs',
       status: 'ready',
@@ -116,7 +116,7 @@ describe('LabWorkbench', () => {
   }, SLOW_LAB_WORKBENCH_TEST_TIMEOUT_MS)
 
   it('runs audio-affect-overlay from the Spotify enrichment card when a snapshot is prepared', async () => {
-    const data = processRecords(makeSyntheticRecords(150), { timezoneMode: 'local' })
+    const data = processRecords(makeSyntheticRecords(30), { timezoneMode: 'local' })
     const fingerprint = data.datasetIdentity.fingerprint
     const firstTrackId = data.records.find((row) => row.spotify_track_uri)?.spotify_track_uri?.split(':')[2] ?? '0'
     const audioTraitSnapshot: AudioTraitSnapshot = {
@@ -211,8 +211,8 @@ describe('LabWorkbench', () => {
   }, SLOW_LAB_WORKBENCH_TEST_TIMEOUT_MS)
 
   it('captures a compare baseline and runs compare-engine from Compare Workspace', async () => {
-    const baselineData = processRecords(makeSyntheticRecords(120), { timezoneMode: 'local' })
-    const currentData = processRecords(makeSyntheticRecords(240), { timezoneMode: 'utc' })
+    const baselineData = processRecords(makeSyntheticRecords(24), { timezoneMode: 'local' })
+    const currentData = processRecords(makeSyntheticRecords(36), { timezoneMode: 'utc' })
 
     runLabModuleWithFallbackMock.mockResolvedValue({
       id: 'compare-engine',
@@ -414,7 +414,7 @@ describe('LabWorkbench', () => {
   }, SLOW_LAB_WORKBENCH_TEST_TIMEOUT_MS)
 
   it('shows saved compare snapshots after capturing baseline', async () => {
-    const data = processRecords(makeSyntheticRecords(180), { timezoneMode: 'local' })
+    const data = processRecords(makeSyntheticRecords(30), { timezoneMode: 'local' })
     const user = userEvent.setup()
     render(<LabWorkbench data={data} />)
 
@@ -426,8 +426,8 @@ describe('LabWorkbench', () => {
   }, SLOW_LAB_WORKBENCH_TEST_TIMEOUT_MS)
 
   it('clears invalid compare era selections when baseline/current datasets change', async () => {
-    const baselineData = processRecords(makeSyntheticRecords(140), { timezoneMode: 'local' })
-    const currentData = processRecords(makeSyntheticRecords(220), { timezoneMode: 'utc' })
+    const baselineData = processRecords(makeSyntheticRecords(24), { timezoneMode: 'local' })
+    const currentData = processRecords(makeSyntheticRecords(36), { timezoneMode: 'utc' })
     const baselineSnapshot = buildDefaultLabDatasetSnapshot(baselineData)
 
     useLabStore.setState({

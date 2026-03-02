@@ -25,6 +25,48 @@ function redactTrack(index: number): string {
 }
 
 const MAX_HASH_LENGTH = 2400
+const HARD_CAP_STRING_LENGTH_STEPS = [96, 64, 40, 24, 12]
+
+function truncateLabel(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value
+  }
+  if (maxLength <= 1) {
+    return value.slice(0, maxLength)
+  }
+  return `${value.slice(0, maxLength - 1)}…`
+}
+
+function buildHardCappedPayload(payload: SharePayloadV4, maxStringLength: number): SharePayloadV4 {
+  return {
+    ...payload,
+    name: payload.name ? truncateLabel(payload.name, maxStringLength) : payload.name,
+    topArtists: payload.topArtists.slice(0, 1).map(([artist, plays]) => [truncateLabel(artist, maxStringLength), plays]),
+    topTracks: payload.topTracks.slice(0, 1).map(([track, artist, plays]) => [
+      truncateLabel(track, maxStringLength),
+      truncateLabel(artist, maxStringLength),
+      plays,
+    ]),
+    archetype: truncateLabel(payload.archetype, maxStringLength),
+    archetypes: payload.archetypes.slice(0, 1).map((label) => truncateLabel(label, maxStringLength)),
+    tasteDimensions: payload.tasteDimensions.slice(0, 4),
+    context: {
+      ...payload.context,
+      homeCountry: payload.context.homeCountry
+        ? truncateLabel(payload.context.homeCountry, Math.min(3, maxStringLength))
+        : payload.context.homeCountry,
+      topReasons: payload.context.topReasons.slice(0, 1).map(([reason, count]) => [truncateLabel(reason, maxStringLength), count]),
+      topDeviceTransition: payload.context.topDeviceTransition
+        ? [
+            truncateLabel(payload.context.topDeviceTransition[0], maxStringLength),
+            truncateLabel(payload.context.topDeviceTransition[1], maxStringLength),
+            payload.context.topDeviceTransition[2],
+          ]
+        : payload.context.topDeviceTransition,
+    },
+    selectedCards: payload.selectedCards.slice(0, 1),
+  }
+}
 
 export function ShareLinkGenerator({
   data,
@@ -99,7 +141,21 @@ export function ShareLinkGenerator({
       return { payload: full, hash: fullHash, compactMode: false }
     }
     const compact = build(true)
-    return { payload: compact, hash: encodeSharePayload(compact), compactMode: true }
+    const compactHash = encodeSharePayload(compact)
+    if (compactHash.length <= MAX_HASH_LENGTH) {
+      return { payload: compact, hash: compactHash, compactMode: true }
+    }
+
+    for (const maxStringLength of HARD_CAP_STRING_LENGTH_STEPS) {
+      const capped = buildHardCappedPayload(compact, maxStringLength)
+      const cappedHash = encodeSharePayload(capped)
+      if (cappedHash.length <= MAX_HASH_LENGTH) {
+        return { payload: capped, hash: cappedHash, compactMode: true }
+      }
+    }
+
+    const finalFallback = buildHardCappedPayload(compact, 8)
+    return { payload: finalFallback, hash: encodeSharePayload(finalFallback), compactMode: true }
   }, [anonymize, data, displayName, includeName, profileWarningConfirmed, selectedCards, sharePreset, themeKey])
 
   const link = useMemo(() => {

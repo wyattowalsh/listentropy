@@ -82,6 +82,70 @@ describe('sanitizeGraphForRender', () => {
 })
 
 describe('buildGraphData', () => {
+  it('avoids repeated linear lookups while keeping edge endpoints valid', () => {
+    const artists: ArtistStats[] = Array.from({ length: 32 }, (_, index) => ({
+      key: `Artist ${index}`,
+      name: `Artist ${index}`,
+      plays: 500 - index,
+      totalMs: 2_000_000 - index * 10_000,
+      hours: 0.5,
+      firstListen: '2024-01-01T00:00:00Z',
+      lastListen: '2024-01-15T00:00:00Z',
+      skipRate: 0,
+    }))
+
+    const tracks: TrackStats[] = artists.flatMap((artist, artistIndex) =>
+      Array.from({ length: 6 }, (_, trackIndex) => ({
+        key: `Track ${trackIndex}::${artist.key}`,
+        name: `Track ${trackIndex}`,
+        artist: artist.key,
+        plays: 100 - trackIndex,
+        totalMs: 200_000 + artistIndex * 1000,
+        hours: 0.1,
+        firstListen: '2024-01-01T00:00:00Z',
+        lastListen: '2024-01-15T00:00:00Z',
+        skipRate: 0,
+      })),
+    )
+
+    const records: StreamRecord[] = Array.from({ length: 180 }, (_, index) =>
+      record(
+        `2024-01-${String((index % 28) + 1).padStart(2, '0')}T${String(index % 24).padStart(2, '0')}:00:00Z`,
+        `Artist ${index % 16}`,
+        `Track ${index % 6}`,
+      ),
+    )
+
+    const originalFind = Array.prototype.find
+    let findCallCount = 0
+    Array.prototype.find = function (
+      this: unknown[],
+      predicate: Parameters<typeof originalFind>[0],
+      thisArg?: unknown,
+    ) {
+      findCallCount += 1
+      return originalFind.call(this, predicate, thisArg)
+    } as typeof Array.prototype.find
+
+    let graph: ReturnType<typeof buildGraphData>
+    try {
+      graph = buildGraphData(records, artists, tracks, {
+        maxNodes: 280,
+        topTracksPerArtist: 3,
+      })
+    } finally {
+      Array.prototype.find = originalFind
+    }
+
+    expect(findCallCount).toBe(0)
+
+    const nodeIds = new Set(graph.nodes.map((node) => node.id))
+    for (const edge of graph.edges) {
+      expect(nodeIds.has(edge.source)).toBe(true)
+      expect(nodeIds.has(edge.target)).toBe(true)
+    }
+  })
+
   it('emits edges that only target known nodes after artist/track filtering', () => {
     const artists: ArtistStats[] = [
       {

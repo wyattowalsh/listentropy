@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import {
   PolarAngleAxis,
@@ -13,37 +13,36 @@ import { ChartContainer } from '@/components/charts/ChartContainer'
 import { TasteFingerprint } from '@/components/charts/TasteFingerprint'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { getSpotifyPkceConfig } from '@/lib/spotify-auth/oauth'
 import { fetchSpotifyAudioFeatureProfile, type SpotifyAudioProfileResult } from '@/lib/spotify-api'
 import type { ProcessedDataModel } from '@/lib/types'
 import { useSpotifyAuthStore } from '@/store/useSpotifyAuthStore'
 
 interface TasteDNAProps {
   data: ProcessedDataModel
+  onOpenSpotifySetup?: () => void
 }
 
-export function TasteDNA({ data }: TasteDNAProps): JSX.Element {
-  const { status: spotifyAuthStatus, session: spotifySession, authError, connectSpotify, disconnect, setManualToken, ensureValidAccessToken } =
+export function TasteDNA({ data, onOpenSpotifySetup }: TasteDNAProps): JSX.Element {
+  const { status: spotifyAuthStatus, session: spotifySession, authError, connectSpotify, ensureValidAccessToken } =
     useSpotifyAuthStore(useShallow((state) => ({
       status: state.status,
       session: state.session,
       authError: state.error,
       connectSpotify: state.connectSpotify,
-      disconnect: state.disconnect,
-      setManualToken: state.setManualToken,
       ensureValidAccessToken: state.ensureValidAccessToken,
     })))
-  const [token, setToken] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [overlayDimensions, setOverlayDimensions] = useState<Array<{ key: string; label: string; score: number }>>([])
   const [spotifyProfile, setSpotifyProfile] = useState<SpotifyAudioProfileResult | null>(null)
-
-  useEffect(() => {
-    if (spotifySession?.tokenSource === 'manual-token') {
-      setToken(spotifySession.accessToken)
+  const oauthConfigured = useMemo(() => {
+    try {
+      return Boolean(getSpotifyPkceConfig().clientId)
+    } catch {
+      return false
     }
-  }, [spotifySession])
+  }, [])
 
   const combinedDimensions = useMemo(() => {
     if (overlayDimensions.length === 0) {
@@ -56,14 +55,9 @@ export function TasteDNA({ data }: TasteDNAProps): JSX.Element {
     setLoading(true)
     setError(null)
     try {
-      let activeToken = token.trim()
-      if (activeToken) {
-        setManualToken(activeToken, { persist: false })
-      } else {
-        activeToken = (await ensureValidAccessToken()) ?? ''
-      }
+      const activeToken = (await ensureValidAccessToken()) ?? ''
       if (!activeToken) {
-        setError('Connect Spotify or enter a Spotify API token first.')
+        setError('Connect Spotify in Advanced setup first (optional).')
         return
       }
       const result = await fetchSpotifyAudioFeatureProfile(
@@ -88,28 +82,53 @@ export function TasteDNA({ data }: TasteDNAProps): JSX.Element {
         <CardDescription className="mt-1">
           Behavioral profile by default. Add Spotify API overlay for audio feature depth.
         </CardDescription>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Input
-            className="max-w-lg"
-            placeholder="Spotify API token (optional manual fallback)"
-            value={token}
-            onChange={(event) => setToken(event.currentTarget.value)}
-          />
-          <Button variant="outline" onClick={() => void connectSpotify()}>
-            Connect Spotify (OAuth)
-          </Button>
-          <Button variant="outline" onClick={disconnect} disabled={!spotifySession}>
-            Disconnect
-          </Button>
-          <Button onClick={loadSpotifyOverlay} disabled={loading}>
-            {loading ? 'Loading...' : 'Load Spotify Overlay'}
-          </Button>
-        </div>
-        {!token.trim() ? (
-          <p className="mt-2 text-xs text-text-muted">
-            Optional and local-first: OAuth sessions are tab-scoped, while manual tokens entered here are memory-only unless saved elsewhere.
+        <div className="mt-3 rounded-theme border border-border bg-surface-hover p-3">
+          <p className="text-sm text-text">
+            {spotifySession
+              ? 'Spotify overlay is connected and reusable across views.'
+              : 'Spotify overlay is optional, but this is the canonical way to enrich Taste DNA.'}
           </p>
-        ) : null}
+          {!spotifySession ? (
+            <div className="mt-3 rounded-theme border border-accent/40 bg-accent/10 p-3">
+              <p className="text-sm font-semibold text-text">Connect Spotify to unlock richer audio features</p>
+              <p className="mt-1 text-xs text-text-muted">
+                Adds audio traits, genre affinities, and neighborhood quality overlays to your Taste DNA.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {oauthConfigured ? (
+                  <Button
+                    onClick={() => void connectSpotify()}
+                    disabled={spotifyAuthStatus === 'authorizing'}
+                    className="w-full justify-center px-5 py-3 text-base sm:w-auto"
+                  >
+                    {spotifyAuthStatus === 'authorizing' ? 'Redirecting…' : 'Login with Spotify'}
+                  </Button>
+                ) : (
+                  <div className="w-full rounded-theme border border-border bg-surface px-3 py-2 text-sm text-text-muted">
+                    Spotify OAuth is not enabled in this build. Use Advanced setup for manual token fallback.
+                  </div>
+                )}
+                <Button
+                  variant="outline"
+                  onClick={onOpenSpotifySetup}
+                  className="w-full sm:w-auto"
+                >
+                  Open Advanced Setup
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          <div className="mt-2 flex flex-wrap gap-2">
+            {spotifySession ? (
+              <Button variant="outline" onClick={onOpenSpotifySetup}>
+                Manage Spotify Setup
+              </Button>
+            ) : null}
+            <Button onClick={loadSpotifyOverlay} disabled={loading}>
+              {loading ? 'Loading...' : 'Load Spotify Overlay'}
+            </Button>
+          </div>
+        </div>
         <p className="mt-2 text-xs text-text-muted">
           Auth status: {spotifyAuthStatus}
           {spotifySession ? ` · source ${spotifySession.tokenSource}` : ''}

@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type ErrorInfo,
+  type KeyboardEvent,
   type ReactNode,
 } from 'react'
 
@@ -449,6 +450,74 @@ export function MusicUniverse({ data }: MusicUniverseProps): JSX.Element {
   const is3D = rendererStatus.renderer === '3d'
 
   const selectedNodeLabel = selectedNodeId ? nodeById.get(selectedNodeId)?.label ?? null : null
+  const keyboardNavigatorNodes = useMemo(
+    () =>
+      [...graph.nodes]
+        .sort((a, b) => b.playCount - a.playCount || a.label.localeCompare(b.label))
+        .slice(0, 250),
+    [graph.nodes],
+  )
+
+  const keyboardNavigatorSelectedNode =
+    keyboardNavigatorNodes.find((node) => node.id === selectedNodeId) ??
+    (selectedNodeId ? nodeById.get(selectedNodeId) ?? null : null)
+
+  const handleKeyboardNavigatorStep = useCallback(
+    (step: number) => {
+      if (keyboardNavigatorNodes.length === 0) {
+        return
+      }
+
+      const currentIndex = selectedNodeId
+        ? keyboardNavigatorNodes.findIndex((node) => node.id === selectedNodeId)
+        : -1
+      const baseIndex = currentIndex >= 0 ? currentIndex : step > 0 ? -1 : 0
+      const nextIndex = Math.min(keyboardNavigatorNodes.length - 1, Math.max(0, baseIndex + step))
+      const nextNode = keyboardNavigatorNodes[nextIndex]
+      if (nextNode) {
+        setSelectedNodeId(nextNode.id)
+      }
+    },
+    [keyboardNavigatorNodes, selectedNodeId],
+  )
+
+  const handleKeyboardNavigatorKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      if (event.target instanceof HTMLSelectElement) {
+        return
+      }
+
+      if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        handleKeyboardNavigatorStep(1)
+        return
+      }
+
+      if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        handleKeyboardNavigatorStep(-1)
+        return
+      }
+
+      if (event.key === 'Home') {
+        event.preventDefault()
+        const firstNode = keyboardNavigatorNodes[0]
+        if (firstNode) {
+          setSelectedNodeId(firstNode.id)
+        }
+        return
+      }
+
+      if (event.key === 'End') {
+        event.preventDefault()
+        const lastNode = keyboardNavigatorNodes[keyboardNavigatorNodes.length - 1]
+        if (lastNode) {
+          setSelectedNodeId(lastNode.id)
+        }
+      }
+    },
+    [handleKeyboardNavigatorStep, keyboardNavigatorNodes],
+  )
 
   const renderKey = `${is3D ? '3d' : '2d'}-${retryKey}`
 
@@ -503,6 +572,58 @@ export function MusicUniverse({ data }: MusicUniverseProps): JSX.Element {
             ))}
           </div>
         ) : null}
+        <div className="mt-3 rounded-theme border border-border bg-surface-hover p-3">
+          <p className="text-xs uppercase tracking-[0.14em] text-text-muted">Graph keyboard navigator</p>
+          <p id="graph-keyboard-navigator-help" className="mt-1 text-xs text-text-muted">
+            Use Arrow Up/Down (or Previous/Next) to move through visible nodes when canvas interaction is unavailable.
+          </p>
+          <div
+            role="group"
+            aria-label="Graph keyboard navigator"
+            aria-describedby="graph-keyboard-navigator-help"
+            className="mt-2 flex flex-wrap items-end gap-2"
+            tabIndex={0}
+            onKeyDown={handleKeyboardNavigatorKeyDown}
+          >
+            <label className="min-w-[15rem] flex-1 text-xs text-text-muted">
+              Graph node navigator
+              <select
+                className="mt-1 h-9 w-full rounded-theme border border-border bg-surface px-2 text-sm text-text"
+                aria-label="Graph node navigator"
+                value={selectedNodeId ?? ''}
+                onChange={(event) => setSelectedNodeId(event.currentTarget.value || null)}
+              >
+                <option value="">No node selected</option>
+                {keyboardNavigatorNodes.map((node) => (
+                  <option key={node.id} value={node.id}>
+                    {node.label} · {node.type}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="rounded-theme border border-border px-3 py-2 text-xs text-text transition hover:border-accent hover:text-accent disabled:opacity-50"
+              onClick={() => handleKeyboardNavigatorStep(-1)}
+              disabled={keyboardNavigatorNodes.length === 0}
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              className="rounded-theme border border-border px-3 py-2 text-xs text-text transition hover:border-accent hover:text-accent disabled:opacity-50"
+              onClick={() => handleKeyboardNavigatorStep(1)}
+              disabled={keyboardNavigatorNodes.length === 0}
+            >
+              Next
+            </button>
+          </div>
+          <p role="status" aria-live="polite" className="mt-2 text-xs text-text-muted">
+            {keyboardNavigatorSelectedNode
+              ? `Selected graph node: ${keyboardNavigatorSelectedNode.label} (${keyboardNavigatorSelectedNode.type})`
+              : 'Selected graph node: none'}
+          </p>
+        </div>
       </Card>
 
       {!is3D ? (

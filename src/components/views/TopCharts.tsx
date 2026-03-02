@@ -81,6 +81,7 @@ export function TopCharts({ data }: TopChartsProps): JSX.Element {
         </Select>
         <Input
           className="max-w-xs"
+          aria-label="Search leaderboard"
           placeholder="Search leaderboard..."
           value={search}
           onChange={(event) => setSearch(event.currentTarget.value)}

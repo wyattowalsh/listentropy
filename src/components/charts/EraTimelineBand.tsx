@@ -35,37 +35,32 @@ export function EraTimelineBand({
 
   return (
     <div className="space-y-2">
-      <div
-        className="flex min-w-0 gap-2 overflow-x-auto pb-1"
-        role="list"
-        aria-label="Era timeline segments"
-      >
+      <ul className="flex min-w-0 list-none gap-2 overflow-x-auto pb-1" aria-label="Era timeline segments">
         {eras.map((era) => {
           const active = era.id === activeEraId
           return (
-            <button
-              key={era.id}
-              type="button"
-              role="listitem"
-              onClick={() => onSelectEra?.(era.id)}
-              className={cn(
-                'min-w-[9rem] flex-1 rounded-theme border px-3 py-2 text-left text-xs transition',
-                confidenceStyles(era.confidence, active),
-              )}
-              style={{ flexGrow: Math.max(1, era.durationMonths) }}
-              aria-pressed={active}
-            >
-              <p className="truncate font-medium">{era.label}</p>
-              <p className="mt-1 truncate text-[11px] opacity-80">
-                {era.startMonth} → {era.endMonth}
-              </p>
-              <p className="mt-1 text-[11px] opacity-80">
-                {era.durationMonths} mo · {Math.round(era.confidence * 100)}% conf
-              </p>
-            </button>
+            <li key={era.id} className="min-w-[9rem] flex-1 list-none" style={{ flexGrow: Math.max(1, era.durationMonths) }}>
+              <button
+                type="button"
+                onClick={() => onSelectEra?.(era.id)}
+                className={cn(
+                  'w-full rounded-theme border px-3 py-2 text-left text-xs transition',
+                  confidenceStyles(era.confidence, active),
+                )}
+                aria-pressed={active}
+              >
+                <p className="truncate font-medium">{era.label}</p>
+                <p className="mt-1 truncate text-[11px] opacity-80">
+                  {era.startMonth} → {era.endMonth}
+                </p>
+                <p className="mt-1 text-[11px] opacity-80">
+                  {era.durationMonths} mo · {Math.round(era.confidence * 100)}% conf
+                </p>
+              </button>
+            </li>
           )
         })}
-      </div>
+      </ul>
       <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.14em] text-text-muted">
         <span>Lower confidence</span>
         <span>Higher confidence</span>

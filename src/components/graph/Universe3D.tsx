@@ -170,7 +170,14 @@ export function Universe3D({
   }, [resetCameraToken])
 
   return (
-    <div className="h-[360px] overflow-hidden rounded-theme border border-border bg-surface sm:h-[520px] lg:h-[640px]">
+    <div
+      className="h-[360px] overflow-hidden rounded-theme border border-border bg-surface sm:h-[520px] lg:h-[640px]"
+      role="img"
+      aria-label="3D music universe graph"
+    >
+      <p className="sr-only">
+        Interactive 3D music universe graph. Use the graph keyboard navigator controls to inspect nodes without pointer interaction.
+      </p>
       <Canvas
         camera={{ position: DEFAULT_CAMERA_POSITION, fov: 55 }}
         onCreated={({ camera }) => {

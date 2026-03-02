@@ -19,7 +19,7 @@ import { TitleCard } from './cards/TitleCard'
 import { TopArtistsCard } from './cards/TopArtistsCard'
 import { TopTracksCard } from './cards/TopTracksCard'
 import { TravelFootprintCard } from './cards/TravelFootprintCard'
-import type { StoryCardKey } from './story-card-order'
+import { STORY_CARD_REGISTRY, type StoryCardKey } from './story-card-order'
 
 export type StoryAspect = 'story' | 'square'
 
@@ -35,7 +35,7 @@ interface StoryCardDeckProps {
 }
 
 interface CardConfig {
-  key: string
+  key: StoryCardKey
   title: string
   render: () => JSX.Element
 }
@@ -64,84 +64,34 @@ export function StoryCardDeck({
 
   const cards = useMemo<CardConfig[]>(
     () => {
-      const baseCards: CardConfig[] = [
-      {
-        key: 'title',
-        title: 'Title',
-        render: () => <TitleCard data={data} name={displayName} />,
-      },
-      {
-        key: 'top-artists',
-        title: 'Top Artists',
-        render: () => <TopArtistsCard data={data} />,
-      },
-      {
-        key: 'top-tracks',
-        title: 'Top Tracks',
-        render: () => <TopTracksCard data={data} />,
-      },
-      {
-        key: 'clock',
-        title: 'The Clock',
-        render: () => <ClockPersonaCard data={data} />,
-      },
-      {
-        key: 'streak',
-        title: 'The Streak',
-        render: () => <StreakCard data={data} />,
-      },
-      {
-        key: 'guilty-pleasures',
-        title: 'Guilty Pleasures',
-        render: () => <GuiltyPleasuresCard data={data} />,
-      },
-      {
-        key: 'forgotten-gem',
-        title: 'Forgotten Gem',
-        render: () => <ForgottenGemCard data={data} />,
-      },
-      {
-        key: 'archetype',
-        title: 'Personality',
-        render: () => <ArchetypeCard data={data} />,
-      },
-      {
-        key: 'numbers',
-        title: 'By The Numbers',
-        render: () => <ByNumbersCard data={data} />,
-      },
-      {
-        key: 'fingerprint',
-        title: 'Taste Fingerprint',
-        render: () => <TasteFingerprintCard data={data} />,
-      },
-      {
-        key: 'travel-footprint',
-        title: 'Travel Footprint',
-        render: () => <TravelFootprintCard data={data} />,
-      },
-      {
-        key: 'intent-signature',
-        title: 'Intent Signature',
-        render: () => <IntentSignatureCard data={data} />,
-      },
-      {
-        key: 'device-journey',
-        title: 'Device Journey',
-        render: () => <DeviceJourneyCard data={data} />,
-      },
-      {
-        key: 'offline-private',
-        title: 'Offline & Private Moments',
-        render: () => <OfflinePrivateMomentsCard data={data} />,
-      },
-      ]
+      const renderByKey: Record<StoryCardKey, () => JSX.Element> = {
+        title: () => <TitleCard data={data} name={displayName} />,
+        'top-artists': () => <TopArtistsCard data={data} />,
+        'top-tracks': () => <TopTracksCard data={data} />,
+        clock: () => <ClockPersonaCard data={data} />,
+        streak: () => <StreakCard data={data} />,
+        'guilty-pleasures': () => <GuiltyPleasuresCard data={data} />,
+        'forgotten-gem': () => <ForgottenGemCard data={data} />,
+        archetype: () => <ArchetypeCard data={data} />,
+        numbers: () => <ByNumbersCard data={data} />,
+        fingerprint: () => <TasteFingerprintCard data={data} />,
+        'travel-footprint': () => <TravelFootprintCard data={data} />,
+        'intent-signature': () => <IntentSignatureCard data={data} />,
+        'device-journey': () => <DeviceJourneyCard data={data} />,
+        'offline-private': () => <OfflinePrivateMomentsCard data={data} />,
+      }
+
+      const baseCards: CardConfig[] = STORY_CARD_REGISTRY.map((card) => ({
+        key: card.key,
+        title: card.title,
+        render: renderByKey[card.key],
+      }))
 
       if (!selectedCardKeys || selectedCardKeys.length === 0) {
         return baseCards
       }
       const allowed = new Set(selectedCardKeys)
-      return baseCards.filter((card) => allowed.has(card.key as StoryCardKey))
+      return baseCards.filter((card) => allowed.has(card.key))
     },
     [data, displayName, selectedCardKeys],
   )
@@ -161,7 +111,7 @@ export function StoryCardDeck({
   const clampedIndex = Math.min(index, Math.max(0, cards.length - 1))
 
   useEffect(() => {
-    const key = cards[clampedIndex]?.key as StoryCardKey | undefined
+    const key = cards[clampedIndex]?.key
     if (key && onActiveCardKeyChange) {
       onActiveCardKeyChange(key)
     }

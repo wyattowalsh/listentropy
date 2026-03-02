@@ -10,39 +10,27 @@ import { runRitualDetectorModule, runSequenceMotifsModule } from '@/lib/labs/mod
 import { runChronotypeDriftModule, runStabilityChaosModule } from '@/lib/labs/modules/temporal'
 import { runUnsupportedModule } from '@/lib/labs/modules/unsupported'
 
+type LabModuleRunner = (snapshot: LabDatasetSnapshot, options?: Record<string, unknown>) => LabModuleResult
+
+const LAB_MODULE_RUNNERS: Record<LabModuleId, LabModuleRunner> = {
+  'sequence-motifs': (snapshot) => runSequenceMotifsModule(snapshot),
+  'ritual-detector': (snapshot) => runRitualDetectorModule(snapshot),
+  'chronotype-drift': (snapshot) => runChronotypeDriftModule(snapshot),
+  'novelty-economics': (snapshot) => runNoveltyEconomicsModule(snapshot),
+  'era-microshifts': (snapshot) => runEraMicroshiftsModule(snapshot),
+  'compare-engine': (snapshot, options) => runCompareEngineModule(snapshot, options),
+  counterfactuals: (snapshot) => runCounterfactualsModule(snapshot),
+  'forecast-snapshot': (snapshot) => runForecastSnapshotModule(snapshot),
+  'stability-chaos': (snapshot) => runStabilityChaosModule(snapshot),
+  'audio-affect-overlay': (snapshot, options) => runAudioAffectOverlayModule(snapshot, options),
+  'session-archetypes': (snapshot) => runUnsupportedModule('session-archetypes', snapshot),
+  'bridge-dynamics': (snapshot) => runUnsupportedModule('bridge-dynamics', snapshot),
+}
+
 export function runLabModule(
   moduleId: LabModuleId,
   snapshot: LabDatasetSnapshot,
   options?: Record<string, unknown>,
 ): LabModuleResult {
-  void options
-  switch (moduleId) {
-    case 'sequence-motifs':
-      return runSequenceMotifsModule(snapshot)
-    case 'ritual-detector':
-      return runRitualDetectorModule(snapshot)
-    case 'chronotype-drift':
-      return runChronotypeDriftModule(snapshot)
-    case 'novelty-economics':
-      return runNoveltyEconomicsModule(snapshot)
-    case 'era-microshifts':
-      return runEraMicroshiftsModule(snapshot)
-    case 'compare-engine':
-      return runCompareEngineModule(snapshot, options)
-    case 'counterfactuals':
-      return runCounterfactualsModule(snapshot)
-    case 'forecast-snapshot':
-      return runForecastSnapshotModule(snapshot)
-    case 'stability-chaos':
-      return runStabilityChaosModule(snapshot)
-    case 'audio-affect-overlay':
-      return runAudioAffectOverlayModule(snapshot, options)
-    case 'session-archetypes':
-    case 'bridge-dynamics':
-      return runUnsupportedModule(moduleId, snapshot)
-    default: {
-      const exhaustive: never = moduleId
-      return runUnsupportedModule(exhaustive, snapshot)
-    }
-  }
+  return LAB_MODULE_RUNNERS[moduleId](snapshot, options)
 }

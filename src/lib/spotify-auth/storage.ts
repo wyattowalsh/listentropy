@@ -1,4 +1,10 @@
 import type { SpotifyAuthSession } from '@/lib/types'
+import {
+  getBrowserStorage,
+  readStorageItem,
+  removeStorageItem,
+  writeStorageItem,
+} from '@/lib/storage/safeBrowserStorage'
 
 const KEYS = {
   session: 'listentropy-spotify-auth-session',
@@ -10,41 +16,8 @@ const KEYS = {
 
 export const SPOTIFY_PKCE_TEMP_TTL_MS = 10 * 60 * 1000
 
-function getSessionStorage(): Storage | null {
-  if (typeof window === 'undefined') {
-    return null
-  }
-  try {
-    return window.sessionStorage
-  } catch {
-    return null
-  }
-}
-
-function safeGetSessionStorageItem(storage: Storage, key: string): string | null {
-  try {
-    return storage.getItem(key)
-  } catch {
-    return null
-  }
-}
-
-function safeSetSessionStorageItem(storage: Storage, key: string, value: string): boolean {
-  try {
-    storage.setItem(key, value)
-    return true
-  } catch {
-    return false
-  }
-}
-
-function safeRemoveSessionStorageItem(storage: Storage, key: string): boolean {
-  try {
-    storage.removeItem(key)
-    return true
-  } catch {
-    return false
-  }
+function getSessionStorage() {
+  return getBrowserStorage('session')
 }
 
 export function getSpotifyAuthStorageKeys(): typeof KEYS {
@@ -56,14 +29,14 @@ export function loadSpotifyAuthSession(): SpotifyAuthSession | null {
   if (!storage) {
     return null
   }
-  const raw = safeGetSessionStorageItem(storage, KEYS.session)
+  const raw = readStorageItem(storage, KEYS.session)
   if (!raw) {
     return null
   }
   try {
     return JSON.parse(raw) as SpotifyAuthSession
   } catch {
-    safeRemoveSessionStorageItem(storage, KEYS.session)
+    removeStorageItem(storage, KEYS.session)
     return null
   }
 }
@@ -74,10 +47,10 @@ export function persistSpotifyAuthSession(session: SpotifyAuthSession | null): v
     return
   }
   if (!session) {
-    safeRemoveSessionStorageItem(storage, KEYS.session)
+    removeStorageItem(storage, KEYS.session)
     return
   }
-  safeSetSessionStorageItem(storage, KEYS.session, JSON.stringify(session))
+  writeStorageItem(storage, KEYS.session, JSON.stringify(session))
 }
 
 export function loadLegacyManualToken(): string {
@@ -85,7 +58,7 @@ export function loadLegacyManualToken(): string {
   if (!storage) {
     return ''
   }
-  return safeGetSessionStorageItem(storage, KEYS.manualToken) ?? ''
+  return readStorageItem(storage, KEYS.manualToken) ?? ''
 }
 
 export function persistLegacyManualToken(token: string): void {
@@ -94,9 +67,9 @@ export function persistLegacyManualToken(token: string): void {
     return
   }
   if (token.trim()) {
-    safeSetSessionStorageItem(storage, KEYS.manualToken, token.trim())
+    writeStorageItem(storage, KEYS.manualToken, token.trim())
   } else {
-    safeRemoveSessionStorageItem(storage, KEYS.manualToken)
+    removeStorageItem(storage, KEYS.manualToken)
   }
 }
 
@@ -106,14 +79,14 @@ export function persistSpotifyPkceTemp(args: { codeVerifier: string; state: stri
     return
   }
   if (!args) {
-    safeRemoveSessionStorageItem(storage, KEYS.pkceVerifier)
-    safeRemoveSessionStorageItem(storage, KEYS.oauthState)
-    safeRemoveSessionStorageItem(storage, KEYS.pkceCreatedAt)
+    removeStorageItem(storage, KEYS.pkceVerifier)
+    removeStorageItem(storage, KEYS.oauthState)
+    removeStorageItem(storage, KEYS.pkceCreatedAt)
     return
   }
-  safeSetSessionStorageItem(storage, KEYS.pkceVerifier, args.codeVerifier)
-  safeSetSessionStorageItem(storage, KEYS.oauthState, args.state)
-  safeSetSessionStorageItem(storage, KEYS.pkceCreatedAt, String(Date.now()))
+  writeStorageItem(storage, KEYS.pkceVerifier, args.codeVerifier)
+  writeStorageItem(storage, KEYS.oauthState, args.state)
+  writeStorageItem(storage, KEYS.pkceCreatedAt, String(Date.now()))
 }
 
 export function loadSpotifyPkceTemp(): { codeVerifier: string; state: string } | null {
@@ -121,15 +94,15 @@ export function loadSpotifyPkceTemp(): { codeVerifier: string; state: string } |
   if (!storage) {
     return null
   }
-  const codeVerifier = safeGetSessionStorageItem(storage, KEYS.pkceVerifier)
-  const state = safeGetSessionStorageItem(storage, KEYS.oauthState)
+  const codeVerifier = readStorageItem(storage, KEYS.pkceVerifier)
+  const state = readStorageItem(storage, KEYS.oauthState)
   if (!codeVerifier || !state) {
     return null
   }
-  const createdAtRaw = safeGetSessionStorageItem(storage, KEYS.pkceCreatedAt)
+  const createdAtRaw = readStorageItem(storage, KEYS.pkceCreatedAt)
   if (createdAtRaw == null) {
     // Backward-compatibility for pre-TTL tabs: allow one load and start TTL now.
-    safeSetSessionStorageItem(storage, KEYS.pkceCreatedAt, String(Date.now()))
+    writeStorageItem(storage, KEYS.pkceCreatedAt, String(Date.now()))
     return { codeVerifier, state }
   }
   const createdAt = Number.parseInt(createdAtRaw, 10)

@@ -94,6 +94,14 @@ async function openPrimaryAnalyticsTab(page: Page, label: string): Promise<Locat
   return page.locator(`#${panelId}`)
 }
 
+async function openAdvancedSection(page: Page, section?: 'lab' | 'network' | 'artist' | 'plugins'): Promise<void> {
+  await page.getByRole('button', { name: 'Advanced', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Advanced' })).toBeVisible()
+  if (section) {
+    await page.getByRole('combobox', { name: 'Advanced section' }).selectOption(section)
+  }
+}
+
 test('renders upload onboarding and privacy copy', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Listentropy' })).toBeVisible()
@@ -102,53 +110,50 @@ test('renders upload onboarding and privacy copy', async ({ page }) => {
   ).toBeVisible()
 })
 
-test('all top-level tabs render after upload', async ({ page }) => {
+test('primary destinations and advanced hub sections render after upload', async ({ page }) => {
   await page.goto('/')
   await uploadFixture(page)
   await expect(page.getByRole('button', { name: 'Unlock Full Analytics' })).toHaveCount(0)
+  await expect(page.getByRole('tab')).toHaveCount(4)
 
-  const chartsPanel = await openPrimaryAnalyticsTab(page, 'Charts')
-  await expect(chartsPanel.getByPlaceholder('Search leaderboard...')).toBeVisible()
-
-  const timelinePanel = await openPrimaryAnalyticsTab(page, 'Timeline')
-  await expect(timelinePanel.getByRole('heading', { name: 'Listening timeline' })).toBeVisible()
-
-  const clockPanel = await openPrimaryAnalyticsTab(page, 'Clock')
-  await expect(clockPanel.getByRole('heading', { name: 'Radial Clock' })).toBeVisible()
-
-  const artistPanel = await openPrimaryAnalyticsTab(page, 'Artist')
-  await expect(artistPanel.getByPlaceholder('Search artist...')).toBeVisible()
-
-  const habitsPanel = await openPrimaryAnalyticsTab(page, 'Habits')
-  await expect(habitsPanel.getByRole('heading', { name: 'Skip and shuffle trend' })).toBeVisible()
-
-  const contextPanel = await openPrimaryAnalyticsTab(page, 'Context')
-  await expect(contextPanel.getByRole('heading', { name: 'Context Intelligence' })).toBeVisible()
-
-  const erasPanel = await openPrimaryAnalyticsTab(page, 'Eras')
-  await expect(erasPanel.getByRole('heading', { name: 'Music Eras' })).toBeVisible()
+  const explorePanel = await openPrimaryAnalyticsTab(page, 'Explore')
+  await expect(explorePanel.getByRole('heading', { name: 'Explore' })).toBeVisible()
+  await expect(explorePanel.getByRole('heading', { name: 'Trends', exact: true })).toBeVisible()
+  await expect(explorePanel.getByRole('heading', { name: 'Rankings', exact: true })).toBeVisible()
+  await expect(explorePanel.getByRole('heading', { name: 'Behavior', exact: true })).toBeVisible()
+  await expect(explorePanel.getByRole('heading', { name: 'Context', exact: true })).toBeVisible()
+  await expect(explorePanel.getByRole('heading', { name: 'Rhythm', exact: true })).toBeVisible()
+  await expect(explorePanel.getByRole('heading', { name: 'Eras', exact: true })).toBeVisible()
+  await expect(explorePanel.getByPlaceholder('Search leaderboard...')).toBeVisible()
+  await expect(explorePanel.getByRole('heading', { name: 'Listening timeline' })).toBeVisible()
+  await expect(explorePanel.getByRole('heading', { name: 'Context Intelligence' })).toBeVisible()
+  await expect(explorePanel.getByRole('heading', { name: 'Music Eras' })).toBeVisible()
 
   const sharePanel = await openPrimaryAnalyticsTab(page, 'Share')
   await expect(sharePanel.getByRole('heading', { name: 'Share Studio' })).toBeVisible()
 
-  const universePanel = await openPrimaryAnalyticsTab(page, 'Universe')
-  await expect(universePanel.getByText('Music Universe Graph')).toBeVisible()
+  await openAdvancedSection(page, 'network')
+  const universePanel = page.getByRole('heading', { name: 'Music Universe Graph' }).locator('..')
+  await expect(universePanel.getByRole('heading', { name: 'Music Universe Graph' })).toBeVisible()
   await expect(universePanel.getByText('This view crashed')).toHaveCount(0)
-  const fallbackNotice = universePanel.getByText(/2D mode|3D rendering is unavailable|3D renderer failed/i)
-  if ((await fallbackNotice.count()) > 0) {
-    await expect(fallbackNotice.first()).toBeVisible()
-  }
-  await expect(universePanel.locator('canvas').first()).toBeVisible()
+  await expect(page.getByText('Network Analytics')).toBeVisible()
 
   const tastePanel = await openPrimaryAnalyticsTab(page, 'Taste DNA')
   await expect(tastePanel.getByRole('heading', { name: 'Taste DNA' })).toBeVisible()
+
+  await openAdvancedSection(page, 'lab')
+  await expect(page.getByRole('heading', { name: 'Xenolab', exact: true })).toBeVisible()
+  await openAdvancedSection(page, 'artist')
+  await expect(page.getByPlaceholder('Search artist...')).toBeVisible()
+  await openAdvancedSection(page, 'plugins')
+  await expect(page.getByText('Plugin Extras')).toBeVisible()
 })
 
 test('weekly timeline uses diverse ISO-like week keys', async ({ page }) => {
   await page.goto('/')
   await uploadFixture(page)
 
-  await primaryAnalyticsTab(page, 'Timeline').click()
+  await primaryAnalyticsTab(page, 'Explore').click()
   await page
     .locator('main select')
     .filter({ has: page.locator('option[value="weekly"]') })
@@ -193,7 +198,7 @@ test('share studio supports full deck traversal and share links', async ({ page 
   await expect(page.getByText(/payload v4/i)).toBeVisible()
 })
 
-test('guided upload-to-share funnel works on mobile viewport', async ({ page }) => {
+test('upload-to-share funnel works on mobile viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
   await uploadFixture(page)

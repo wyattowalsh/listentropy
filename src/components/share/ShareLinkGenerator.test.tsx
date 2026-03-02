@@ -134,4 +134,47 @@ describe('ShareLinkGenerator', () => {
     })
     expect(writeText.mock.calls[0]?.[0]).toContain('/share#')
   }, 20_000)
+
+  it('enforces a hard hash-length cap after compact-mode fallback', () => {
+    const veryLong = 'x'.repeat(1800)
+    const data = makeData()
+    data.artists = Array.from({ length: 5 }, (_, index) => ({
+      name: `${veryLong}-artist-${index}`,
+      plays: 100 - index,
+    })) as ProcessedDataModel['artists']
+    data.tracks = Array.from({ length: 5 }, (_, index) => ({
+      name: `${veryLong}-track-${index}`,
+      artist: `${veryLong}-artist-${index}`,
+      plays: 50 - index,
+    })) as ProcessedDataModel['tracks']
+    data.archetypes = {
+      primary: { label: `${veryLong}-primary` },
+      secondary: [{ label: `${veryLong}-secondary-a` }, { label: `${veryLong}-secondary-b` }],
+    } as ProcessedDataModel['archetypes']
+    data.contextAnalytics = {
+      ...data.contextAnalytics,
+      reasons: {
+        ...data.contextAnalytics.reasons,
+        start: [
+          { reason: `${veryLong}-reason-a`, count: 30 },
+          { reason: `${veryLong}-reason-b`, count: 10 },
+        ],
+      },
+    } as ProcessedDataModel['contextAnalytics']
+
+    render(
+      <ShareLinkGenerator
+        data={data}
+        displayName="Alicia"
+        selectedCards={['title', 'numbers', 'archetype']}
+        sharePreset="detailed-stats"
+        onDisplayNameChange={vi.fn()}
+      />,
+    )
+
+    const sizeText = screen.getByText(/Link payload size:/i).textContent ?? ''
+    const match = sizeText.match(/Link payload size:\s*(\d+)\/2400/i)
+    expect(match).toBeTruthy()
+    expect(Number(match?.[1])).toBeLessThanOrEqual(2400)
+  })
 })

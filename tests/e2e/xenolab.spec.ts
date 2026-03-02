@@ -2,7 +2,13 @@ import { expect, test } from '@playwright/test'
 
 import { buildSyntheticSpotifyZipBuffer, uploadSyntheticFixture } from './helpers/spotifyFixture'
 
-test('xenolab lab tab runs deferred module and renders explainability + scene gallery', async ({ page }) => {
+async function openAdvancedLab(page: Parameters<typeof test>[0]['page']): Promise<void> {
+  await page.getByRole('button', { name: 'Advanced', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Advanced' })).toBeVisible()
+  await page.getByRole('combobox', { name: 'Advanced section' }).selectOption('lab')
+}
+
+test('xenolab advanced lab section runs deferred module and renders explainability + scene gallery', async ({ page }) => {
   const pageErrors: string[] = []
   const consoleErrors: string[] = []
 
@@ -16,7 +22,7 @@ test('xenolab lab tab runs deferred module and renders explainability + scene ga
   await page.goto('/')
   await uploadSyntheticFixture(page)
 
-  await page.getByRole('tab', { name: 'Lab' }).click()
+  await openAdvancedLab(page)
   await expect(page.getByRole('heading', { name: 'Xenolab', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Module Gallery' })).toBeVisible()
   await expect(page.locator('#xenolab-scenes')).toBeVisible()
@@ -65,12 +71,12 @@ test('xenolab lab tab runs deferred module and renders explainability + scene ga
   expect(filteredConsoleErrors).toEqual([])
 })
 
-test('xenolab lab tab renders under reduced motion preference', async ({ page }) => {
+test('xenolab advanced lab section renders under reduced motion preference', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/')
   await uploadSyntheticFixture(page)
 
-  await page.getByRole('tab', { name: 'Lab' }).click()
+  await openAdvancedLab(page)
   await expect(page.getByRole('heading', { name: 'Xenolab', exact: true })).toBeVisible()
   await page.getByRole('button', { name: /Entropy Phase Portrait/ }).click()
   await expect(page.getByRole('heading', { name: 'Entropy Phase Portrait' })).toBeVisible()

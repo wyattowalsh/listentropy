@@ -111,4 +111,22 @@ describe('runDataProcessorWorkerTask', () => {
     ).rejects.toThrow(/worker transport failed/i)
     expect(FakeWorker.instances[0]?.terminated).toBe(true)
   })
+
+  it('rejects malformed worker completion payloads and terminates worker', async () => {
+    FakeWorker.onPostMessage = (worker) => {
+      worker.onmessage?.({
+        data: {
+          type: 'parse:complete',
+          payload: null,
+        },
+      } as MessageEvent<unknown>)
+    }
+
+    const { runDataProcessorWorkerTask } = await loadHelper()
+
+    await expect(
+      runDataProcessorWorkerTask({ type: 'process-records', records: [], timezoneMode: 'utc' }),
+    ).rejects.toThrow(/malformed|invalid/i)
+    expect(FakeWorker.instances[0]?.terminated).toBe(true)
+  })
 })

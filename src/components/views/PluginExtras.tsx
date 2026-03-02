@@ -62,7 +62,7 @@ export function PluginExtras({ data }: PluginExtrasProps): JSX.Element {
   return (
     <div className="space-y-4">
       <Card>
-        <CardTitle>Plugin Extras</CardTitle>
+        <CardTitle as="h2">Plugin Extras</CardTitle>
         <CardDescription className="mt-1">
           Explore first-party plugin panels, then run actions for analysis/export workflows.
         </CardDescription>
@@ -80,6 +80,7 @@ export function PluginExtras({ data }: PluginExtrasProps): JSX.Element {
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr,180px]">
           <Input
             value={query}
+            aria-label="Filter plugins"
             placeholder="Filter plugins..."
             onChange={(event) => setQuery(event.currentTarget.value)}
           />

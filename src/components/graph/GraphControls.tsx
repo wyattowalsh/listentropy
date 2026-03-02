@@ -133,6 +133,7 @@ export function GraphControls({
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
         <Input
           value={search}
+          aria-label="Search artist or track in graph"
           placeholder="Search artist or track in graph…"
           onChange={(event) => onSearchChange(event.currentTarget.value)}
         />

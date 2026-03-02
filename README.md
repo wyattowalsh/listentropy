@@ -7,9 +7,9 @@ Listentropy is a privacy-first Spotify listening explorer that runs 100% in your
 ## Highlights
 
 - Fully client-side data processing (no user data leaves the browser).
-- Adaptive dual-path UX: guided mode (high-signal defaults) and full mode (full analytics surface).
-- 12 analytics views: overview, charts, timeline, clock/calendar, artist deep dive, habits, context intelligence, eras, share studio, universe graph, taste DNA, and extras.
-- Xenolab (Train A) Lab tab for deferred, on-demand analytics modules and experimental visual scenes.
+- High-signal default navigation with four primary destinations (Overview, Explore, Taste, Share).
+- Rich Explore dashboard that consolidates trends, rankings, behavior, context, rhythm, and eras into one linked analytics surface.
+- Advanced hub for Xenolab, network graph, artist deep dive, and plugin/experimental tools.
 - Share Studio with a deterministic 14-card deck, presets, PNG/ZIP export, copy-to-clipboard, and versioned share links.
 - Theme system with four visual modes, shared tokens, and chart palette propagation.
 - Worker-based processing pipeline with stage progress, diagnostics metadata, and worker-backed timezone reprocessing.
@@ -42,13 +42,13 @@ Required contents inside the zip include files like:
 - No analytics trackers or telemetry beacons are included.
 - No user data is sent to external services.
 - Optional Spotify API token (Taste DNA enrichment) is stored in `sessionStorage` only.
-- Theme preference and experience mode (`guided`/`full`) are stored in `localStorage`.
+- Theme preference and local UI preference state are stored in `localStorage`.
 - Session KPI events are kept in-memory and can be exported manually as JSON.
 - Xenolab deferred module results are cached in-memory per dataset fingerprint and are not persisted across refreshes.
 
 ## Xenolab (Train A)
 
-Xenolab is the **Lab** tab for deferred, privacy-first analytics experiments and visual scenes.
+Xenolab is the **Lab** section inside the **Advanced** hub for deferred, privacy-first analytics experiments and visual scenes.
 
 Train A includes:
 
@@ -98,13 +98,18 @@ CI requires:
 - coverage gate
 - build
 - perf budget gate
-- Playwright e2e smoke checks (`smoke.spec.ts` and `xenolab.spec.ts` on Chromium)
+- Playwright e2e required gate on Chromium (`smoke`, `upload-errors`, `universe-eras`, `responsive`, `xenolab`, `a11y`)
 
 Coverage gates:
 
 - Global line coverage `>= 80%`
 - Global branch coverage `>= 70%`
 - `src/lib/**` line coverage `>= 85%`
+- Risky-file floors:
+  - `src/lib/share/share-encoder.ts`: lines `>= 68%`, branches `>= 70%`
+  - `src/lib/data/parser.ts`: lines `>= 76%`, branches `>= 72%`
+  - `src/lib/labs/worker-client.ts`: lines `>= 72%`, branches `>= 68%`
+  - `src/lib/audio-traits/providers/spotify/provider.ts`: lines `>= 72%`, branches `>= 58%`
 
 ## Development
 
@@ -119,6 +124,18 @@ Coverage gates:
 pnpm install
 pnpm dev
 ```
+
+### Enabling Spotify OAuth (Optional)
+
+Listentropy works without Spotify OAuth. If you want one-click OAuth for enrichment, configure it locally:
+
+1. Create or open a Spotify app in the Spotify Developer Dashboard.
+2. Add your app callback URI (default: `http://localhost:5173/auth/spotify/callback`) to the Spotify app redirect URIs.
+3. Set `VITE_SPOTIFY_CLIENT_ID` in your local environment (for example, `.env.local`).
+4. Optionally set `VITE_SPOTIFY_REDIRECT_URI` if you need a non-default callback origin/path.
+5. Restart `pnpm dev` after changing env vars.
+
+If OAuth is not configured, the app remains fully usable and the Lab setup still offers a manual token fallback for Spotify enrichment.
 
 ### Full Verification
 
@@ -135,6 +152,7 @@ pnpm hygiene:fixtures       # enforce fixture policy
 pnpm test:coverage          # run unit tests with coverage output
 pnpm coverage:gate          # enforce coverage thresholds
 pnpm perf:budget            # enforce build size budgets
+pnpm test:e2e:ci:gate       # run required Chromium e2e gate used by CI
 SPOTIFY_ZIP_PATH=/abs/path.zip pnpm audit:real-data
 pnpm perf:large-fixture        # local synthetic 50k-record process/toggle benchmark
 ```
@@ -151,8 +169,8 @@ The audit validates:
 
 - zip structure and history files
 - upload and parse flow
-- rendering across all top-level tabs
-- guided-mode + full unlock tab behavior
+- rendering across the primary destinations plus Advanced hub sections
+- primary navigation and Advanced hub switching behavior
 - Context Intelligence rendering and key section presence
 - weekly timeline ISO-like labels (not collapsed to W01..W06)
 - timezone toggle behavior (`local`/`utc`)

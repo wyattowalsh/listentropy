@@ -21,17 +21,18 @@ test('@matrix mobile key views avoid page-level horizontal overflow', async ({ p
   await expect(page.getByRole('heading', { name: 'Share Studio' })).toBeVisible()
   await expectNoPageOverflow(page)
 
-  await page.getByRole('tab', { name: 'Context' }).click()
+  await page.getByRole('tab', { name: 'Explore' }).click()
+  await expect(page.getByRole('heading', { name: 'Explore' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Context Intelligence' })).toBeVisible()
   await expectNoPageOverflow(page)
 
-  await page.getByRole('tab', { name: 'Eras' }).click()
-  await expect(page.getByRole('heading', { name: 'Music Eras' })).toBeVisible()
+  await page.getByRole('heading', { name: 'Music Eras' }).scrollIntoViewIfNeeded()
   await expect(page.getByRole('heading', { name: 'Era Detail' })).toBeVisible()
   await expectNoPageOverflow(page)
 
-  await page.getByRole('tab', { name: 'Universe' }).click()
-  await expect(page.getByText('Music Universe Graph')).toBeVisible()
+  await page.getByRole('button', { name: 'Advanced', exact: true }).click()
+  await page.getByRole('combobox', { name: 'Advanced section' }).selectOption('network')
+  await expect(page.getByRole('heading', { name: 'Music Universe Graph' })).toBeVisible()
   await expect(page.getByText('Network Analytics')).toBeVisible()
   await expectNoPageOverflow(page)
 
@@ -40,12 +41,13 @@ test('@matrix mobile key views avoid page-level horizontal overflow', async ({ p
   await expectNoPageOverflow(page)
 })
 
-test('@matrix fresh upload shows tabs immediately and charts renders', async ({ page }) => {
+test('@matrix fresh upload shows simplified tabs immediately and explore rankings renders', async ({ page }) => {
   await page.goto('/')
   await uploadSyntheticFixture(page)
 
   await expect(page.getByRole('button', { name: 'Unlock Full Analytics' })).toHaveCount(0)
-  await page.getByRole('tab', { name: 'Charts' }).click()
+  await expect(page.getByRole('tab')).toHaveCount(4)
+  await page.getByRole('tab', { name: 'Explore' }).click()
   await expect(page.getByPlaceholder('Search leaderboard...')).toBeVisible()
 })
 
@@ -84,14 +86,16 @@ test('@visual mobile universe and eras snapshot', async ({ page }) => {
   await page.goto('/')
   await uploadSyntheticFixture(page)
 
-  await page.getByRole('tab', { name: 'Eras' }).click()
+  await page.getByRole('tab', { name: 'Explore' }).click()
+  await page.getByRole('heading', { name: 'Music Eras' }).scrollIntoViewIfNeeded()
   await expect(page.getByRole('heading', { name: 'Era Detail' })).toBeVisible()
   await expect(page).toHaveScreenshot('mobile-eras-detail.png', {
     fullPage: true,
     animations: 'disabled',
   })
 
-  await page.getByRole('tab', { name: 'Universe' }).click()
+  await page.getByRole('button', { name: 'Advanced', exact: true }).click()
+  await page.getByRole('combobox', { name: 'Advanced section' }).selectOption('network')
   await expect(page.getByText('Network Analytics')).toBeVisible()
   await expect(page).toHaveScreenshot('mobile-universe-analytics.png', {
     fullPage: true,

@@ -3,6 +3,15 @@ import JSZip from 'jszip'
 import type { ParseOptions, RawSpotifyRecord, StreamRecord } from '@/lib/types'
 
 const HISTORY_FILE_PATTERN = /Streaming_History_(Audio|Video)_.*\.json$/i
+const utf8Encoder = new TextEncoder()
+
+export const ZIP_INGEST_LIMITS = {
+  maxZipBytes: 256 * 1024 * 1024,
+  maxArchiveEntries: 500,
+  maxHistoryUncompressedBytes: 64 * 1024 * 1024,
+  maxTotalHistoryUncompressedBytes: 256 * 1024 * 1024,
+  maxParsedRecords: 2_000_000,
+} as const
 
 export interface ZipInspectionResult {
   totalEntries: number
@@ -23,6 +32,27 @@ export interface ParseSpotifyZipOptions extends ParseOptions {
 }
 
 const preparedZipArchiveCache = new WeakMap<File, PreparedSpotifyZipArchive>()
+
+function assertZipSizeWithinBounds(file: File): void {
+  if (file.size > ZIP_INGEST_LIMITS.maxZipBytes) {
+    throw new Error('Upload zip is too large for safe local processing.')
+  }
+}
+
+function assertArchiveEntryCountWithinBounds(entries: JSZip.JSZipObject[]): void {
+  if (entries.length > ZIP_INGEST_LIMITS.maxArchiveEntries) {
+    throw new Error('Upload zip contains too many entries to safely inspect.')
+  }
+}
+
+function getEntryUncompressedSize(entry: JSZip.JSZipObject): number | null {
+  const internalData = (entry as unknown as { _data?: { uncompressedSize?: unknown } })._data
+  const size = internalData?.uncompressedSize
+  if (typeof size === 'number' && Number.isFinite(size) && size >= 0) {
+    return size
+  }
+  return null
+}
 
 function inferContentType(record: RawSpotifyRecord): StreamRecord['content_type'] {
   if (record.spotify_track_uri || record.master_metadata_track_name) {
@@ -140,6 +170,7 @@ function buildZipInspection(entries: JSZip.JSZipObject[], historyEntries: JSZip.
 
 function buildPreparedSpotifyZipArchive(zip: JSZip): PreparedSpotifyZipArchive {
   const entries = getArchiveEntries(zip)
+  assertArchiveEntryCountWithinBounds(entries)
   const historyEntries = getHistoryEntries(entries)
   return {
     zip,
@@ -175,6 +206,7 @@ export async function prepareSpotifyZipArchive(file: File): Promise<PreparedSpot
     return cached
   }
 
+  assertZipSizeWithinBounds(file)
   const zip = await JSZip.loadAsync(file)
   const prepared = buildPreparedSpotifyZipArchive(zip)
   preparedZipArchiveCache.set(file, prepared)
@@ -185,16 +217,20 @@ export async function parseSpotifyZip(
   file: File,
   options: ParseSpotifyZipOptions = {},
 ): Promise<StreamRecord[]> {
+  assertZipSizeWithinBounds(file)
+
   const resolvedPreparedArchive =
     options.archive ??
     preparedZipArchiveCache.get(file) ??
     (options.historyFileNames ? null : await prepareSpotifyZipArchive(file))
 
   const zip = resolvedPreparedArchive?.zip ?? (await JSZip.loadAsync(file))
+  const archiveEntries = resolvedPreparedArchive?.entries ?? getArchiveEntries(zip)
+  assertArchiveEntryCountWithinBounds(archiveEntries)
   const historyFiles =
     resolvedPreparedArchive?.historyEntries ??
     resolveHistoryEntriesByName(zip, options.historyFileNames) ??
-    getHistoryEntries(getArchiveEntries(zip))
+    getHistoryEntries(archiveEntries)
 
   if (historyFiles.length === 0) {
     throw new Error(
@@ -203,9 +239,25 @@ export async function parseSpotifyZip(
   }
 
   const parsed: StreamRecord[] = []
+  let totalUncompressedBytes = 0
   for (let index = 0; index < historyFiles.length; index += 1) {
     const zipFile = historyFiles[index]
+    const knownUncompressedSize = getEntryUncompressedSize(zipFile)
+    if (
+      knownUncompressedSize !== null &&
+      knownUncompressedSize > ZIP_INGEST_LIMITS.maxHistoryUncompressedBytes
+    ) {
+      throw new Error(`Uncompressed history entry is too large (${zipFile.name}).`)
+    }
     const rawJson = await zipFile.async('string')
+    const rawJsonBytes = utf8Encoder.encode(rawJson).byteLength
+    if (rawJsonBytes > ZIP_INGEST_LIMITS.maxHistoryUncompressedBytes) {
+      throw new Error(`Uncompressed history entry is too large (${zipFile.name}).`)
+    }
+    totalUncompressedBytes += rawJsonBytes
+    if (totalUncompressedBytes > ZIP_INGEST_LIMITS.maxTotalHistoryUncompressedBytes) {
+      throw new Error('Uncompressed history payload is too large for safe local parsing.')
+    }
     let data: unknown
     try {
       data = JSON.parse(rawJson)
@@ -216,6 +268,9 @@ export async function parseSpotifyZip(
     if (!Array.isArray(data)) {
       continue
     }
+    if (parsed.length + data.length > ZIP_INGEST_LIMITS.maxParsedRecords) {
+      throw new Error('Spotify history contains too many records to process safely.')
+    }
 
     for (const candidate of data) {
       const raw = coerceRawRecord(candidate)
@@ -223,6 +278,9 @@ export async function parseSpotifyZip(
         continue
       }
       parsed.push(sanitizeRecord(raw))
+      if (parsed.length > ZIP_INGEST_LIMITS.maxParsedRecords) {
+        throw new Error('Spotify history contains too many records to process safely.')
+      }
     }
 
     options.onProgress?.({

@@ -10,7 +10,10 @@ import type {
 interface PendingRequest {
   resolve: (result: LabModuleResult) => void
   reject: (error: Error) => void
+  timeoutId: ReturnType<typeof setTimeout>
 }
+
+const LAB_WORKER_REQUEST_TIMEOUT_MS = 30_000
 
 class LabWorkerClientError extends Error {
   readonly kind: 'module' | 'transport'
@@ -48,6 +51,7 @@ class LabWorkerClient {
           if (!pending) {
             return
           }
+          clearTimeout(pending.timeoutId)
           this.pending.delete(message.requestId)
           pending.reject(new LabWorkerClientError('module', message.error))
           return
@@ -56,12 +60,14 @@ class LabWorkerClient {
         if (!pending) {
           return
         }
+        clearTimeout(pending.timeoutId)
         this.pending.delete(message.requestId)
         pending.resolve(message.result)
       }
       this.worker.onerror = (event) => {
         const error = new LabWorkerClientError('transport', event.message || 'Lab worker failed')
         for (const [, pending] of this.pending) {
+          clearTimeout(pending.timeoutId)
           pending.reject(error)
         }
         this.pending.clear()
@@ -92,10 +98,25 @@ class LabWorkerClient {
 
     const worker = this.getWorker()
     return new Promise<LabModuleResult>((resolve, reject) => {
-      this.pending.set(requestId, { resolve, reject })
+      const timeoutId = setTimeout(() => {
+        const pending = this.pending.get(requestId)
+        if (!pending) {
+          return
+        }
+        this.pending.delete(requestId)
+        pending.reject(new LabWorkerClientError('transport', 'Lab worker request timed out'))
+        this.worker?.terminate()
+        this.worker = null
+      }, LAB_WORKER_REQUEST_TIMEOUT_MS)
+
+      this.pending.set(requestId, { resolve, reject, timeoutId })
       try {
         worker.postMessage(request)
       } catch (error) {
+        const pending = this.pending.get(requestId)
+        if (pending) {
+          clearTimeout(pending.timeoutId)
+        }
         this.pending.delete(requestId)
         reject(
           new LabWorkerClientError(
@@ -110,6 +131,9 @@ class LabWorkerClient {
   dispose(): void {
     this.worker?.terminate()
     this.worker = null
+    for (const [, pending] of this.pending) {
+      clearTimeout(pending.timeoutId)
+    }
     this.pending.clear()
   }
 }

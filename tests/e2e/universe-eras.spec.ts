@@ -6,7 +6,8 @@ test('@matrix universe renders graph controls, analytics, and diagnostics', asyn
   await page.goto('/')
   await uploadSyntheticFixture(page)
 
-  await page.getByRole('tab', { name: 'Universe' }).click()
+  await page.getByRole('button', { name: 'Advanced', exact: true }).click()
+  await page.getByRole('combobox', { name: 'Advanced section' }).selectOption('network')
 
   const universeGraphCard = page.getByRole('heading', { name: 'Music Universe Graph' }).locator('..')
   await expect(universeGraphCard).toBeVisible()
@@ -42,11 +43,28 @@ test('@matrix universe renders graph controls, analytics, and diagnostics', asyn
   }
 })
 
+test('@matrix universe provides keyboard graph fallback navigation', async ({ page }) => {
+  await page.goto('/')
+  await uploadSyntheticFixture(page)
+
+  await page.getByRole('button', { name: 'Advanced', exact: true }).click()
+  await page.getByRole('combobox', { name: 'Advanced section' }).selectOption('network')
+
+  const keyboardNavigator = page.getByRole('group', { name: 'Graph keyboard navigator' })
+  await expect(keyboardNavigator).toBeVisible()
+
+  await keyboardNavigator.focus()
+  await page.keyboard.press('ArrowDown')
+
+  await expect(page.getByRole('status')).toContainText('Selected graph node:')
+  await expect(page.getByText(/^Selected node:/)).toBeVisible()
+})
+
 test('@matrix eras tab shows timeline, detail, diagnostics, and summary table', async ({ page }) => {
   await page.goto('/')
   await uploadSyntheticFixture(page)
 
-  await page.getByRole('tab', { name: 'Eras' }).click()
+  await page.getByRole('tab', { name: 'Explore' }).click()
 
   await expect(page.getByRole('heading', { name: 'Music Eras' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Detected Eras' })).toBeVisible()
