@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import JSZip from 'jszip'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { PreparedSpotifyZipArchive } from '@/lib/data/parser'
@@ -53,9 +54,13 @@ describe('DropZone', () => {
 
   it('loads the demo zip from the configured default path', async () => {
     prepareSpotifyZipArchiveMock.mockReset().mockResolvedValue(makePreparedArchive('demo'))
+    const demoRecords = [
+      { ts: '2024-01-01T00:00:00.000Z', ms_played: 120000, master_metadata_track_name: 'Track A' },
+      { ts: '2024-01-01T01:00:00.000Z', ms_played: 180000, master_metadata_track_name: 'Track B' },
+    ]
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      blob: () => Promise.resolve(new Blob(['demo'], { type: 'application/zip' })),
+      json: () => Promise.resolve(demoRecords),
     })
     vi.stubGlobal('fetch', fetchMock)
 
@@ -63,17 +68,33 @@ describe('DropZone', () => {
     render(
       <DropZone
         onFileSelected={onFileSelected}
-        demoZipPath="/my_spotify_data.zip"
+        demoZipPath="/demo-history-large.json"
       />,
     )
 
     fireEvent.click(screen.getByRole('button', { name: /use demo data/i }))
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/my_spotify_data.zip')
+      expect(fetchMock).toHaveBeenCalledWith('/demo-history-large.json')
       expect(onFileSelected).toHaveBeenCalledTimes(1)
     })
-    expect(onFileSelected.mock.calls[0]?.[0]).toBeInstanceOf(File)
+    const uploadedFile = onFileSelected.mock.calls[0]?.[0] as File
+    expect(uploadedFile).toBeInstanceOf(File)
+    expect(uploadedFile.name).toBe('my_spotify_data.zip')
+    expect(uploadedFile.type).toBe('application/zip')
+
+    const zip = await JSZip.loadAsync(uploadedFile)
+    const historyFiles = Object.keys(zip.files).filter((name) =>
+      /^Spotify Extended Streaming History\/Streaming_History_Audio_.*\.json$/i.test(name),
+    )
+    expect(historyFiles.length).toBeGreaterThan(0)
+
+    const firstHistoryFile = historyFiles[0]
+    if (!firstHistoryFile) {
+      throw new Error('Expected at least one Spotify history file in demo archive.')
+    }
+    const payload = JSON.parse(await zip.file(firstHistoryFile)!.async('string'))
+    expect(payload).toEqual(demoRecords)
   })
 
   it('ignores stale async preflight results from an earlier file selection', async () => {

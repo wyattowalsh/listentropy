@@ -42,7 +42,7 @@ interface ViewTabMeta {
 
 const ADVANCED_HASH_PREFIX = '#advanced/'
 const ADVANCED_SECTIONS: AdvancedHubSection[] = ['lab', 'network', 'artist', 'plugins']
-const DEMO_ZIP_PATH = `${import.meta.env.BASE_URL}my_spotify_data.zip`
+const DEMO_ZIP_PATH = `${import.meta.env.BASE_URL}demo-history-large.json`
 
 function readAdvancedSectionFromHash(): AdvancedHubSection | null {
   if (typeof window === 'undefined') {

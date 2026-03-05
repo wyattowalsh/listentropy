@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, Sparkles, UploadCloud } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
+import JSZip from 'jszip'
 
 import { Button } from '@/components/ui/button'
 import { Tooltip } from '@/components/ui/tooltip'
@@ -19,6 +20,33 @@ interface ZipUploadPreflightContext {
 interface DropZoneProps {
   onFileSelected: (file: File, preflight?: ZipUploadPreflightContext) => void
   demoZipPath?: string
+}
+
+const DEMO_CHUNK_SIZE = 20_000
+
+function readDemoRecords(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) {
+    return payload
+  }
+  if (payload && typeof payload === 'object' && Array.isArray((payload as { records?: unknown[] }).records)) {
+    return (payload as { records: unknown[] }).records
+  }
+  throw new Error('Failed to parse demo history JSON payload.')
+}
+
+async function buildDemoArchive(records: unknown[]): Promise<File> {
+  const zip = new JSZip()
+  const chunkCount = Math.max(1, Math.ceil(records.length / DEMO_CHUNK_SIZE))
+  for (let chunkIndex = 0; chunkIndex < chunkCount; chunkIndex += 1) {
+    const start = chunkIndex * DEMO_CHUNK_SIZE
+    const chunk = records.slice(start, start + DEMO_CHUNK_SIZE)
+    zip.file(
+      `Spotify Extended Streaming History/Streaming_History_Audio_2018-2024_${chunkIndex}.json`,
+      JSON.stringify(chunk),
+    )
+  }
+  const blob = await zip.generateAsync({ type: 'blob' })
+  return new File([blob], 'my_spotify_data.zip', { type: 'application/zip' })
 }
 
 export function DropZone({ onFileSelected, demoZipPath }: DropZoneProps): JSX.Element {
@@ -124,11 +152,8 @@ export function DropZone({ onFileSelected, demoZipPath }: DropZoneProps): JSX.El
     if (!response.ok) {
       throw new Error(`Failed to fetch demo archive (${response.status})`)
     }
-    const blob = await response.blob()
-    const fileName = demoZipPath.split('/').pop() || 'my_spotify_data.zip'
-    const file = new File([blob], fileName, {
-      type: blob.type || 'application/zip',
-    })
+    const records = readDemoRecords(await response.json())
+    const file = await buildDemoArchive(records)
     await selectFile(file)
   }, [demoZipPath, selectFile])
 
