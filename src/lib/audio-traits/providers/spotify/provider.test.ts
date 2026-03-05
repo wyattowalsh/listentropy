@@ -214,7 +214,7 @@ describe('spotify audio trait provider', () => {
   it('reports unknown capabilities before enrichment is attempted', async () => {
     const provider = createSpotifyAudioTraitProvider()
     const capabilities = await provider.getCapabilities()
-    expect(capabilities.audioFeatures).toBe('unknown')
+    expect('audioFeatures' in capabilities ? capabilities.audioFeatures : capabilities.audioTraits).toBe('unknown')
   })
 
   it('returns a ready no-op result when there are no eligible track ids', async () => {
@@ -283,7 +283,7 @@ describe('spotify audio trait provider', () => {
     })
 
     expect(result.status).toBe('unsupported')
-    expect(result.capabilities.audioFeatures).toBe('restricted')
+    expect('audioFeatures' in result.capabilities ? result.capabilities.audioFeatures : result.capabilities.audioTraits).toBe('restricted')
     expect(result.warnings).toHaveLength(2)
     expect(result.warnings[1]).toMatch(/404|restricted/i)
   })
@@ -311,7 +311,7 @@ describe('spotify audio trait provider', () => {
     })
 
     expect(result.status).toBe('error')
-    expect(result.capabilities.audioFeatures).toBe('rate-limited')
+    expect('audioFeatures' in result.capabilities ? result.capabilities.audioFeatures : result.capabilities.audioTraits).toBe('rate-limited')
     expect(result.warnings[1]).toMatch(/429|rate limit/i)
     expect(result.provenance.endpointNotes?.some((note) => /Fallback Retry-After 7s/i.test(note))).toBe(true)
   })
@@ -336,7 +336,7 @@ describe('spotify audio trait provider', () => {
 
     expect(result.status).toBe('error')
     expect(result.message).toBe('fallback network exploded')
-    expect(result.capabilities.audioFeatures).toBe('restricted')
+    expect('audioFeatures' in result.capabilities ? result.capabilities.audioFeatures : result.capabilities.audioTraits).toBe('restricted')
     expect(result.warnings[1]).toMatch(/Unexpected Spotify fallback failure/i)
   })
 
@@ -354,7 +354,7 @@ describe('spotify audio trait provider', () => {
     expect(result.status).toBe('error')
     expect(result.message).toBe('proxy network exploded')
     expect(result.warnings[0]).toMatch(/Unexpected Spotify provider failure/i)
-    expect(result.capabilities.audioFeatures).toBe('unknown')
+    expect('audioFeatures' in result.capabilities ? result.capabilities.audioFeatures : result.capabilities.audioTraits).toBe('unknown')
   })
 
   it('maps bad-request proxy responses to an error without unsupported status', async () => {
@@ -373,7 +373,7 @@ describe('spotify audio trait provider', () => {
     })
 
     expect(result.status).toBe('error')
-    expect(result.capabilities.audioFeatures).toBe('unknown')
+    expect('audioFeatures' in result.capabilities ? result.capabilities.audioFeatures : result.capabilities.audioTraits).toBe('unknown')
     expect(result.message).toMatch(/400|invalid/i)
   })
 })
