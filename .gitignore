@@ -33,3 +33,4 @@ playwright-*.png
 .local-data/
 .worktrees/
 *.zip
+!public/my_spotify_data.zip
