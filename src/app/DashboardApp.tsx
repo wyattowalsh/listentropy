@@ -1,5 +1,4 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
-import demoZipUrl from '../../my_spotify_data.zip?url'
 
 import { Header } from '@/components/layout/Header'
 import { getPrimaryAnalyticsPanelId, getPrimaryAnalyticsTabId } from '@/components/layout/primary-analytics-tab-ids'
@@ -43,6 +42,7 @@ interface ViewTabMeta {
 
 const ADVANCED_HASH_PREFIX = '#advanced/'
 const ADVANCED_SECTIONS: AdvancedHubSection[] = ['lab', 'network', 'artist', 'plugins']
+const DEMO_ZIP_PATH = `${import.meta.env.BASE_URL}my_spotify_data.zip`
 
 function readAdvancedSectionFromHash(): AdvancedHubSection | null {
   if (typeof window === 'undefined') {
@@ -216,7 +216,7 @@ export function DashboardApp(): JSX.Element {
                 <li>Listentropy strips `ip_addr` and processes data locally in-browser.</li>
               </ul>
             </div>
-            <DropZone onFileSelected={ingestZip} demoZipPath={demoZipUrl} />
+            <DropZone onFileSelected={ingestZip} demoZipPath={DEMO_ZIP_PATH} />
             <div className="mt-5 rounded-theme border border-border bg-surface p-4 text-sm text-text-muted">
               <p className="font-semibold text-text">How to get your Spotify export</p>
               <ol className="mt-2 list-decimal space-y-1 pl-5">
