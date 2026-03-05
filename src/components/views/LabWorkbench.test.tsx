@@ -93,6 +93,7 @@ describe('LabWorkbench', () => {
 
     expect(screen.getByRole('heading', { name: 'Xenolab' })).toBeInTheDocument()
     expect(screen.getByText('Spotify Audio Trait Enrichment')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Spotify access token (Bearer)')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Prepare Audio Trait Snapshot' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Module Gallery' })).toBeInTheDocument()
     expect(screen.getAllByRole('heading', { name: 'Visual Scene Gallery' }).length).toBeGreaterThanOrEqual(1)
@@ -411,6 +412,29 @@ describe('LabWorkbench', () => {
     expect(screen.getByText('Change Driver Overlap Details')).toBeInTheDocument()
     expect(screen.getByText('Archetype Tournament')).toBeInTheDocument()
     expect(screen.getByText(/Fixture compare note/)).toBeInTheDocument()
+  }, SLOW_LAB_WORKBENCH_TEST_TIMEOUT_MS)
+
+  it('prioritizes baseline capture before compare on first run', async () => {
+    const data = processRecords(makeSyntheticRecords(24), { timezoneMode: 'local' })
+    const user = userEvent.setup()
+    render(<LabWorkbench data={data} />)
+
+    const captureButton = screen.getByRole('button', { name: 'Capture Current as Baseline' })
+    const runCompareButton = screen.getByRole('button', { name: 'Run Compare' })
+
+    expect(screen.getByText(/First run: capture a baseline first, then run compare\./i)).toBeInTheDocument()
+    expect(screen.getByText(/Run Compare will surface guidance until a baseline is selected\./i)).toBeInTheDocument()
+    expect(captureButton.className).toContain('bg-accent')
+    expect(runCompareButton.className).not.toContain('bg-accent')
+    expect(runCompareButton).toBeEnabled()
+
+    await user.click(runCompareButton)
+    expect(screen.getByText(/First run: capture a baseline first, then run compare\./i)).toBeInTheDocument()
+
+    await user.click(captureButton)
+
+    expect(runCompareButton.className).toContain('bg-accent')
+    expect(runCompareButton).toBeEnabled()
   }, SLOW_LAB_WORKBENCH_TEST_TIMEOUT_MS)
 
   it('keeps compare workspace controls available in simple analysis mode', async () => {

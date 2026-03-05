@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   clearSpotifyAuthCallbackParamsFromUrl,
   exchangeSpotifyPkceCode,
+  getSpotifyPkceConfig,
   parseSpotifyAuthCallbackParams,
   refreshSpotifyPkceSession,
 } from '@/lib/spotify-auth/oauth'
@@ -16,6 +17,7 @@ describe('spotify auth oauth helpers', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllEnvs()
     vi.useRealTimers()
   })
 
@@ -36,6 +38,31 @@ describe('spotify auth oauth helpers', () => {
       code: undefined,
       state: 'state-1',
       error: 'access_denied',
+    })
+  })
+
+  it('reads PKCE OAuth config from env vars', () => {
+    vi.stubEnv('VITE_SPOTIFY_CLIENT_ID', '  client-123  ')
+    vi.stubEnv('VITE_SPOTIFY_REDIRECT_URI', '  https://example.com/auth/spotify/callback  ')
+
+    expect(getSpotifyPkceConfig()).toEqual({
+      clientId: 'client-123',
+      redirectUri: 'https://example.com/auth/spotify/callback',
+    })
+  })
+
+  it('uses the default callback URL when VITE_SPOTIFY_REDIRECT_URI is not set', () => {
+    vi.stubEnv('VITE_SPOTIFY_CLIENT_ID', 'client-123')
+    vi.stubEnv('VITE_SPOTIFY_REDIRECT_URI', '')
+
+    const config = getSpotifyPkceConfig()
+    const base = import.meta.env.BASE_URL ?? '/'
+    const normalizedBase = base.endsWith('/') ? base : `${base}/`
+    const expectedRedirectUri = new URL('auth/spotify/callback', `${window.location.origin}${normalizedBase}`).toString()
+
+    expect(config).toEqual({
+      clientId: 'client-123',
+      redirectUri: expectedRedirectUri,
     })
   })
 

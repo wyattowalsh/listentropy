@@ -1,0 +1,16 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="listentropyGradient" x1="32" y1="32" x2="224" y2="224" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7C3AED" />
+      <stop offset="0.5" stop-color="#3B82F6" />
+      <stop offset="1" stop-color="#22D3EE" />
+    </linearGradient>
+  </defs>
+  <rect x="20" y="20" width="216" height="216" rx="56" fill="#0B1020" />
+  <rect x="28" y="28" width="200" height="200" rx="48" fill="url(#listentropyGradient)" fill-opacity="0.18" />
+  <circle cx="92" cy="128" r="14" fill="url(#listentropyGradient)" />
+  <circle cx="128" cy="128" r="14" fill="url(#listentropyGradient)" />
+  <circle cx="164" cy="128" r="14" fill="url(#listentropyGradient)" />
+  <path d="M70 164C84 144 102 136 128 136C154 136 172 144 186 164" stroke="url(#listentropyGradient)" stroke-width="12" stroke-linecap="round" />
+  <path d="M72 92C88 76 106 68 128 68C150 68 168 76 184 92" stroke="url(#listentropyGradient)" stroke-width="10" stroke-linecap="round" />
+</svg>

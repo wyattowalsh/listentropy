@@ -53,7 +53,7 @@ export function OverviewDashboard({ data, onOpenContext }: OverviewDashboardProp
           <div className="min-w-0">
             <CardTitle as="h2">Overview Snapshot</CardTitle>
             <CardDescription className="mt-1 max-w-2xl">
-              Read your listening story first, then drill into the deeper Explore and Advanced views.
+              Read your listening story first, then expand advanced tools below and use Share for publishing.
             </CardDescription>
           </div>
           <div className="grid gap-2 text-right">

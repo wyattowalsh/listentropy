@@ -107,29 +107,25 @@ export function TasteDNA({ data, onOpenSpotifySetup }: TasteDNAProps): JSX.Eleme
       ? 'positive'
       : 'neutral'
 
-  const nextStepText = !spotifyConnected
-    ? oauthConfigured
-      ? 'Step 1: login with Spotify. Step 2: load the overlay when the session is connected.'
-      : 'Spotify OAuth is not configured in this build. Open Advanced setup to use manual token fallback.'
-    : loading
-      ? 'Fetching audio features and artist neighborhood context from Spotify…'
-      : hasEnrichment
-        ? 'Overlay is active. Refresh at any time to re-run enrichment with the current session.'
-        : 'Session is ready. Load Spotify overlay to enrich Taste DNA dimensions and artist context.'
+  const nextStepText = loading
+    ? 'Fetching audio features and artist neighborhood context from Spotify…'
+    : hasEnrichment
+      ? 'Overlay is active. Refresh at any time to re-run enrichment with the current session.'
+      : spotifyConnected
+        ? 'Session is connected. Load Spotify overlay to refresh backend enrichment and artist context.'
+        : oauthConfigured
+          ? 'Backend enrichment is available without login. Load Spotify overlay now, then connect Spotify (advanced) only if you need fallback controls.'
+          : 'Backend enrichment is available without login. Open Advanced setup only when you need manual token fallback controls.'
 
   const tasteStorySummary = hasEnrichment
     ? `Spotify overlay is active with ${overlayDimensions.length} enrichment dimensions and ${combinedDimensions.length} total dimensions in view.`
-    : `Base profile is active across ${combinedDimensions.length} dimensions. Connect Spotify for additional audio feature context.`
+    : `Base profile is active across ${combinedDimensions.length} dimensions. Load Spotify overlay for backend audio feature context; advanced auth setup is optional.`
 
   async function loadSpotifyOverlay(): Promise<void> {
     setLoading(true)
     setError(null)
     try {
       const activeToken = (await ensureValidAccessToken()) ?? ''
-      if (!activeToken) {
-        setError('Connect Spotify in Advanced setup first (optional).')
-        return
-      }
       const result = await fetchSpotifyAudioFeatureProfile(
         activeToken,
         data.tracks
@@ -163,8 +159,8 @@ export function TasteDNA({ data, onOpenSpotifySetup }: TasteDNAProps): JSX.Eleme
             </div>
             <p className="mt-2 text-xs text-text-muted">
               {spotifyConnected
-                ? 'Connected session is reusable across views.'
-                : 'Spotify connection is optional but required for overlay enrichment.'}
+                ? 'Connected session is reusable across views for advanced fallback controls.'
+                : 'No login is required for backend enrichment; session controls remain optional.'}
             </p>
           </div>
           <div className="rounded-theme border border-border bg-surface-hover p-3">
@@ -175,36 +171,36 @@ export function TasteDNA({ data, onOpenSpotifySetup }: TasteDNAProps): JSX.Eleme
             <p className="mt-2 text-xs text-text-muted">
               {hasEnrichment
                 ? `${overlayDimensions.length} Spotify dimensions are blended into the base profile.`
-                : 'Using behavioral profile only until overlay enrichment is loaded.'}
+                : 'Using behavioral profile only until backend overlay enrichment is loaded.'}
             </p>
           </div>
         </div>
         <div className="mt-3 rounded-theme border border-border bg-surface p-4">
           <p className="text-xs uppercase tracking-[0.12em] text-text-muted">Next step</p>
-          <p className="mt-1 text-sm text-text">{nextStepText}</p>
+          <p className="mt-1 text-sm text-text" role="status" aria-live="polite">{nextStepText}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {spotifyConnected ? (
-              <Button onClick={loadSpotifyOverlay} disabled={loading} className="w-full sm:w-auto">
-                {loading ? 'Loading...' : hasEnrichment ? 'Refresh Spotify Overlay' : 'Load Spotify Overlay'}
-              </Button>
-            ) : oauthConfigured ? (
-              <Button
-                onClick={() => void connectSpotify()}
-                disabled={spotifyAuthStatus === 'authorizing'}
-                className="w-full sm:w-auto"
-              >
-                {spotifyAuthStatus === 'authorizing' ? 'Redirecting…' : 'Login with Spotify'}
-              </Button>
-            ) : (
-              <Button onClick={onOpenSpotifySetup} className="w-full sm:w-auto">
-                Open Advanced Setup
-              </Button>
-            )}
+            <Button onClick={loadSpotifyOverlay} disabled={loading} className="w-full sm:w-auto">
+              {loading ? 'Loading...' : hasEnrichment ? 'Refresh Spotify Overlay' : 'Load Spotify Overlay'}
+            </Button>
             {spotifyConnected ? (
               <Button variant="outline" onClick={onOpenSpotifySetup} className="w-full sm:w-auto">
                 Manage Spotify Setup
               </Button>
             ) : oauthConfigured ? (
+              <Button
+                variant="outline"
+                onClick={() => void connectSpotify()}
+                disabled={spotifyAuthStatus === 'authorizing'}
+                className="w-full sm:w-auto"
+              >
+                {spotifyAuthStatus === 'authorizing' ? 'Redirecting…' : 'Connect Spotify (advanced)'}
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={onOpenSpotifySetup} className="w-full sm:w-auto">
+                Open Advanced Setup
+              </Button>
+            )}
+            {!spotifyConnected && oauthConfigured ? (
               <Button variant="outline" onClick={onOpenSpotifySetup} className="w-full sm:w-auto">
                 Open Advanced Setup
               </Button>

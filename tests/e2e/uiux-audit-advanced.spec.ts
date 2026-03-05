@@ -4,7 +4,7 @@ import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import type { Locator, Page, TestInfo } from '@playwright/test'
 
-import { uploadAuditFixture } from './helpers/spotifyFixture'
+import { openAdvancedTools, uploadAuditFixture } from './helpers/spotifyFixture'
 
 const SCREENSHOT_DIR = path.join(process.cwd(), 'test-results', 'uiux-audit', 'advanced')
 
@@ -29,8 +29,7 @@ async function captureAuditScreenshot(
 }
 
 async function openAdvancedShell(page: Page): Promise<Locator> {
-  await page.getByRole('button', { name: 'Advanced', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Advanced' })).toBeVisible({ timeout: 30_000 })
+  await openAdvancedTools(page)
   const sectionSwitcher = page.getByRole('combobox', { name: 'Advanced section' })
   await expect(sectionSwitcher).toBeVisible({ timeout: 30_000 })
   return sectionSwitcher
@@ -46,6 +45,10 @@ function buildArtistSearchProbe(query: string): string {
     return token
   }
   return trimmed.length > 3 ? trimmed.slice(0, trimmed.length - 1) : trimmed
+}
+
+function analysisModeToggle(page: Page, mode: 'simple' | 'deep'): Locator {
+  return page.getByRole('button', { name: mode === 'simple' ? 'Simple' : 'Deep', exact: true })
 }
 
 async function captureNetworkFallbackDiagnosticIfPresent(page: Page, testInfo: TestInfo): Promise<void> {
@@ -74,12 +77,23 @@ test('captures advanced hub uiux flows with fixture zip', async ({ page }, testI
   await expect(page.getByRole('tab', { name: 'Advanced' })).toHaveCount(0)
 
   const sectionSwitcher = await openAdvancedShell(page)
+  const simpleModeButton = analysisModeToggle(page, 'simple')
+  const deepModeButton = analysisModeToggle(page, 'deep')
+  await expect(simpleModeButton).toHaveAttribute('aria-pressed', 'true')
+  await expect(deepModeButton).toHaveAttribute('aria-pressed', 'false')
   await captureAuditScreenshot(page, testInfo, '01-advanced-shell-section-switcher')
 
   await sectionSwitcher.selectOption('network')
   await expect(page.getByRole('heading', { name: 'Music Universe Graph' })).toBeVisible({ timeout: 45_000 })
-  await expect(page.getByText('Network Analytics')).toBeVisible({ timeout: 45_000 })
-  await expect(page.getByRole('heading', { name: /Top Hubs|Graph Inspector/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Network Analytics' })).toBeVisible({ timeout: 45_000 })
+  const deepBreakdown = page.locator('details').filter({
+    has: page.locator('summary', { hasText: 'Deep network breakdown' }),
+  }).first()
+  await expect(deepBreakdown).toBeVisible({ timeout: 30_000 })
+  await deepBreakdown.locator('summary').click()
+  await expect(deepBreakdown).toHaveAttribute('open', '')
+  await expect(page.getByRole('heading', { name: 'Top Hubs' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Graph Inspector' })).toBeVisible()
   const keyboardNavigator = page.getByRole('group', { name: 'Graph keyboard navigator' })
   await expect(keyboardNavigator).toBeVisible({ timeout: 30_000 })
   await keyboardNavigator.focus()
@@ -93,13 +107,22 @@ test('captures advanced hub uiux flows with fixture zip', async ({ page }, testI
     await expect(selectedNodeSummary.first()).toBeVisible()
   }
   await captureAuditScreenshot(page, testInfo, '02-network-shell-analytics-keyboard')
+  await deepModeButton.click()
+  await expect(deepModeButton).toHaveAttribute('aria-pressed', 'true')
+  await expect(simpleModeButton).toHaveAttribute('aria-pressed', 'false')
+  await expect(
+    page.locator('details').filter({ has: page.locator('summary', { hasText: 'Deep network breakdown' }) }),
+  ).toHaveCount(0)
+  await captureAuditScreenshot(page, testInfo, '02b-network-analysis-mode-deep')
 
   await captureNetworkFallbackDiagnosticIfPresent(page, testInfo)
   const diagnosticsCard = page.getByRole('heading', { name: 'View Diagnostics' }).locator('..')
   await expect(diagnosticsCard).toBeVisible({ timeout: 30_000 })
-  await expect(diagnosticsCard.getByText(/^(Renderer state:|State)$/i)).toBeVisible()
-  await expect(diagnosticsCard.getByText(/^(Renderer mode:|Mode)$/i)).toBeVisible()
+  await expect(diagnosticsCard.locator('dt', { hasText: /^Mode$/i })).toBeVisible()
+  await expect(diagnosticsCard.locator('dt', { hasText: /^State$/i })).toBeVisible()
   await captureAuditScreenshot(page, testInfo, '03-network-fallback-diagnostics')
+  await simpleModeButton.click()
+  await expect(simpleModeButton).toHaveAttribute('aria-pressed', 'true')
 
   await sectionSwitcher.selectOption('artist')
   await expect(page.getByRole('heading', { name: 'Artist Analysis' })).toBeVisible({ timeout: 30_000 })
@@ -110,6 +133,9 @@ test('captures advanced hub uiux flows with fixture zip', async ({ page }, testI
   await artistSearch.fill(artistSearchProbe)
   await expect(page.getByText('Selected Artist', { exact: true })).toBeVisible({ timeout: 15_000 })
   await captureAuditScreenshot(page, testInfo, '05-artist-analysis-search')
+  await artistSearch.fill('__uiux_audit_unmatched_artist__')
+  await expect(page.getByText('No artist found for your search.')).toBeVisible({ timeout: 15_000 })
+  await captureAuditScreenshot(page, testInfo, '05b-artist-analysis-no-result-feedback')
 
   await sectionSwitcher.selectOption('lab')
   await expect(page.getByRole('heading', { name: 'Xenolab', exact: true })).toBeVisible({ timeout: 45_000 })
@@ -144,14 +170,21 @@ test('captures advanced hub uiux flows with fixture zip', async ({ page }, testI
   }
   await captureAuditScreenshot(page, testInfo, '08-xenolab-scene-switch')
 
-  await page.getByRole('button', { name: 'Capture Current as Baseline' }).click()
-  const nightScopeButton = page.getByRole('button', { name: 'Night' })
+  const compareWorkspace = page.locator('[aria-labelledby="xenolab-compare-workspace"]')
+  await compareWorkspace.getByRole('button', { name: 'Run Compare' }).click()
+  await expect(
+    compareWorkspace.getByText(/Capture a baseline dataset in Compare Workspace before running Compare Engine\./i),
+  ).toBeVisible({ timeout: 30_000 })
+  await captureAuditScreenshot(page, testInfo, '08b-xenolab-compare-baseline-required')
+
+  await compareWorkspace.getByRole('button', { name: 'Capture Current as Baseline' }).click()
+  const nightScopeButton = compareWorkspace.getByRole('button', { name: 'Night' })
   if ((await nightScopeButton.count()) > 0) {
     await nightScopeButton.click()
   }
-  await page.getByRole('button', { name: 'Run Compare' }).click()
-  await expect(page.getByText(/Top Metric Shifts|Slice Compare \(/).first()).toBeVisible({ timeout: 60_000 })
-  const compareFeedback = page.getByText(
+  await compareWorkspace.getByRole('button', { name: 'Run Compare' }).click()
+  await expect(compareWorkspace.getByText(/Top Metric Shifts|Slice Compare \(/).first()).toBeVisible({ timeout: 60_000 })
+  const compareFeedback = compareWorkspace.getByText(
     /Compared current dataset against baseline|same dataset|Same fingerprint as baseline/i,
   )
   if ((await compareFeedback.count()) > 0) {
@@ -160,11 +193,26 @@ test('captures advanced hub uiux flows with fixture zip', async ({ page }, testI
     )
   }
   await captureAuditScreenshot(page, testInfo, '09-xenolab-compare-workspace-result')
+  const deepCompareSummary = compareWorkspace.locator('summary', { hasText: 'Deep compare diagnostics' }).first()
+  if (await deepCompareSummary.isVisible()) {
+    await deepCompareSummary.click()
+  }
+  await expect(compareWorkspace.getByText('Era vs Era Compare').first()).toBeVisible({ timeout: 30_000 })
+  await captureAuditScreenshot(page, testInfo, '09b-xenolab-compare-deep-diagnostics')
 
   await sectionSwitcher.selectOption('plugins')
   await expect(page.getByRole('heading', { name: 'Plugin Extras' })).toBeVisible({ timeout: 30_000 })
   await expect(page.getByLabel('Filter plugins')).toBeVisible()
   await captureAuditScreenshot(page, testInfo, '10-plugins-list-shell')
+  const pluginPanelOutput = page.locator('details').filter({
+    has: page.locator('summary', { hasText: 'Panel Output' }),
+  }).first()
+  await expect(pluginPanelOutput).toBeVisible()
+  await expect(pluginPanelOutput).not.toHaveAttribute('open', '')
+  await deepModeButton.click()
+  await expect(deepModeButton).toHaveAttribute('aria-pressed', 'true')
+  await expect(pluginPanelOutput).toHaveAttribute('open', '')
+  await captureAuditScreenshot(page, testInfo, '10b-plugins-deep-panel-output')
 
   await page.getByRole('button', { name: 'Analyst Preset' }).click()
   await page.getByLabel('Filter plugins').fill('snapshot')

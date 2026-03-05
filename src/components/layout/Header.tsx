@@ -1,9 +1,11 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Music2, RefreshCw } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
+import { Tooltip } from '@/components/ui/tooltip'
 import { getSpotifyPkceConfig } from '@/lib/spotify-auth/oauth'
+import { cn } from '@/lib/utils'
 import { themes } from '@/themes'
 import { useSpotifyAuthStore } from '@/store/useSpotifyAuthStore'
 import { useThemeStore } from '@/store/useThemeStore'
@@ -11,12 +13,13 @@ import type { TimezoneMode } from '@/lib/types'
 
 interface HeaderProps {
   onReset: () => void
-  onOpenAdvanced?: () => void
+  onOpenSettings?: () => void
   timezoneMode: TimezoneMode
   onTimezoneModeChange: (mode: TimezoneMode) => void
 }
 
-export function Header({ onReset, onOpenAdvanced, timezoneMode, onTimezoneModeChange }: HeaderProps): JSX.Element {
+export function Header({ onReset, onOpenSettings, timezoneMode, onTimezoneModeChange }: HeaderProps): JSX.Element {
+  const [confirmResetArmed, setConfirmResetArmed] = useState(false)
   const themeKey = useThemeStore((state) => state.themeKey)
   const setTheme = useThemeStore((state) => state.setTheme)
   const spotifyStatus = useSpotifyAuthStore((state) => state.status)
@@ -30,13 +33,39 @@ export function Header({ onReset, onOpenAdvanced, timezoneMode, onTimezoneModeCh
     }
   }, [])
 
+  useEffect(() => {
+    if (!confirmResetArmed) {
+      return
+    }
+    const timeoutId = window.setTimeout(() => {
+      setConfirmResetArmed(false)
+    }, 2500)
+    return () => window.clearTimeout(timeoutId)
+  }, [confirmResetArmed])
+
+  const spotifyButtonTooltip = spotifySession
+    ? 'Connected. Open Dashboard advanced tools to manage Spotify setup.'
+    : spotifyOauthConfigured
+      ? 'Start Spotify OAuth login.'
+      : 'Spotify OAuth is not configured in this build. Open Dashboard advanced tools for manual token fallback.'
+
+  function handleResetButtonClick(): void {
+    if (!confirmResetArmed) {
+      setConfirmResetArmed(true)
+      return
+    }
+    setConfirmResetArmed(false)
+    onReset()
+  }
+
   function handleSpotifyAuthButton(): void {
+    setConfirmResetArmed(false)
     if (spotifySession) {
-      onOpenAdvanced?.()
+      onOpenSettings?.()
       return
     }
     if (!spotifyOauthConfigured) {
-      onOpenAdvanced?.()
+      onOpenSettings?.()
       return
     }
     void connectSpotify()
@@ -84,45 +113,48 @@ export function Header({ onReset, onOpenAdvanced, timezoneMode, onTimezoneModeCh
               </Select>
             </div>
             <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-              {onOpenAdvanced ? (
-                <Button variant="outline" onClick={onOpenAdvanced} className="px-3">
-                  Advanced
+              <Tooltip
+                content={
+                  confirmResetArmed
+                    ? 'Press again to confirm data reset.'
+                    : 'Reset uploaded data and return to upload.'
+                }
+              >
+                <Button
+                  variant="ghost"
+                  onClick={handleResetButtonClick}
+                  aria-label={
+                    confirmResetArmed
+                      ? 'Confirm reset uploaded data (confirm data reset)'
+                      : 'Reset uploaded data'
+                  }
+                  className={cn(
+                    'h-[44px] w-[44px] shrink-0 px-0',
+                    confirmResetArmed && 'border-negative/60 bg-negative/10 text-negative hover:bg-negative/15',
+                  )}
+                >
+                  <RefreshCw className="h-4 w-4" />
                 </Button>
-              ) : null}
-
-              <Button
-                variant="ghost"
-                onClick={onReset}
-                title="Reset uploaded data"
-                aria-label="Reset uploaded data"
-                className="h-[44px] w-[44px] shrink-0 px-0"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={spotifySession ? 'outline' : 'default'}
-                onClick={handleSpotifyAuthButton}
-                disabled={spotifyStatus === 'authorizing'}
-                className={
-                  spotifySession
-                    ? 'min-h-10 flex-1 justify-center border-[#1DB954]/50 px-4 text-sm text-[#1DB954] hover:border-[#1DB954] hover:text-[#1DB954] sm:flex-none'
-                    : 'min-h-10 flex-1 justify-center border-[#1DB954] bg-[#1DB954] px-4 text-sm font-semibold text-black hover:border-[#1DB954] hover:bg-[#1ED760] sm:flex-none'
-                }
-                title={
-                  spotifySession
-                    ? 'Manage Spotify setup'
-                    : spotifyOauthConfigured
-                      ? 'Login with Spotify'
-                      : 'Spotify OAuth is not configured in this build. Open Advanced setup for manual token fallback.'
-                }
-              >
-                <Music2 className="h-4 w-4" aria-hidden="true" />
-                {spotifyStatus === 'authorizing'
-                  ? 'Redirecting…'
-                  : spotifySession
-                    ? 'Spotify Connected'
-                    : 'Login with Spotify'}
-              </Button>
+              </Tooltip>
+              <Tooltip content={spotifyButtonTooltip}>
+                <Button
+                  variant={spotifySession ? 'outline' : 'default'}
+                  onClick={handleSpotifyAuthButton}
+                  disabled={spotifyStatus === 'authorizing'}
+                  className={
+                    spotifySession
+                      ? 'min-h-10 flex-1 justify-center border-[#1DB954]/50 px-4 text-sm text-[#1DB954] hover:border-[#1DB954] hover:text-[#1DB954] sm:flex-none'
+                      : 'min-h-10 flex-1 justify-center border-[#1DB954] bg-[#1DB954] px-4 text-sm font-semibold text-black hover:border-[#1DB954] hover:bg-[#1ED760] sm:flex-none'
+                  }
+                >
+                  <Music2 className="h-4 w-4" aria-hidden="true" />
+                  {spotifyStatus === 'authorizing'
+                    ? 'Redirecting…'
+                    : spotifySession
+                      ? 'Spotify Connected'
+                      : 'Login with Spotify'}
+                </Button>
+              </Tooltip>
             </div>
           </div>
         </div>

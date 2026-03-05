@@ -2,7 +2,15 @@ import type { AudioTraitProvider, AudioTraitProviderFetchInput, AudioTraitProvid
 import type { SpotifyApiCapabilities } from '@/lib/types'
 
 import { unknownSpotifyCapabilities, capabilityFromStatus } from '@/lib/audio-traits/providers/spotify/capabilities'
-import { fetchSpotifyAudioFeaturesByTrackIds, SpotifyApiHttpError } from '@/lib/audio-traits/providers/spotify/client'
+import {
+  fetchSpotifyAudioFeaturesByTrackIds,
+  fetchSpotifyAudioFeaturesViaProxy,
+  SpotifyApiHttpError,
+} from '@/lib/audio-traits/providers/spotify/client'
+import {
+  isSpotifyAudioFeaturesProxyUnsupportedError,
+  mapSpotifyUpstreamStatusToAudioFeaturesProxyError,
+} from '@/lib/audio-traits/providers/spotify/proxy-contract'
 import { normalizeSpotifyAudioTraits } from '@/lib/audio-traits/providers/spotify/normalize'
 
 function buildBaseResult(input: AudioTraitProviderFetchInput): Pick<AudioTraitProviderResult, 'warnings' | 'provenance'> {
@@ -29,17 +37,7 @@ export function createSpotifyAudioTraitProvider(): AudioTraitProvider {
     async fetchTraitSnapshot(input) {
       const base = buildBaseResult(input)
       const capabilities: SpotifyApiCapabilities = unknownSpotifyCapabilities()
-
-      if (!input.accessToken.trim()) {
-        capabilities.audioFeatures = 'unauthorized'
-        return {
-          status: 'unsupported',
-          message: 'No Spotify access token available for audio trait enrichment.',
-          warnings: ['Connect Spotify or provide a manual token to fetch audio traits.'],
-          capabilities,
-          provenance: base.provenance,
-        }
-      }
+      const fallbackAccessToken = input.accessToken.trim()
 
       if (input.trackIds.length === 0) {
         capabilities.audioFeatures = 'available'
@@ -54,10 +52,7 @@ export function createSpotifyAudioTraitProvider(): AudioTraitProvider {
       }
 
       try {
-        const { features, requestStats } = await fetchSpotifyAudioFeaturesByTrackIds(
-          input.accessToken,
-          input.trackIds,
-        )
+        const { features, requestStats } = await fetchSpotifyAudioFeaturesViaProxy(input.trackIds)
         capabilities.audioFeatures = 'available'
         const traitsByTrackId = normalizeSpotifyAudioTraits(features)
         const endpointNotes = [...(base.provenance.endpointNotes ?? [])]
@@ -86,19 +81,80 @@ export function createSpotifyAudioTraitProvider(): AudioTraitProvider {
         }
       } catch (error) {
         if (error instanceof SpotifyApiHttpError) {
-          capabilities.audioFeatures = capabilityFromStatus(error.status)
+          const mappedProxyError = mapSpotifyUpstreamStatusToAudioFeaturesProxyError(error.status, error.retryAfterSeconds)
           const endpointNotes = [...(base.provenance.endpointNotes ?? [])]
-          if (error.retryAfterSeconds !== undefined) {
-            endpointNotes.push(`Retry-After ${error.retryAfterSeconds}s`)
+          if (mappedProxyError.error.retryAfterSeconds !== undefined) {
+            endpointNotes.push(`Retry-After ${mappedProxyError.error.retryAfterSeconds}s`)
           }
-          const messageByStatus: Record<number, string> = {
-            401: 'Spotify token was rejected (401). Reconnect or refresh the token.',
-            403: 'Spotify audio-features endpoint is restricted for this app/token (403).',
-            404: 'Spotify audio-features endpoint is unavailable or restricted (404).',
-            429: 'Spotify rate limit hit while fetching audio traits (429).',
+          const mappedMessage = mappedProxyError.error.message
+          const unsupported = isSpotifyAudioFeaturesProxyUnsupportedError(mappedProxyError.error.code)
+
+          if (unsupported && fallbackAccessToken) {
+            try {
+              const { features, requestStats } = await fetchSpotifyAudioFeaturesByTrackIds(fallbackAccessToken, input.trackIds)
+              capabilities.audioFeatures = 'available'
+              const traitsByTrackId = normalizeSpotifyAudioTraits(features)
+              endpointNotes.push(
+                `Optional ${input.tokenSource ?? 'unknown'} token fallback used after proxy ${mappedProxyError.error.code}.`,
+              )
+              endpointNotes.push(
+                `Fallback audio features requested for ${requestStats.requestedUniqueTrackIds.toLocaleString()} unique track IDs across ${requestStats.requestChunkCount.toLocaleString()} request chunk(s).`,
+              )
+              if (requestStats.truncatedTrackIds > 0) {
+                endpointNotes.push(
+                  `Fallback cap applied: ${requestStats.cappedUniqueTrackIds.toLocaleString()} of ${requestStats.requestedUniqueTrackIds.toLocaleString()} unique IDs processed.`,
+                )
+              }
+              return {
+                status: 'ready',
+                message: `Fetched audio traits for ${Object.keys(traitsByTrackId).length.toLocaleString()} tracks via optional token fallback.`,
+                warnings: [
+                  `Primary backend enrichment was ${mappedProxyError.error.code}; optional token fallback was used.`,
+                ],
+                capabilities,
+                traitsByTrackId,
+                provenance: {
+                  ...base.provenance,
+                  endpointNotes,
+                },
+              }
+            } catch (fallbackError) {
+              if (fallbackError instanceof SpotifyApiHttpError) {
+                capabilities.audioFeatures = capabilityFromStatus(fallbackError.status)
+                const mappedFallbackError = mapSpotifyUpstreamStatusToAudioFeaturesProxyError(
+                  fallbackError.status,
+                  fallbackError.retryAfterSeconds,
+                )
+                if (mappedFallbackError.error.retryAfterSeconds !== undefined) {
+                  endpointNotes.push(`Fallback Retry-After ${mappedFallbackError.error.retryAfterSeconds}s`)
+                }
+                const fallbackUnsupported = isSpotifyAudioFeaturesProxyUnsupportedError(mappedFallbackError.error.code)
+                return {
+                  status: fallbackUnsupported ? 'unsupported' : 'error',
+                  message: mappedFallbackError.error.message,
+                  warnings: [mappedMessage, mappedFallbackError.error.message],
+                  capabilities,
+                  provenance: {
+                    ...base.provenance,
+                    endpointNotes,
+                  },
+                }
+              }
+              capabilities.audioFeatures = capabilityFromStatus(error.status)
+              return {
+                status: 'error',
+                message: (fallbackError as Error).message,
+                warnings: [mappedMessage, 'Unexpected Spotify fallback failure while fetching audio traits.'],
+                capabilities,
+                provenance: {
+                  ...base.provenance,
+                  endpointNotes,
+                },
+              }
+            }
           }
-          const mappedMessage = messageByStatus[error.status] ?? `Spotify audio trait request failed with ${error.status}.`
-          const unsupported = error.status === 403 || error.status === 404 || error.status === 401
+
+          capabilities.audioFeatures = capabilityFromStatus(error.status)
           return {
             status: unsupported ? 'unsupported' : 'error',
             message: mappedMessage,

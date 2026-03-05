@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { PreparedSpotifyZipArchive } from '@/lib/data/parser'
 import type * as ParserModule from '@/lib/data/parser'
@@ -37,6 +37,45 @@ function makePreparedArchive(label: string): PreparedSpotifyZipArchive {
 }
 
 describe('DropZone', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('renders Spotify privacy guidance as a safe external link', () => {
+    render(<DropZone onFileSelected={vi.fn()} />)
+
+    const privacyLink = screen.getByRole('link', { name: /spotify account privacy settings/i })
+    expect(privacyLink).toHaveAttribute('href', 'https://spotify.com/account/privacy')
+    expect(privacyLink).toHaveAttribute('target', '_blank')
+    expect(privacyLink).toHaveAttribute('rel', expect.stringContaining('noopener'))
+    expect(privacyLink).toHaveAttribute('rel', expect.stringContaining('noreferrer'))
+  })
+
+  it('loads the demo zip from the configured default path', async () => {
+    prepareSpotifyZipArchiveMock.mockReset().mockResolvedValue(makePreparedArchive('demo'))
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      blob: () => Promise.resolve(new Blob(['demo'], { type: 'application/zip' })),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const onFileSelected = vi.fn()
+    render(
+      <DropZone
+        onFileSelected={onFileSelected}
+        demoZipPath="/my_spotify_data.zip"
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /use demo data/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/my_spotify_data.zip')
+      expect(onFileSelected).toHaveBeenCalledTimes(1)
+    })
+    expect(onFileSelected.mock.calls[0]?.[0]).toBeInstanceOf(File)
+  })
+
   it('ignores stale async preflight results from an earlier file selection', async () => {
     const first = makeDeferred<PreparedSpotifyZipArchive>()
     const second = makeDeferred<PreparedSpotifyZipArchive>()
@@ -84,7 +123,27 @@ describe('DropZone', () => {
     await waitFor(() => {
       expect(screen.getByText(/we couldn['’]t find spotify streaming history files/i)).toBeInTheDocument()
     })
-    expect(screen.getByText(/request your data again from spotify privacy settings/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/request a new export from/i)).toHaveLength(2)
+    const privacyLinks = screen.getAllByRole('link', { name: /spotify account privacy settings/i })
+    expect(privacyLinks).toHaveLength(2)
+    for (const link of privacyLinks) {
+      expect(link).toHaveAttribute('href', 'https://spotify.com/account/privacy')
+      expect(link).toHaveAttribute('target', '_blank')
+      expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
+      expect(link).toHaveAttribute('rel', expect.stringContaining('noreferrer'))
+    }
     expect(onFileSelected).not.toHaveBeenCalled()
+  })
+
+  it('shows celebratory upload feedback after a valid zip preflight', async () => {
+    prepareSpotifyZipArchiveMock.mockReset().mockResolvedValue(makePreparedArchive('celebration'))
+
+    const onFileSelected = vi.fn()
+    const { container } = render(<DropZone onFileSelected={onFileSelected} />)
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(input, { target: { files: [new File(['x'], 'valid.zip', { type: 'application/zip' })] } })
+
+    await waitFor(() => expect(onFileSelected).toHaveBeenCalledTimes(1))
+    expect(screen.getByRole('status')).toHaveTextContent(/upload verified/i)
   })
 })

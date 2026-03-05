@@ -101,9 +101,10 @@ Notes:
 
 - Redirect URIs must match exactly (scheme + host + path).
 - Do not rely on random Vercel preview URLs for OAuth callbacks.
-- The app is browser-only PKCE flow: store only the **Spotify Client ID** in Vercel env vars (not a client secret).
+- Browser PKCE OAuth uses only the public **Spotify Client ID**.
+- Optional no-login server-side enrichment proxy uses Spotify client-credentials flow and requires server-only credentials.
 
-## Vercel Environment Variables (Required for OAuth)
+## Vercel Environment Variables
 
 Set Vercel env vars explicitly so preview and production use deterministic callback URLs.
 
@@ -111,15 +112,20 @@ Preview environment:
 
 - `VITE_SPOTIFY_CLIENT_ID=<spotify-client-id>`
 - `VITE_SPOTIFY_REDIRECT_URI=https://preview.listentropy.w4w.dev/auth/spotify/callback`
+- `SPOTIFY_CLIENT_ID=<spotify-client-id>` (optional; no-login enrichment proxy)
+- `SPOTIFY_CLIENT_SECRET=<spotify-client-secret>` (optional; no-login enrichment proxy, server-only)
 
 Production environment:
 
 - `VITE_SPOTIFY_CLIENT_ID=<spotify-client-id>`
 - `VITE_SPOTIFY_REDIRECT_URI=https://listentropy.w4w.dev/auth/spotify/callback`
+- `SPOTIFY_CLIENT_ID=<spotify-client-id>` (optional; no-login enrichment proxy)
+- `SPOTIFY_CLIENT_SECRET=<spotify-client-secret>` (optional; no-login enrichment proxy, server-only)
 
 Important:
 
 - Do **not** set `LISTENTROPY_BASE_PATH` on Vercel (root-path deploy).
+- `SPOTIFY_CLIENT_SECRET` must remain a server-only env var and must never be exposed as a `VITE_*` variable.
 - Trigger redeploys after changing env vars so Vite rebuilds with the new values.
 
 ## Release-Readiness Checks (Before Production)

@@ -56,12 +56,19 @@ describe('TasteDNA', () => {
   })
 
   it(
-    'removes duplicate auth controls and exposes a canonical Spotify login CTA when disconnected',
+    'keeps overlay enrichment available without login while exposing optional advanced auth controls',
     async () => {
     const onOpenSpotifySetup = vi.fn()
     const connectSpotify = vi.fn().mockResolvedValue(undefined)
     const user = userEvent.setup()
     useSpotifyAuthStore.setState({ connectSpotify })
+    vi.mocked(fetchSpotifyAudioFeatureProfile).mockResolvedValue({
+      fetchedTrackCount: 48,
+      dimensions: [
+        { key: 'spectral-width', label: 'Spectral Width', score: 0.61 },
+      ],
+      warnings: [],
+    })
 
     render(<TasteDNA data={data} onOpenSpotifySetup={onOpenSpotifySetup} />)
 
@@ -70,11 +77,15 @@ describe('TasteDNA', () => {
 
     expect(screen.getByText(/connection state/i)).toBeInTheDocument()
     expect(screen.getByText(/^Disconnected$/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /login with spotify/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /load spotify overlay/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /connect spotify \(advanced\)/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /open advanced setup/i })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /load spotify overlay/i })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /login with spotify/i }))
+    await user.click(screen.getByRole('button', { name: /load spotify overlay/i }))
+    expect(fetchSpotifyAudioFeatureProfile).toHaveBeenCalledWith('', expect.any(Array))
+    expect(await screen.findByRole('button', { name: /refresh spotify overlay/i })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /connect spotify \(advanced\)/i }))
     expect(connectSpotify).toHaveBeenCalledTimes(1)
 
     await user.click(screen.getByRole('button', { name: /open advanced setup/i }))
@@ -116,7 +127,8 @@ describe('TasteDNA', () => {
 
     expect(screen.getByText(/^Auth error$/i)).toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveTextContent(/state mismatch/i)
-    expect(screen.getByRole('button', { name: /login with spotify/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /load spotify overlay/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /connect spotify \(advanced\)/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /open advanced setup/i })).toBeInTheDocument()
   })
 

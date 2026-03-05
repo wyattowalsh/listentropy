@@ -7,21 +7,30 @@ afterEach(() => {
 })
 
 describe('spotify audio trait provider', () => {
-  it('returns ready and normalizes traits when audio-features endpoint succeeds', async () => {
+  it('returns ready through the backend proxy even without a user access token', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        audio_features: [{
-          id: 'abc',
-          danceability: 0.7,
-          energy: 0.8,
-          valence: 0.4,
-          acousticness: 0.2,
-          instrumentalness: 0.1,
-          speechiness: 0.05,
-          tempo: 120,
-          liveness: 0.3,
-        }],
+        status: 200,
+        data: {
+          features: [{
+            id: 'abc',
+            danceability: 0.7,
+            energy: 0.8,
+            valence: 0.4,
+            acousticness: 0.2,
+            instrumentalness: 0.1,
+            speechiness: 0.05,
+            tempo: 120,
+            liveness: 0.3,
+          }],
+          requestStats: {
+            requestedUniqueTrackIds: 1,
+            cappedUniqueTrackIds: 1,
+            truncatedTrackIds: 0,
+            requestChunkCount: 1,
+          },
+        },
       }),
     }))
 
@@ -29,17 +38,23 @@ describe('spotify audio trait provider', () => {
     const result = await provider.fetchTraitSnapshot({
       datasetFingerprint: 'fp',
       trackIds: ['abc'],
-      accessToken: 'token',
-      tokenSource: 'manual-token',
+      accessToken: '',
+      tokenSource: 'unknown',
     })
 
     expect(result.status).toBe('ready')
     expect('audioFeatures' in result.capabilities ? result.capabilities.audioFeatures : result.capabilities.audioTraits).toBe('available')
     expect(result.traitsByTrackId?.abc?.traits.danceability).toBe(0.7)
     expect(result.traitsByTrackId?.abc?.traits.tempo).toBeGreaterThan(0)
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/spotify/enrichment/audio-features',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    )
   })
 
-  it('maps restricted endpoint responses to unsupported with restricted capability', async () => {
+  it('maps restricted endpoint responses to unsupported when optional fallback token is unavailable', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: false,
       status: 403,
@@ -50,8 +65,8 @@ describe('spotify audio trait provider', () => {
     const result = await provider.fetchTraitSnapshot({
       datasetFingerprint: 'fp',
       trackIds: ['abc'],
-      accessToken: 'token',
-      tokenSource: 'manual-token',
+      accessToken: '',
+      tokenSource: 'unknown',
     })
 
     expect(result.status).toBe('unsupported')
@@ -59,7 +74,53 @@ describe('spotify audio trait provider', () => {
     expect(result.message).toMatch(/restricted/i)
   })
 
-  it('maps 401 responses to unsupported with unauthorized capability', async () => {
+  it('uses optional token fallback when the backend proxy is restricted', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        headers: { get: () => null },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          audio_features: [{
+            id: 'abc',
+            danceability: 0.61,
+            energy: 0.74,
+            valence: 0.52,
+            acousticness: 0.14,
+            instrumentalness: 0.03,
+            speechiness: 0.04,
+            tempo: 124.3,
+            liveness: 0.11,
+          }],
+        }),
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const provider = createSpotifyAudioTraitProvider()
+    const result = await provider.fetchTraitSnapshot({
+      datasetFingerprint: 'fp',
+      trackIds: ['abc'],
+      accessToken: 'manual-token-value',
+      tokenSource: 'manual-token',
+    })
+
+    expect(result.status).toBe('ready')
+    expect(result.message).toMatch(/fallback/i)
+    expect(result.warnings.some((warning) => /fallback/i.test(warning))).toBe(true)
+    expect(result.traitsByTrackId?.abc?.traits.energy).toBe(0.74)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock.mock.calls[1]?.[0]).toMatch(/api\.spotify\.com\/v1\/audio-features/)
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      headers: {
+        Authorization: 'Bearer manual-token-value',
+      },
+    })
+  })
+
+  it('maps 401 proxy responses to unsupported with unauthorized capability when fallback token is unavailable', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: false,
       status: 401,
@@ -70,8 +131,8 @@ describe('spotify audio trait provider', () => {
     const result = await provider.fetchTraitSnapshot({
       datasetFingerprint: 'fp',
       trackIds: ['abc'],
-      accessToken: 'token',
-      tokenSource: 'manual-token',
+      accessToken: '',
+      tokenSource: 'unknown',
     })
 
     expect(result.status).toBe('unsupported')
@@ -100,11 +161,39 @@ describe('spotify audio trait provider', () => {
     expect(result.provenance.endpointNotes?.some((note) => /Retry-After 12s/i.test(note))).toBe(true)
   })
 
+  it('maps unavailable upstream responses to an unavailable error message', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      headers: { get: () => null },
+    }))
+
+    const provider = createSpotifyAudioTraitProvider()
+    const result = await provider.fetchTraitSnapshot({
+      datasetFingerprint: 'fp',
+      trackIds: ['abc'],
+      accessToken: 'token',
+      tokenSource: 'manual-token',
+    })
+
+    expect(result.status).toBe('error')
+    expect(result.message).toMatch(/unavailable|503/i)
+  })
+
   it('surfaces a warning when track IDs are capped before audio feature fetch', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        audio_features: [],
+        status: 200,
+        data: {
+          features: [],
+          requestStats: {
+            requestedUniqueTrackIds: 5_010,
+            cappedUniqueTrackIds: 5_000,
+            truncatedTrackIds: 10,
+            requestChunkCount: 50,
+          },
+        },
       }),
     }))
 

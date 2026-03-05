@@ -37,7 +37,9 @@ describe('SharePage', () => {
     expect(screen.getByText(/this link needs a refresh/i)).toBeInTheDocument()
     expect(screen.getByText(/couldn't decode this snapshot payload safely/i)).toBeInTheDocument()
     expect(screen.getByText(/data privacy: decoding happens in your browser/i)).toBeInTheDocument()
-    expect(screen.getByText(/link authenticity: shared snapshots are browser-generated and unverified/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/link authenticity: snapshots are browser-generated and unverified in this release/i),
+    ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /create a new share snapshot/i })).toHaveAttribute('href', '/')
   })
 
@@ -70,7 +72,7 @@ describe('SharePage', () => {
     render(<SharePage />)
 
     expect(screen.getByText(/legacy snapshot upgraded/i)).toBeInTheDocument()
-    expect(screen.getByText(/generated with payload v2/i)).toBeInTheDocument()
+    expect(screen.getByText(/generated with snapshot v2/i)).toBeInTheDocument()
     expect(screen.getByText(/context details were not included in this earlier share format/i)).toBeInTheDocument()
     expect(screen.getByText(/#1 Artist A/i)).toBeInTheDocument()
   })
@@ -116,8 +118,10 @@ describe('SharePage', () => {
     render(<SharePage />)
 
     expect(screen.getByText(/privacy & authenticity notes/i)).toBeInTheDocument()
+    expect(screen.getByText(/snapshot v4/i)).toBeInTheDocument()
     expect(screen.getByText(/this snapshot is decoded in your browser with no upload required to view it/i)).toBeInTheDocument()
-    expect(screen.getByText(/share snapshots are browser-generated and unverified in this release/i)).toBeInTheDocument()
+    expect(screen.getByText(/link authenticity:/i)).toBeInTheDocument()
+    expect(screen.getByText(/snapshots are browser-generated and unverified in this release/i)).toBeInTheDocument()
     expect(screen.getByText(/home country: US/i)).toBeInTheDocument()
     expect(screen.queryByText(/legacy snapshot upgraded/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/earlier share format/i)).not.toBeInTheDocument()

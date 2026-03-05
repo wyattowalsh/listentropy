@@ -2,14 +2,14 @@
 
 Your music. Your data. Your story.
 
-Listentropy is a privacy-first Spotify listening explorer that runs 100% in your browser. Upload your Spotify Extended Streaming History `.zip` and get deep analytics, behavior insights, share cards, and visualizations with no backend.
+Listentropy is a privacy-first Spotify listening explorer with local-first processing. Upload your Spotify Extended Streaming History `.zip` and get deep analytics, behavior insights, share cards, and visualizations in-browser, with an optional backend proxy for Spotify audio-trait enrichment.
 
 ## Highlights
 
-- Fully client-side data processing (no user data leaves the browser).
-- High-signal default navigation with four primary destinations (Overview, Explore, Taste, Share).
-- Rich Explore dashboard that consolidates trends, rankings, behavior, context, rhythm, and eras into one linked analytics surface.
-- Advanced hub for Xenolab, network graph, artist deep dive, and plugin/experimental tools.
+- Core processing stays client-side; optional enrichment sends only Spotify track IDs through the backend proxy.
+- High-signal default navigation with two primary destinations (Dashboard, Share).
+- Unified Dashboard surface that combines overview storytelling with progressive-disclosure advanced tools.
+- Advanced sections include Xenolab, network graph, artist deep dive, and plugin/experimental tools.
 - Share Studio with a deterministic 14-card deck, presets, PNG/ZIP export, copy-to-clipboard, and versioned share links.
 - Theme system with four visual modes, shared tokens, and chart palette propagation.
 - Worker-based processing pipeline with stage progress, diagnostics metadata, and worker-backed timezone reprocessing.
@@ -40,15 +40,15 @@ Required contents inside the zip include files like:
 
 - `ip_addr` is stripped during parse and never persisted in processed records.
 - No analytics trackers or telemetry beacons are included.
-- No user data is sent to external services.
-- Optional Spotify API token (Taste DNA enrichment) is stored in `sessionStorage` only.
+- Core listening-history processing remains local; optional enrichment sends deduplicated Spotify track IDs to `/api/spotify/enrichment/audio-features` and Spotify's API.
+- Optional Spotify OAuth access token fallback (for enrichment) is stored in `sessionStorage` only.
 - Theme preference and local UI preference state are stored in `localStorage`.
 - Session KPI events are kept in-memory and can be exported manually as JSON.
 - Xenolab deferred module results are cached in-memory per dataset fingerprint and are not persisted across refreshes.
 
 ## Xenolab (Train A)
 
-Xenolab is the **Lab** section inside the **Advanced** hub for deferred, privacy-first analytics experiments and visual scenes.
+Xenolab is the **Lab** section inside the **Dashboard** advanced-tools disclosure for deferred, privacy-first analytics experiments and visual scenes.
 
 Train A includes:
 
@@ -127,15 +127,15 @@ pnpm dev
 
 ### Enabling Spotify OAuth (Optional)
 
-Listentropy works without Spotify OAuth. If you want one-click OAuth for enrichment, configure it locally:
+Listentropy works without Spotify OAuth. If you want one-click browser-only PKCE OAuth for enrichment, configure it locally:
 
 1. Create or open a Spotify app in the Spotify Developer Dashboard.
 2. Add your app callback URI (default: `http://localhost:5173/auth/spotify/callback`) to the Spotify app redirect URIs.
-3. Set `VITE_SPOTIFY_CLIENT_ID` in your local environment (for example, `.env.local`).
+3. Set `VITE_SPOTIFY_CLIENT_ID` (public client ID) in your local environment (for example, `.env.local`).
 4. Optionally set `VITE_SPOTIFY_REDIRECT_URI` if you need a non-default callback origin/path.
 5. Restart `pnpm dev` after changing env vars.
 
-If OAuth is not configured, the app remains fully usable and the Lab setup still offers a manual token fallback for Spotify enrichment.
+If OAuth is not configured, the app remains fully usable and the Lab setup still offers a manual access-token fallback for Spotify enrichment.
 
 ### Full Verification
 
@@ -169,8 +169,8 @@ The audit validates:
 
 - zip structure and history files
 - upload and parse flow
-- rendering across the primary destinations plus Advanced hub sections
-- primary navigation and Advanced hub switching behavior
+- rendering across the primary destinations plus dashboard-embedded advanced sections
+- primary navigation and dashboard advanced-section switching behavior
 - Context Intelligence rendering and key section presence
 - weekly timeline ISO-like labels (not collapsed to W01..W06)
 - timezone toggle behavior (`local`/`utc`)

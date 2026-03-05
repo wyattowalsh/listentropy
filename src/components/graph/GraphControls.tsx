@@ -24,6 +24,7 @@ interface GraphControlsProps {
   selectedNodeLabel?: string | null
   onResetCamera: () => void
   onRetry3D: () => void
+  compactByDefault?: boolean
 }
 
 export function GraphControls({
@@ -46,6 +47,7 @@ export function GraphControls({
   selectedNodeLabel,
   onResetCamera,
   onRetry3D,
+  compactByDefault = false,
 }: GraphControlsProps): JSX.Element {
   const isFallback = Boolean(fallbackReason)
   const canRetry3D = fallbackReason === 'renderer-init-failed'
@@ -64,8 +66,8 @@ export function GraphControls({
     maxNodes > 500 ? 'High node counts may reduce frame rate on lower-end hardware.' : null,
   ].filter((notice): notice is string => Boolean(notice))
 
-  return (
-    <div className="space-y-4">
+  const rendererAndDensityControls = (
+    <>
       <div className="rounded-theme border border-border bg-surface-hover p-3">
         <p className="text-[11px] uppercase tracking-[0.14em] text-text-muted">Renderer status</p>
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-text-muted">
@@ -159,39 +161,62 @@ export function GraphControls({
           </div>
         </div>
       </div>
+    </>
+  )
 
-      <div className="rounded-theme border border-border bg-surface-hover p-3">
-        <p className="text-[11px] uppercase tracking-[0.14em] text-text-muted">Search and edge filters</p>
-        <div className="mt-2 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-          <Input
-            value={search}
-            aria-label="Search artist or track in graph"
-            placeholder="Search artist or track in graph…"
-            onChange={(event) => onSearchChange(event.currentTarget.value)}
-          />
-          <fieldset className="flex flex-wrap items-center gap-2 text-xs text-text-muted">
-            <legend className="sr-only">Edge visibility</legend>
-            <label className={cn('inline-flex min-h-10 items-center gap-2 rounded-theme border border-border px-3 py-2')}>
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-[var(--color-accent)]"
-                checked={showCoListenEdges}
-                onChange={(event) => onShowCoListenEdgesChange(event.currentTarget.checked)}
-              />
-              Co-listen edges
-            </label>
-            <label className={cn('inline-flex min-h-10 items-center gap-2 rounded-theme border border-border px-3 py-2')}>
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-[var(--color-accent)]"
-                checked={showContainsEdges}
-                onChange={(event) => onShowContainsEdgesChange(event.currentTarget.checked)}
-              />
-              Contains edges
-            </label>
-          </fieldset>
-        </div>
+  const searchAndEdgeFilters = (
+    <div className="rounded-theme border border-border bg-surface-hover p-3">
+      <p className="text-[11px] uppercase tracking-[0.14em] text-text-muted">Search and edge filters</p>
+      <div className="mt-2 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+        <Input
+          value={search}
+          aria-label="Search artist or track in graph"
+          placeholder="Search artist or track in graph…"
+          onChange={(event) => onSearchChange(event.currentTarget.value)}
+        />
+        <fieldset className="flex flex-wrap items-center gap-2 text-xs text-text-muted">
+          <legend className="sr-only">Edge visibility</legend>
+          <label className={cn('inline-flex min-h-10 items-center gap-2 rounded-theme border border-border px-3 py-2')}>
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-[var(--color-accent)]"
+              checked={showCoListenEdges}
+              onChange={(event) => onShowCoListenEdgesChange(event.currentTarget.checked)}
+            />
+            Co-listen edges
+          </label>
+          <label className={cn('inline-flex min-h-10 items-center gap-2 rounded-theme border border-border px-3 py-2')}>
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-[var(--color-accent)]"
+              checked={showContainsEdges}
+              onChange={(event) => onShowContainsEdgesChange(event.currentTarget.checked)}
+            />
+            Contains edges
+          </label>
+        </fieldset>
       </div>
+    </div>
+  )
+
+  return (
+    <div className="space-y-4">
+      {compactByDefault ? (
+        <>
+          {searchAndEdgeFilters}
+          <details className="rounded-theme border border-border bg-surface-hover p-3">
+            <summary className="cursor-pointer text-xs uppercase tracking-[0.12em] text-text-muted">
+              Advanced renderer and density controls
+            </summary>
+            <div className="mt-3 space-y-4">{rendererAndDensityControls}</div>
+          </details>
+        </>
+      ) : (
+        <>
+          {rendererAndDensityControls}
+          {searchAndEdgeFilters}
+        </>
+      )}
     </div>
   )
 }

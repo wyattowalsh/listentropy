@@ -37,9 +37,10 @@ interface SyntheticFixtureOptions {
 
 interface UploadAuditFixtureOptions {
   waitForTab?: string
+  requireRealData?: boolean
 }
 
-async function resolveAuditFixtureInputFiles(): Promise<
+async function resolveAuditFixtureInputFiles(options: UploadAuditFixtureOptions = {}): Promise<
   | string
   | {
       name: string
@@ -47,7 +48,13 @@ async function resolveAuditFixtureInputFiles(): Promise<
       buffer: Buffer
     }
 > {
+  const requireRealData = options.requireRealData ?? process.env.PW_AUDIT_STRICT_REAL_DATA === '1'
   const realSpotifyZipPath = process.env.SPOTIFY_ZIP_PATH?.trim()
+  if (requireRealData && !realSpotifyZipPath) {
+    throw new Error(
+      'SPOTIFY_ZIP_PATH is required in strict audit fixture mode. Example: SPOTIFY_ZIP_PATH=/abs/path.zip',
+    )
+  }
   if (realSpotifyZipPath) {
     await access(realSpotifyZipPath, fsConstants.R_OK)
     return realSpotifyZipPath
@@ -112,12 +119,12 @@ export async function uploadSyntheticFixture(page: Page): Promise<void> {
     mimeType: 'application/zip',
     buffer,
   })
-  await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByRole('tab', { name: 'Dashboard' })).toBeVisible({ timeout: 20_000 })
 }
 
 export async function uploadAuditFixture(page: Page, options: UploadAuditFixtureOptions = {}): Promise<void> {
-  await page.locator('input[type="file"]').setInputFiles(await resolveAuditFixtureInputFiles())
-  await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible({ timeout: 180_000 })
+  await page.locator('input[type="file"]').setInputFiles(await resolveAuditFixtureInputFiles(options))
+  await expect(page.getByRole('tab', { name: 'Dashboard' })).toBeVisible({ timeout: 180_000 })
 
   const unlockFullAnalyticsButton = page.getByRole('button', { name: 'Unlock Full Analytics' })
   if ((await unlockFullAnalyticsButton.count()) > 0) {
@@ -126,5 +133,16 @@ export async function uploadAuditFixture(page: Page, options: UploadAuditFixture
 
   if (options.waitForTab) {
     await expect(page.getByRole('tab', { name: options.waitForTab })).toBeVisible({ timeout: 30_000 })
+  }
+}
+
+export async function openAdvancedTools(page: Page, section?: 'lab' | 'network' | 'artist' | 'plugins'): Promise<void> {
+  const advancedHeading = page.getByRole('heading', { name: 'Advanced', exact: true })
+  if ((await advancedHeading.count()) === 0) {
+    await page.getByRole('button', { name: 'Show advanced tools' }).click()
+  }
+  await expect(advancedHeading).toBeVisible({ timeout: 30_000 })
+  if (section) {
+    await page.getByRole('combobox', { name: 'Advanced section' }).selectOption(section)
   }
 }

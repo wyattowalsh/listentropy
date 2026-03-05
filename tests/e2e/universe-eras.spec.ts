@@ -1,13 +1,12 @@
 import { expect, test } from '@playwright/test'
 
-import { uploadSyntheticFixture } from './helpers/spotifyFixture'
+import { openAdvancedTools, uploadSyntheticFixture } from './helpers/spotifyFixture'
 
 test('@matrix universe renders graph controls, analytics, and diagnostics', async ({ page }) => {
   await page.goto('/')
   await uploadSyntheticFixture(page)
 
-  await page.getByRole('button', { name: 'Advanced', exact: true }).click()
-  await page.getByRole('combobox', { name: 'Advanced section' }).selectOption('network')
+  await openAdvancedTools(page, 'network')
 
   const universeGraphCard = page.getByRole('heading', { name: 'Music Universe Graph' }).locator('..')
   await expect(universeGraphCard).toBeVisible()
@@ -64,8 +63,7 @@ test('@matrix universe provides keyboard graph fallback navigation', async ({ pa
   await page.goto('/')
   await uploadSyntheticFixture(page)
 
-  await page.getByRole('button', { name: 'Advanced', exact: true }).click()
-  await page.getByRole('combobox', { name: 'Advanced section' }).selectOption('network')
+  await openAdvancedTools(page, 'network')
 
   const keyboardNavigator = page.getByRole('group', { name: 'Graph keyboard navigator' })
   await expect(keyboardNavigator).toBeVisible()
@@ -77,50 +75,13 @@ test('@matrix universe provides keyboard graph fallback navigation', async ({ pa
   await expect(page.getByText(/^Selected node:/)).toBeVisible()
 })
 
-test('@matrix eras tab shows timeline, detail, diagnostics, and summary table', async ({ page }) => {
+test('@matrix dashboard summary exposes era counts with overview diagnostics', async ({ page }) => {
   await page.goto('/')
   await uploadSyntheticFixture(page)
 
-  await page.getByRole('tab', { name: 'Explore' }).click()
-
-  await expect(page.getByRole('heading', { name: 'Music Eras' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Detected Eras' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Era Intelligence Summary' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Era Detail' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Transition Diagnostics' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Era Summary Table' })).toBeVisible()
-
-  const detectedErasCard = page.getByRole('heading', { name: 'Detected Eras' }).locator('..')
-  const eraButtons = detectedErasCard.locator('button[aria-pressed]')
-  const buttonCount = await eraButtons.count()
-  expect(buttonCount).toBeGreaterThan(0)
-
-  const eraDetailCard = page.getByRole('heading', { name: 'Era Detail' }).locator('..')
-  const eraDetailDescription = eraDetailCard.locator('p').first()
-  const transitionCard = page.getByRole('heading', { name: 'Transition Diagnostics' }).locator('..')
-  const transitionDescription = transitionCard.locator('p').first()
-
-  if (buttonCount > 1) {
-    const activeIndex = await eraButtons.evaluateAll((buttons) =>
-      buttons.findIndex((button) => button.getAttribute('aria-pressed') === 'true'),
-    )
-    const targetIndex = activeIndex === 0 ? 1 : 0
-    const detailDescriptionBefore = (await eraDetailDescription.textContent())?.trim() ?? ''
-    const transitionDescriptionBefore = (await transitionDescription.textContent())?.trim() ?? ''
-    expect(detailDescriptionBefore).not.toBe('')
-    expect(transitionDescriptionBefore).not.toBe('')
-
-    await eraButtons.nth(targetIndex).click()
-    await expect(eraButtons.nth(targetIndex)).toHaveAttribute('aria-pressed', 'true')
-    await expect(eraDetailDescription).not.toHaveText(detailDescriptionBefore)
-    await expect(transitionDescription).not.toHaveText(transitionDescriptionBefore)
-  }
-
-  const firstEraText = transitionCard.getByText(/This is the first detected era/i)
-  const transitionConfidenceText = transitionCard.getByText(/Transition confidence:/i)
-  if ((await firstEraText.count()) > 0) {
-    await expect(firstEraText.first()).toBeVisible()
-  } else {
-    await expect(transitionConfidenceText.first()).toBeVisible()
-  }
+  const dashboardTab = page.getByRole('tab', { name: 'Dashboard' })
+  await expect(dashboardTab).toContainText(/eras/i)
+  await expect(page.getByRole('heading', { name: 'Overview Snapshot' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Year-over-year listening' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Data Quality' })).toBeVisible()
 })

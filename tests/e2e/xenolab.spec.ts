@@ -1,11 +1,9 @@
 import { expect, test } from '@playwright/test'
 
-import { buildSyntheticSpotifyZipBuffer, uploadSyntheticFixture } from './helpers/spotifyFixture'
+import { buildSyntheticSpotifyZipBuffer, openAdvancedTools, uploadSyntheticFixture } from './helpers/spotifyFixture'
 
 async function openAdvancedLab(page: Parameters<typeof test>[0]['page']): Promise<void> {
-  await page.getByRole('button', { name: 'Advanced', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Advanced' })).toBeVisible()
-  await page.getByRole('combobox', { name: 'Advanced section' }).selectOption('lab')
+  await openAdvancedTools(page, 'lab')
 }
 
 test('xenolab advanced lab section runs deferred module and renders explainability + scene gallery', async ({ page }) => {
@@ -28,8 +26,12 @@ test('xenolab advanced lab section runs deferred module and renders explainabili
   await expect(page.locator('#xenolab-scenes')).toBeVisible()
   await expect(page.locator('#xenolab-compare-workspace')).toBeVisible()
 
-  const sequenceMotifsCard = page.locator('.rounded-theme').filter({ has: page.getByRole('heading', { name: 'Sequence Motifs' }) }).first()
-  await sequenceMotifsCard.getByRole('button', { name: 'Run' }).click()
+  const moduleGallery = page.locator('section[aria-labelledby="xenolab-module-gallery"]')
+  const runModuleButton = moduleGallery
+    .locator('button:has-text("Run"):not([disabled]), button:has-text("Run Again"):not([disabled])')
+    .first()
+  await expect(runModuleButton).toBeVisible({ timeout: 30_000 })
+  await runModuleButton.click()
 
   await expect(page.getByRole('heading', { name: 'Explainability Drawer' })).toBeVisible()
   await expect(page.getByText(/descriptive|heuristic/i).first()).toBeVisible({ timeout: 10_000 })

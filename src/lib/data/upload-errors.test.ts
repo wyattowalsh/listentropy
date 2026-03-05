@@ -12,7 +12,9 @@ describe('normalizeUploadError', () => {
   it('normalizes missing spotify history files', () => {
     expect(
       normalizeUploadError('No Extended Streaming History files found.'),
-    ).toMatch(/Extended Streaming History/i)
+    ).toBe(
+      'No Spotify Extended Streaming History files were found. Request a new export from Spotify account privacy settings, then upload the original zip.',
+    )
   })
 
   it('normalizes malformed history json errors with file name context', () => {
@@ -22,5 +24,10 @@ describe('normalizeUploadError', () => {
     expect(message).toContain('Streaming_History_Audio_2024-2025_0.json')
     expect(message).toMatch(/re-download/i)
   })
-})
 
+  it('keeps fallback upload errors concise and actionable', () => {
+    expect(normalizeUploadError('something else failed')).toBe(
+      'Upload failed. Choose the original Spotify Extended Streaming History zip and try again.',
+    )
+  })
+})

@@ -75,7 +75,7 @@ async function uploadFixture(page: Page): Promise<void> {
     mimeType: 'application/zip',
     buffer,
   })
-  await expect(primaryAnalyticsTab(page, 'Overview')).toBeVisible({ timeout: 20_000 })
+  await expect(primaryAnalyticsTab(page, 'Dashboard')).toBeVisible({ timeout: 20_000 })
 }
 
 function primaryAnalyticsTab(page: Page, label: string) {
@@ -94,14 +94,6 @@ async function openPrimaryAnalyticsTab(page: Page, label: string): Promise<Locat
   return page.locator(`#${panelId}`)
 }
 
-async function openAdvancedSection(page: Page, section?: 'lab' | 'network' | 'artist' | 'plugins'): Promise<void> {
-  await page.getByRole('button', { name: 'Advanced', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Advanced' })).toBeVisible()
-  if (section) {
-    await page.getByRole('combobox', { name: 'Advanced section' }).selectOption(section)
-  }
-}
-
 test('renders upload onboarding and privacy copy', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Listentropy' })).toBeVisible()
@@ -110,65 +102,27 @@ test('renders upload onboarding and privacy copy', async ({ page }) => {
   ).toBeVisible()
 })
 
-test('primary destinations and advanced hub sections render after upload', async ({ page }) => {
+test('primary destinations render after upload', async ({ page }) => {
   await page.goto('/')
   await uploadFixture(page)
   await expect(page.getByRole('button', { name: 'Unlock Full Analytics' })).toHaveCount(0)
-  await expect(page.getByRole('tab')).toHaveCount(4)
+  await expect(page.getByRole('tab')).toHaveCount(2)
 
-  const explorePanel = await openPrimaryAnalyticsTab(page, 'Explore')
-  await expect(explorePanel.getByRole('heading', { name: 'Explore' })).toBeVisible()
-  await expect(explorePanel.getByRole('heading', { name: 'Trends', exact: true })).toBeVisible()
-  await expect(explorePanel.getByRole('heading', { name: 'Rankings', exact: true })).toBeVisible()
-  await expect(explorePanel.getByRole('heading', { name: 'Behavior', exact: true })).toBeVisible()
-  await expect(explorePanel.getByRole('heading', { name: 'Context', exact: true })).toBeVisible()
-  await expect(explorePanel.getByRole('heading', { name: 'Rhythm', exact: true })).toBeVisible()
-  await expect(explorePanel.getByRole('heading', { name: 'Eras', exact: true })).toBeVisible()
-  await expect(explorePanel.getByPlaceholder('Search leaderboard...')).toBeVisible()
-  await expect(explorePanel.getByRole('heading', { name: 'Listening timeline' })).toBeVisible()
-  await expect(explorePanel.getByRole('heading', { name: 'Context Intelligence' })).toBeVisible()
-  await expect(explorePanel.getByRole('heading', { name: 'Music Eras' })).toBeVisible()
+  const dashboardPanel = await openPrimaryAnalyticsTab(page, 'Dashboard')
+  await expect(dashboardPanel.getByRole('heading', { name: 'Overview Snapshot' })).toBeVisible()
 
   const sharePanel = await openPrimaryAnalyticsTab(page, 'Share')
   await expect(sharePanel.getByRole('heading', { name: 'Share Studio' })).toBeVisible()
-
-  await openAdvancedSection(page, 'network')
-  const universePanel = page.getByRole('heading', { name: 'Music Universe Graph' }).locator('..')
-  await expect(universePanel.getByRole('heading', { name: 'Music Universe Graph' })).toBeVisible()
-  await expect(universePanel.getByText('This view crashed')).toHaveCount(0)
-  await expect(page.getByText('Network Analytics')).toBeVisible()
-
-  const tastePanel = await openPrimaryAnalyticsTab(page, 'Taste DNA')
-  await expect(tastePanel.getByRole('heading', { name: 'Taste DNA' })).toBeVisible()
-
-  await openAdvancedSection(page, 'lab')
-  await expect(page.getByRole('heading', { name: 'Xenolab', exact: true })).toBeVisible()
-  await openAdvancedSection(page, 'artist')
-  await expect(page.getByPlaceholder('Search artist...')).toBeVisible()
-  await openAdvancedSection(page, 'plugins')
-  await expect(page.getByText('Plugin Extras')).toBeVisible()
 })
 
-test('weekly timeline uses diverse ISO-like week keys', async ({ page }) => {
+test('dashboard exposes advanced controls via progressive disclosure', async ({ page }) => {
   await page.goto('/')
   await uploadFixture(page)
 
-  await primaryAnalyticsTab(page, 'Explore').click()
-  await page
-    .locator('main select')
-    .filter({ has: page.locator('option[value="weekly"]') })
-    .first()
-    .selectOption('weekly')
-
-  const labels = await page.locator('svg text').allTextContents()
-  const weeklyLabels = labels
-    .map((value) => value.trim())
-    .filter((value) => /^\d{4}-W\d{2}$/.test(value))
-  expect(weeklyLabels.length).toBeGreaterThan(5)
-  const weekNumbers = weeklyLabels
-    .map((value) => Number(value.split('-W')[1]))
-    .filter((value) => Number.isFinite(value))
-  expect(Math.max(...weekNumbers)).toBeGreaterThan(6)
+  const dashboardPanel = await openPrimaryAnalyticsTab(page, 'Dashboard')
+  await dashboardPanel.getByRole('button', { name: 'Show advanced tools' }).click()
+  await expect(dashboardPanel.getByRole('heading', { name: 'Advanced', exact: true })).toBeVisible()
+  await expect(dashboardPanel.getByRole('combobox', { name: 'Advanced section' })).toBeVisible()
 })
 
 test('share studio supports full deck traversal and share links', async ({ page }) => {
@@ -203,7 +157,7 @@ test('upload-to-share funnel works on mobile viewport', async ({ page }) => {
   await page.goto('/')
   await uploadFixture(page)
 
-  await expect(primaryAnalyticsTab(page, 'Overview')).toBeVisible()
+  await expect(primaryAnalyticsTab(page, 'Dashboard')).toBeVisible()
   await expect(primaryAnalyticsTab(page, 'Share')).toBeVisible()
   await primaryAnalyticsTab(page, 'Share').click()
   await expect(page.getByRole('heading', { name: 'Share Studio' })).toBeVisible()

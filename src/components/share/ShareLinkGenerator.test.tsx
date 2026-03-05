@@ -172,8 +172,8 @@ describe('ShareLinkGenerator', () => {
       />,
     )
 
-    const sizeText = screen.getByText(/Link payload size:/i).textContent ?? ''
-    const match = sizeText.match(/Link payload size:\s*(\d+)\/2400/i)
+    const sizeText = screen.getByText(/Snapshot size:/i).textContent ?? ''
+    const match = sizeText.match(/Snapshot size:\s*(\d+)\/2400/i)
     expect(match).toBeTruthy()
     expect(Number(match?.[1])).toBeLessThanOrEqual(2400)
   })
@@ -191,7 +191,8 @@ describe('ShareLinkGenerator', () => {
 
     expect(screen.getByText(/data privacy:/i)).toBeInTheDocument()
     expect(screen.getByText(/profile confirmation:/i)).toBeInTheDocument()
+    expect(screen.getByText(/snapshot fallback:/i)).toBeInTheDocument()
     expect(screen.getByText(/link authenticity:/i)).toBeInTheDocument()
-    expect(screen.getByText(/unverified in this release/i)).toBeInTheDocument()
+    expect(screen.getByText(/browser-generated and unverified in this release/i)).toBeInTheDocument()
   })
 })

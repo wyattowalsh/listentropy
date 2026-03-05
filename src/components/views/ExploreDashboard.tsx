@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
@@ -27,6 +27,25 @@ const EXPLORE_SECTIONS: Array<{ key: ExploreSectionKey; label: string; descripti
   { key: 'rhythm', label: 'Rhythm', description: 'Clock, weekday, calendar.' },
   { key: 'eras', label: 'Eras', description: 'Segmentation and transitions.' },
 ]
+
+const SECTION_TO_ADVANCED: Record<ExploreSectionKey, AdvancedHubSection> = {
+  trends: 'lab',
+  rankings: 'artist',
+  behavior: 'lab',
+  context: 'plugins',
+  rhythm: 'lab',
+  eras: 'network',
+}
+
+function readExploreSectionFromHash(): ExploreSectionKey | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+  const deepLinkedSection = EXPLORE_SECTIONS.find(
+    (section) => window.location.hash === `#explore-${section.key}`,
+  )
+  return deepLinkedSection?.key ?? null
+}
 
 export function ExploreDashboard({
   data,
@@ -60,9 +79,76 @@ export function ExploreDashboard({
   const topCluster = data.graphAnalytics.clusters[0]
   const topMotif = data.graphAnalytics.motifs.topPairs[0]
   const [showAllHeroMetrics, setShowAllHeroMetrics] = useState(false)
+  const [activeSection, setActiveSection] = useState<ExploreSectionKey>(
+    () => readExploreSectionFromHash() ?? 'trends',
+  )
+  const [inspectedSection, setInspectedSection] = useState<ExploreSectionKey | null>(null)
+
+  const activeSectionMeta = EXPLORE_SECTIONS.find((section) => section.key === activeSection) ?? EXPLORE_SECTIONS[0]
+  const activeSectionAnchor = `explore-${activeSection}`
+  const activeInspectRegionId = `inspect-${activeSectionAnchor}`
+  const highestMonth = data.monthly.length > 0 ? [...data.monthly].sort((a, b) => b.totalMs - a.totalMs)[0] : null
+  const sectionDetails: Record<ExploreSectionKey, string[]> = {
+    trends: [
+      highestMonth
+        ? `Peak month ${highestMonth.key} with ${highestMonth.plays.toLocaleString()} plays.`
+        : 'Monthly trend data is still sparse.',
+      `${Math.round(data.summary.totalHours).toLocaleString()} total hours across ${data.summary.yearsCovered} years.`,
+    ],
+    rankings: [
+      `Top artist ${data.artists[0]?.name ?? 'N/A'} with ${data.artists[0]?.plays.toLocaleString() ?? '0'} plays.`,
+      `Top track ${data.tracks[0]?.name ?? 'N/A'} — ${data.tracks[0]?.artist ?? 'N/A'}.`,
+    ],
+    behavior: [
+      `Skip rate ${formatPercent(data.summary.skipRate)} and shuffle rate ${formatPercent(data.summary.shuffleRate)}.`,
+      `Average session depth ${data.summary.sessionDepthAvg.toFixed(1)} tracks.`,
+    ],
+    context: [
+      `Home country ${data.contextAnalytics.country.homeCountry ?? 'N/A'} with travel share ${formatPercent(data.contextAnalytics.country.travelShare)}.`,
+      `Cross-platform handoffs ${formatPercent(data.contextAnalytics.deviceJourney.crossPlatformSessionShare)}.`,
+    ],
+    rhythm: [
+      `Peak hour ${data.summary.peakHour}:00 with nocturnal share ${formatPercent(data.summary.nocturnalShare)}.`,
+      `${data.dayOfWeek[0]?.day ?? 'N/A'} is currently the highest weekday bucket.`,
+    ],
+    eras: [
+      `${data.eras.length.toLocaleString()} eras detected.`,
+      data.eras[0]
+        ? `${data.eras[0].label}: ${Math.round(data.eras[0].totalMs / 1000 / 60 / 60).toLocaleString()}h.`
+        : 'Era diagnostics are not available yet.',
+    ],
+  }
+
+  useEffect(() => {
+    if (!inspectedSection || typeof window === 'undefined') {
+      return
+    }
+    function handleKeydown(event: KeyboardEvent): void {
+      if (event.key === 'Escape') {
+        setInspectedSection(null)
+      }
+    }
+    window.addEventListener('keydown', handleKeydown)
+    return () => {
+      window.removeEventListener('keydown', handleKeydown)
+    }
+  }, [inspectedSection])
 
   function jumpToSection(key: ExploreSectionKey): void {
-    sectionRefs.current[key]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const sectionNode = sectionRefs.current[key]
+    setActiveSection(key)
+    if (inspectedSection) {
+      setInspectedSection(key)
+    }
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(window.history.state, '', `#explore-${key}`)
+    }
+    sectionNode?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const heading = sectionNode?.querySelector('h2')
+    if (heading instanceof HTMLElement) {
+      heading.tabIndex = -1
+      heading.focus({ preventScroll: true })
+    }
   }
 
   return (
@@ -101,6 +187,17 @@ export function ExploreDashboard({
             </p>
           </div>
         </div>
+        <div className="mt-3 flex flex-wrap gap-2" aria-label="Story waypoints">
+          <Button type="button" variant="outline" onClick={() => jumpToSection('trends')}>
+            Start with Trends
+          </Button>
+          <Button type="button" variant="outline" onClick={() => jumpToSection('context')}>
+            Continue with Context
+          </Button>
+          <Button type="button" variant="outline" onClick={() => jumpToSection('eras')}>
+            Close on Eras
+          </Button>
+        </div>
       </Card>
 
       <div className="sticky top-16 z-20 rounded-theme border border-border/80 bg-bg/90 p-2.5 shadow-surface backdrop-blur">
@@ -111,6 +208,7 @@ export function ExploreDashboard({
               variant="ghost"
               className="rounded-full border border-border/60 bg-surface/70 px-3 py-1 text-xs text-text-muted hover:border-accent/40 hover:bg-surface-hover hover:text-text"
               onClick={() => jumpToSection(section.key)}
+              aria-current={activeSection === section.key ? 'location' : undefined}
               title={section.description}
             >
               {section.label}
@@ -118,6 +216,58 @@ export function ExploreDashboard({
           ))}
         </nav>
       </div>
+
+      <Card className={premiumCardClass}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-muted">Active section</p>
+            <CardTitle className="mt-1">{activeSectionMeta.label}</CardTitle>
+            <CardDescription className="mt-1">{activeSectionMeta.description}</CardDescription>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            aria-controls={activeInspectRegionId}
+            aria-expanded={inspectedSection === activeSection}
+            onClick={() =>
+              setInspectedSection((current) => (current === activeSection ? null : activeSection))
+            }
+          >
+            {inspectedSection === activeSection ? 'Hide inspected details' : 'Inspect active section'}
+          </Button>
+        </div>
+        {inspectedSection === activeSection ? (
+          <div
+            id={activeInspectRegionId}
+            role="region"
+            aria-label={`${activeSectionMeta.label} drill-down details`}
+            className="mt-3 space-y-3 rounded-theme border border-border/70 bg-surface-hover/70 p-3"
+          >
+            <ul className="list-disc space-y-1 pl-4 text-sm text-text">
+              {sectionDetails[activeSection].map((detail) => (
+                <li key={detail}>{detail}</li>
+              ))}
+            </ul>
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href={`#${activeSectionAnchor}`}
+                className="text-xs font-medium text-text underline decoration-dotted underline-offset-2 hover:text-accent"
+              >
+                {`Deep link to ${activeSectionMeta.label}`}
+              </a>
+              <Button
+                type="button"
+                variant="ghost"
+                className="px-0 text-xs"
+                disabled={!onOpenAdvancedSection}
+                onClick={() => onOpenAdvancedSection?.(SECTION_TO_ADVANCED[activeSection])}
+              >
+                {`Open ${activeSectionMeta.label} in Advanced`}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Card>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Explore hero metrics">
         {metrics.slice(0, showAllHeroMetrics ? metrics.length : 4).map((metric) => (

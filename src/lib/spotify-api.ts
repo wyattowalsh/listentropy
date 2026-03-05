@@ -1,4 +1,5 @@
 import { spotifyGetJson } from '@/lib/audio-traits/providers/spotify/http'
+import { fetchSpotifyAudioFeaturesViaProxy } from '@/lib/audio-traits/providers/spotify/client'
 
 interface SpotifyAudioFeature {
   id: string
@@ -82,15 +83,21 @@ export async function fetchSpotifyAudioFeatureProfile(
     .map((uri) => uri.split(':')[2])
     .filter((value): value is string => Boolean(value))
     .slice(0, 500)
+  const hasSessionToken = token.trim().length > 0
 
   const allFeatures: SpotifyAudioFeature[] = []
-  for (const chunk of chunkArray(ids, 100)) {
-    const payload = await spotifyGetJson<SpotifyAudioFeaturesResponse>({
-      accessToken: token,
-      url: `https://api.spotify.com/v1/audio-features?ids=${chunk.join(',')}`,
-      endpoint: 'audio-features',
-    })
-    allFeatures.push(...payload.audio_features.filter(Boolean))
+  if (hasSessionToken) {
+    for (const chunk of chunkArray(ids, 100)) {
+      const payload = await spotifyGetJson<SpotifyAudioFeaturesResponse>({
+        accessToken: token,
+        url: `https://api.spotify.com/v1/audio-features?ids=${chunk.join(',')}`,
+        endpoint: 'audio-features',
+      })
+      allFeatures.push(...payload.audio_features.filter(Boolean))
+    }
+  } else if (ids.length > 0) {
+    const payload = await fetchSpotifyAudioFeaturesViaProxy(ids)
+    allFeatures.push(...payload.features)
   }
 
   const result: SpotifyAudioProfileResult = {
@@ -109,6 +116,14 @@ export async function fetchSpotifyAudioFeatureProfile(
         score: Math.min(1, average(allFeatures.map((item) => item.tempo)) / 180),
       },
     ],
+  }
+
+  if (!hasSessionToken) {
+    result.warnings = [
+      ...(result.warnings ?? []),
+      'Loaded backend audio-feature enrichment without Spotify login. Connect Spotify in Advanced setup for artist neighborhood enrichment fallback.',
+    ]
+    return result
   }
 
   try {

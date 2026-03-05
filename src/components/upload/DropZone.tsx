@@ -1,7 +1,8 @@
-import { AlertTriangle, UploadCloud } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Sparkles, UploadCloud } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { Tooltip } from '@/components/ui/tooltip'
 import {
   prepareSpotifyZipArchive,
   type PreparedSpotifyZipArchive,
@@ -17,9 +18,10 @@ interface ZipUploadPreflightContext {
 
 interface DropZoneProps {
   onFileSelected: (file: File, preflight?: ZipUploadPreflightContext) => void
+  demoZipPath?: string
 }
 
-export function DropZone({ onFileSelected }: DropZoneProps): JSX.Element {
+export function DropZone({ onFileSelected, demoZipPath }: DropZoneProps): JSX.Element {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const latestSelectionIdRef = useRef(0)
   const [isDragging, setIsDragging] = useState(false)
@@ -32,10 +34,15 @@ export function DropZone({ onFileSelected }: DropZoneProps): JSX.Element {
     totalEntries: number | null
     error: string | null
   } | null>(null)
+  const [celebration, setCelebration] = useState<{
+    fileName: string
+    historyFileCount: number
+  } | null>(null)
 
   const selectFile = useCallback(
     async (file: File) => {
       const selectionId = (latestSelectionIdRef.current += 1)
+      setCelebration(null)
       setPreflight({
         name: file.name,
         sizeBytes: file.size,
@@ -68,6 +75,10 @@ export function DropZone({ onFileSelected }: DropZoneProps): JSX.Element {
         if (latestSelectionIdRef.current !== selectionId) {
           return
         }
+        setCelebration({
+          fileName: file.name,
+          historyFileCount: inspection.historyFileCount,
+        })
         onFileSelected(file, { inspection, preparedArchive })
         return
       } catch (error) {
@@ -82,6 +93,7 @@ export function DropZone({ onFileSelected }: DropZoneProps): JSX.Element {
           totalEntries: null,
           error: normalizeUploadError(error),
         })
+        setCelebration(null)
         return
       } finally {
         if (latestSelectionIdRef.current === selectionId) {
@@ -104,6 +116,22 @@ export function DropZone({ onFileSelected }: DropZoneProps): JSX.Element {
     [selectFile],
   )
 
+  const loadDemoData = useCallback(async () => {
+    if (!demoZipPath) {
+      return
+    }
+    const response = await fetch(demoZipPath)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch demo archive (${response.status})`)
+    }
+    const blob = await response.blob()
+    const fileName = demoZipPath.split('/').pop() || 'my_spotify_data.zip'
+    const file = new File([blob], fileName, {
+      type: blob.type || 'application/zip',
+    })
+    await selectFile(file)
+  }, [demoZipPath, selectFile])
+
   return (
     <div
       onDragOver={(event) => {
@@ -120,18 +148,69 @@ export function DropZone({ onFileSelected }: DropZoneProps): JSX.Element {
       <UploadCloud className="mb-4 h-12 w-12 text-accent" />
       <h2 className="font-heading text-2xl text-text">Drop your Spotify data export (.zip)</h2>
       <p className="mt-3 max-w-xl text-sm text-text-muted">
-        Request your data from Spotify account privacy settings, then upload the original zip.
-        Your data stays in this browser and never leaves your device.
-      </p>
-      <div className="mt-4">
-        <Button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={isInspecting}
+        Request your data from{' '}
+        <a
+          href="https://spotify.com/account/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-text underline decoration-dotted underline-offset-2 transition-colors hover:text-accent"
         >
-          {isInspecting ? 'Inspecting zip...' : 'Choose File'}
-        </Button>
+          Spotify account privacy settings
+        </a>
+        , then upload the original zip. Your data stays in this browser and never leaves your device.
+      </p>
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+        <Tooltip content="Upload stays local and never leaves your browser.">
+          <Button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={isInspecting}
+          >
+            {isInspecting ? 'Inspecting zip...' : 'Choose File'}
+          </Button>
+        </Tooltip>
+        {demoZipPath ? (
+          <Tooltip content="Try a safe sample archive preloaded with synthetic listening history.">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isInspecting}
+              onClick={() => {
+                void loadDemoData().catch((error) => {
+                  setCelebration(null)
+                  setPreflight({
+                    name: 'my_spotify_data.zip',
+                    sizeBytes: 0,
+                    historyFileCount: null,
+                    historyFiles: [],
+                    totalEntries: null,
+                    error: normalizeUploadError(error),
+                  })
+                })
+              }}
+            >
+              Use Demo Data
+            </Button>
+          </Tooltip>
+        ) : null}
       </div>
+      {celebration ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="celebrate-in mt-4 w-full max-w-xl rounded-theme border border-positive/40 bg-positive/10 p-3 text-left text-xs text-positive"
+        >
+          <p className="inline-flex items-center gap-1.5 font-semibold">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Upload verified
+            <Sparkles className="h-3.5 w-3.5 motion-safe:animate-pulse" />
+          </p>
+          <p className="mt-1 text-positive/90">
+            {celebration.fileName} includes {celebration.historyFileCount} history file
+            {celebration.historyFileCount === 1 ? '' : 's'} — launching local processing.
+          </p>
+        </div>
+      ) : null}
       {preflight ? (
         <div className="mt-4 w-full max-w-xl rounded-theme border border-border bg-surface-hover p-3 text-left text-xs text-text-muted">
           <p className="font-semibold text-text">Preflight</p>
@@ -162,7 +241,16 @@ export function DropZone({ onFileSelected }: DropZoneProps): JSX.Element {
               <p className="mt-1 text-negative">{preflight.error}</p>
               {/No Spotify Extended Streaming History files were found/i.test(preflight.error) ? (
                 <p className="mt-1 text-negative/90">
-                  Request your data again from Spotify Privacy settings, then upload the original zip.
+                  Request a new export from{' '}
+                  <a
+                    href="https://spotify.com/account/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium underline decoration-dotted underline-offset-2"
+                  >
+                    Spotify account privacy settings
+                  </a>
+                  , then upload the original zip.
                 </p>
               ) : null}
             </div>

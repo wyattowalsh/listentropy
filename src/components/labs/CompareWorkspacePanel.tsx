@@ -153,6 +153,7 @@ export function CompareWorkspacePanel({
   const importedMatchesBaseline =
     importedSnapshot?.datasetIdentity.fingerprint !== undefined &&
     baselineSnapshot?.datasetIdentity.fingerprint === importedSnapshot.datasetIdentity.fingerprint
+  const hasBaseline = Boolean(baselineSnapshot)
   const baselineEras = baselineSnapshot?.eras ?? []
   const currentEras = currentSnapshot.eras ?? []
   const isSimpleMode = analysisMode === 'simple'
@@ -413,13 +414,19 @@ export function CompareWorkspacePanel({
           <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importMode === 'parsing'}>
             {importMode === 'parsing' ? 'Importing…' : 'Import Compare Zip'}
           </Button>
-          <Button variant="outline" onClick={onCaptureBaseline}>Capture Current as Baseline</Button>
-          <Button variant="outline" onClick={onClearBaseline} disabled={!baselineSnapshot}>Clear Baseline</Button>
-          <Button onClick={onRunCompare} disabled={compareStatus === 'running'}>
+          <Button variant={hasBaseline ? 'outline' : 'default'} onClick={onCaptureBaseline}>Capture Current as Baseline</Button>
+          <Button variant="outline" onClick={onClearBaseline} disabled={!hasBaseline}>Clear Baseline</Button>
+          <Button variant={hasBaseline ? 'default' : 'outline'} onClick={onRunCompare} disabled={compareStatus === 'running'}>
             {compareStatus === 'running' ? 'Comparing…' : 'Run Compare'}
           </Button>
         </div>
       </div>
+      {!hasBaseline ? (
+        <div className="mt-3 rounded-theme border border-border bg-surface-hover p-2">
+          <p className="text-xs text-text">First run: capture a baseline first, then run compare.</p>
+          <p className="mt-1 text-xs text-text-muted">Run Compare will surface guidance until a baseline is selected.</p>
+        </div>
+      ) : null}
 
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         <div className="rounded-theme border border-border bg-surface-hover p-2">
@@ -573,7 +580,9 @@ export function CompareWorkspacePanel({
               <p>{baselineSnapshot.datasetIdentity.recordCount.toLocaleString()} records · {baselineSnapshot.timezoneMode}</p>
             </div>
           ) : (
-            <p className="mt-1 text-sm text-text-muted">No baseline captured yet.</p>
+            <p className="mt-1 text-sm text-text-muted">
+              No baseline captured yet. Capture current, import a compare zip, or activate a saved snapshot.
+            </p>
           )}
         </div>
         <div className="rounded-theme border border-border bg-surface-hover p-3">

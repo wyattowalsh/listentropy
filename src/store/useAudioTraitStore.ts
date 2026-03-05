@@ -148,33 +148,12 @@ export const useAudioTraitStore = create<AudioTraitStoreState>((set, get) => ({
     }))
 
     const auth = useSpotifyAuthStore.getState()
-    const accessToken = await auth.ensureValidAccessToken()
-    if (!accessToken) {
-      set((state) => ({
-        statusByDatasetFingerprint: {
-          ...state.statusByDatasetFingerprint,
-          [datasetFingerprint]: 'unsupported',
-        },
-        errorByDatasetFingerprint: {
-          ...state.errorByDatasetFingerprint,
-          [datasetFingerprint]: 'Connect Spotify or provide a manual token to prepare audio trait enrichment.',
-        },
-        capabilityStatus: 'unauthorized',
-        lastFetchMeta: {
-          datasetFingerprint,
-          status: 'unsupported',
-          fetchedAt: new Date().toISOString(),
-          message: 'No Spotify access token available.',
-        },
-      }))
-      return null
-    }
 
     const prep = prepareTraitJoin(dataset)
     const providerResult = await spotifyProvider.fetchTraitSnapshot({
       datasetFingerprint,
       trackIds: prep.uniqueTrackIds,
-      accessToken,
+      accessToken: auth.session?.accessToken ?? '',
       tokenSource: auth.session?.tokenSource ?? 'unknown',
       scopes: auth.session?.scopes,
     })

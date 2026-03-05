@@ -34,6 +34,8 @@ export function ShareStudio({ data }: ShareStudioProps): JSX.Element {
   const [selectedCardKeys, setSelectedCardKeys] = useState<StoryCardKey[]>(
     DEFAULT_SHARE_PRESET.selectedCards as StoryCardKey[],
   )
+  const [showDeckPresentationOptions, setShowDeckPresentationOptions] = useState(false)
+  const [showSecondaryTools, setShowSecondaryTools] = useState(false)
   const recordBehavior = useExperienceStore((state) => state.recordBehavior)
   const metrics = useSessionMetricsStore((state) => state.metrics)
   const recordMetric = useSessionMetricsStore((state) => state.record)
@@ -121,16 +123,16 @@ export function ShareStudio({ data }: ShareStudioProps): JSX.Element {
               Follow the flow: pick a preset, tune deck presentation, then export or copy links with confidence.
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.12em]">
-              <span className="rounded-full border border-border bg-surface-hover px-2 py-1 text-text-muted">1 · Preset</span>
-              <span className="rounded-full border border-border bg-surface-hover px-2 py-1 text-text-muted">2 · Deck</span>
-              <span className="rounded-full border border-border bg-surface-hover px-2 py-1 text-text-muted">3 · Export</span>
+              <span className="rounded-full border border-border bg-surface-hover px-2 py-1 text-text-muted">Step 1 · Preset</span>
+              <span className="rounded-full border border-border bg-surface-hover px-2 py-1 text-text-muted">Step 2 · Deck</span>
+              <span className="rounded-full border border-border bg-surface-hover px-2 py-1 text-text-muted">Step 3 · Export & Share</span>
               <span className={`rounded-full border px-2 py-1 ${deckReadyForExport ? 'border-accent/40 bg-accent/10 text-accent' : 'border-border bg-surface-hover text-text-muted'}`}>
                 {deckReadyForExport ? 'Deck ready to export' : 'Select 3+ cards for stronger story context'}
               </span>
             </div>
             <div className="mt-4 grid gap-4">
               <section className="rounded-theme border border-border bg-surface-hover/40 p-3">
-                <p className="text-xs uppercase tracking-[0.14em] text-text-muted">Share Presets</p>
+                <p className="text-xs uppercase tracking-[0.14em] text-text-muted">Step 1 · Preset options</p>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   {SHARE_PRESETS.map((preset) => {
                     const isActive = presetId === preset.id
@@ -151,62 +153,75 @@ export function ShareStudio({ data }: ShareStudioProps): JSX.Element {
               </section>
 
               <section className="rounded-theme border border-border bg-surface-hover/40 p-3">
-                <p className="text-xs uppercase tracking-[0.14em] text-text-muted">Deck presentation</p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <Input
-                    value={displayName}
-                    aria-label="Display name"
-                    placeholder="Display name (optional)"
-                    onChange={(event) => setDisplayName(event.currentTarget.value)}
-                  />
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      variant={aspect === 'story' ? 'default' : 'outline'}
-                      onClick={() => setAspect('story')}
-                      aria-label="Use story 9 by 16 aspect ratio"
-                    >
-                      Story 9:16
-                    </Button>
-                    <Button
-                      variant={aspect === 'square' ? 'default' : 'outline'}
-                      onClick={() => setAspect('square')}
-                      aria-label="Use square 1 by 1 aspect ratio"
-                    >
-                      Square 1:1
-                    </Button>
-                  </div>
-                  <label
-                    className={`inline-flex items-center gap-2 rounded-theme border px-3 py-2 text-sm ${
-                      showBranding ? 'border-accent/40 bg-accent/10 text-text' : 'border-border text-text-muted'
-                    }`}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-muted">Deck presentation options</p>
+                  <Button
+                    variant="ghost"
+                    type="button"
+                    aria-expanded={showDeckPresentationOptions}
+                    onClick={() => setShowDeckPresentationOptions((current) => !current)}
                   >
-                    <input
-                      type="checkbox"
-                      checked={showBranding}
-                      onChange={(event) => setShowBranding(event.currentTarget.checked)}
-                    />
-                    Show Listentropy branding
-                  </label>
-                  <label
-                    className={`inline-flex items-center gap-2 rounded-theme border px-3 py-2 text-sm ${
-                      showQr ? 'border-accent/40 bg-accent/10 text-text' : 'border-border text-text-muted'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={showQr}
-                      onChange={(event) => setShowQr(event.currentTarget.checked)}
-                    />
-                    Add QR code
-                  </label>
+                    {showDeckPresentationOptions ? 'Hide deck presentation options' : 'Show deck presentation options'}
+                  </Button>
                 </div>
+                <p className="mt-2 text-xs text-text-muted">Optional polish controls for visuals and card framing.</p>
+                {showDeckPresentationOptions ? (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <Input
+                      value={displayName}
+                      aria-label="Display name"
+                      placeholder="Display name (optional)"
+                      onChange={(event) => setDisplayName(event.currentTarget.value)}
+                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        variant={aspect === 'story' ? 'default' : 'outline'}
+                        onClick={() => setAspect('story')}
+                        aria-label="Use story 9 by 16 aspect ratio"
+                      >
+                        Story 9:16
+                      </Button>
+                      <Button
+                        variant={aspect === 'square' ? 'default' : 'outline'}
+                        onClick={() => setAspect('square')}
+                        aria-label="Use square 1 by 1 aspect ratio"
+                      >
+                        Square 1:1
+                      </Button>
+                    </div>
+                    <label
+                      className={`inline-flex items-center gap-2 rounded-theme border px-3 py-2 text-sm ${
+                        showBranding ? 'border-accent/40 bg-accent/10 text-text' : 'border-border text-text-muted'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={showBranding}
+                        onChange={(event) => setShowBranding(event.currentTarget.checked)}
+                      />
+                      Show Listentropy branding
+                    </label>
+                    <label
+                      className={`inline-flex items-center gap-2 rounded-theme border px-3 py-2 text-sm ${
+                        showQr ? 'border-accent/40 bg-accent/10 text-text' : 'border-border text-text-muted'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={showQr}
+                        onChange={(event) => setShowQr(event.currentTarget.checked)}
+                      />
+                      Add QR code
+                    </label>
+                  </div>
+                ) : null}
               </section>
 
               <section className="rounded-theme border border-border bg-surface-hover/40 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs uppercase tracking-[0.14em] text-text-muted">
-                    Included cards ({selectedCardKeys.length}/{STORY_CARD_REGISTRY.length})
-                  </p>
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-muted">
+                      Step 2 · Included cards ({selectedCardKeys.length}/{STORY_CARD_REGISTRY.length})
+                    </p>
                   <div className="flex items-center gap-1">
                     <Button variant="ghost" type="button" onClick={resetCardsToPreset}>
                       <RotateCcw className="h-4 w-4" />
@@ -268,7 +283,7 @@ export function ShareStudio({ data }: ShareStudioProps): JSX.Element {
 
         <div className="min-w-0 space-y-4">
           <Card>
-            <CardTitle>Export</CardTitle>
+            <CardTitle>Step 3 · Export & Share</CardTitle>
             <div className="mt-3">
               <ExportButton
                 cardRefs={cardRefs}
@@ -292,35 +307,55 @@ export function ShareStudio({ data }: ShareStudioProps): JSX.Element {
             onDisplayNameChange={setDisplayName}
           />
           <Card>
-            <CardTitle>Copy text formats</CardTitle>
-            <div className="mt-3">
-              <ShareTextCopy
-                data={data}
-                presetId={presetId}
-                onCopied={() => {
-                  recordBehavior('share_action')
-                }}
-              />
-            </div>
-          </Card>
-          <Card>
-            <CardTitle>Session Share Funnel</CardTitle>
-            <div className="mt-3 grid gap-2 text-sm text-text-muted">
-              <p>Uploads completed: {metrics.counts.upload_complete}</p>
-              <p>Share tab opens: {metrics.counts.share_tab_open}</p>
-              <p>Links generated: {metrics.counts.share_link_generated}</p>
-              <p>Links copied: {metrics.counts.share_link_copied}</p>
-              <p>Assets exported: {metrics.counts.asset_exported}</p>
-              <p className="text-text">
-                Share completion rate: {Math.round(computeShareCompletionRate(metrics) * 100)}%
-              </p>
-            </div>
-            <div className="mt-3">
-              <Button variant="outline" onClick={exportMetricsJson}>
-                Export Session Metrics JSON
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle>Secondary tools</CardTitle>
+              <Button
+                variant="ghost"
+                type="button"
+                aria-expanded={showSecondaryTools}
+                onClick={() => setShowSecondaryTools((current) => !current)}
+              >
+                {showSecondaryTools ? 'Hide secondary tools' : 'Show secondary tools'}
               </Button>
             </div>
+            <p className="mt-2 text-xs text-text-muted">
+              Open optional text-copy and funnel analytics controls when you need them.
+            </p>
           </Card>
+          {showSecondaryTools ? (
+            <>
+              <Card>
+                <CardTitle>Copy text formats</CardTitle>
+                <div className="mt-3">
+                  <ShareTextCopy
+                    data={data}
+                    presetId={presetId}
+                    onCopied={() => {
+                      recordBehavior('share_action')
+                    }}
+                  />
+                </div>
+              </Card>
+              <Card>
+                <CardTitle>Session Share Funnel</CardTitle>
+                <div className="mt-3 grid gap-2 text-sm text-text-muted">
+                  <p>Uploads completed: {metrics.counts.upload_complete}</p>
+                  <p>Share tab opens: {metrics.counts.share_tab_open}</p>
+                  <p>Links generated: {metrics.counts.share_link_generated}</p>
+                  <p>Links copied: {metrics.counts.share_link_copied}</p>
+                  <p>Assets exported: {metrics.counts.asset_exported}</p>
+                  <p className="text-text">
+                    Share completion rate: {Math.round(computeShareCompletionRate(metrics) * 100)}%
+                  </p>
+                </div>
+                <div className="mt-3">
+                  <Button variant="outline" onClick={exportMetricsJson}>
+                    Export Session Metrics JSON
+                  </Button>
+                </div>
+              </Card>
+            </>
+          ) : null}
         </div>
       </div>
     </div>

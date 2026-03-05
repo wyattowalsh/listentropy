@@ -24,6 +24,13 @@ export function ArtistDeepDive({ data, analysisMode = 'deep' }: ArtistDeepDivePr
   const [query, setQuery] = useState(data.artists[0]?.name ?? '')
   const isSimpleMode = analysisMode === 'simple'
   const normalizedQuery = query.trim().toLowerCase()
+  const fallbackArtist = useMemo(
+    () =>
+      data.artists
+        .slice()
+        .sort((a, b) => b.plays - a.plays || a.name.localeCompare(b.name))[0] ?? null,
+    [data.artists],
+  )
 
   const selectedArtist = useMemo(() => {
     if (!normalizedQuery) {
@@ -68,7 +75,40 @@ export function ArtistDeepDive({ data, analysisMode = 'deep' }: ArtistDeepDivePr
     return (
       <Card>
         <CardTitle as="h2">Artist Analysis</CardTitle>
-        <CardDescription>No artist found for your search.</CardDescription>
+        <CardDescription>
+          {normalizedQuery
+            ? `No artist found for your search. No artist matched “${normalizedQuery}”.`
+            : 'No artist data available yet.'}
+        </CardDescription>
+        <p className="mt-2 text-xs text-text-muted">Try clearing your search or selecting a popular artist.</p>
+        <div className="mt-3 space-y-2">
+          <div className="max-w-lg">
+            <Input
+              aria-label="Search artist"
+              placeholder="Search artist..."
+              value={query}
+              onChange={(event) => setQuery(event.currentTarget.value)}
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="min-h-[44px] rounded-theme border border-border px-3 py-2 text-sm text-text-muted transition hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--focus-ring-offset)]"
+              onClick={() => setQuery('')}
+            >
+              Clear search
+            </button>
+            {fallbackArtist ? (
+              <button
+                type="button"
+                className="min-h-[44px] rounded-theme border border-accent bg-accent/10 px-3 py-2 text-sm text-text transition hover:bg-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--focus-ring-offset)]"
+                onClick={() => setQuery(fallbackArtist.name)}
+              >
+                Try top artist: {fallbackArtist.name}
+              </button>
+            ) : null}
+          </div>
+        </div>
       </Card>
     )
   }

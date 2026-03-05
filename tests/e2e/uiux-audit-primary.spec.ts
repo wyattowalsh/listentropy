@@ -2,7 +2,7 @@ import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
 import { expect, test } from '@playwright/test'
-import type { Page } from '@playwright/test'
+import type { Page, TestInfo } from '@playwright/test'
 
 import { uploadAuditFixture } from './helpers/spotifyFixture'
 
@@ -24,11 +24,12 @@ function toBase64Url(value: string): string {
 
 async function captureAuditScreenshot(
   page: Page,
+  testInfo: TestInfo,
   name: string,
   options: { fullPage?: boolean } = {},
 ): Promise<void> {
   await page.screenshot({
-    path: path.join(SCREENSHOT_DIR, `${name}.png`),
+    path: path.join(SCREENSHOT_DIR, `${testInfo.project.name}--${name}.png`),
     fullPage: options.fullPage ?? true,
     animations: 'disabled',
   })
@@ -58,58 +59,54 @@ test('captures primary desktop UIUX flow screenshots with Spotify fixture data',
   await page.goto('/')
   await page.waitForLoadState('networkidle')
   await waitForHeading(page, 'Listentropy')
-  await captureAuditScreenshot(page, '01-onboarding-idle-shell')
+  await captureAuditScreenshot(page, testInfo, '01-shell-onboarding-idle')
 
   await uploadAuditFixture(page, { waitForTab: 'Share' })
   await expect(page.getByRole('tablist', { name: 'Primary analytics views' })).toBeVisible()
-  await captureAuditScreenshot(page, '02-uploaded-shell-primary-tabs', { fullPage: false })
+  await captureAuditScreenshot(page, testInfo, '02-shell-uploaded-primary-tabs', { fullPage: false })
 
-  await page.getByRole('tab', { name: 'Overview', exact: true }).click()
+  await page.getByRole('tab', { name: 'Dashboard', exact: true }).click()
   await waitForHeading(page, 'Year-over-year listening')
-  await captureAuditScreenshot(page, '03-overview')
+  await captureAuditScreenshot(page, testInfo, '03-dashboard-overview')
 
-  await page.getByRole('tab', { name: 'Explore', exact: true }).click()
-  await waitForHeading(page, 'Explore')
-  await captureAuditScreenshot(page, '04-explore-shell')
+  await expect(page.getByLabel('Select theme')).toBeVisible()
+  await expect(page.getByLabel('Select timezone mode')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Reset uploaded data' })).toBeVisible()
+  await captureAuditScreenshot(page, testInfo, '04-settings-shell-controls', { fullPage: false })
 
-  await page.getByRole('button', { name: 'Trends', exact: true }).click()
-  await waitForHeading(page, 'Listening timeline')
-  await captureAuditScreenshot(page, '05-explore-trends')
+  const timezoneModeSelect = page.getByLabel('Select timezone mode')
+  await timezoneModeSelect.selectOption('utc')
+  await expect(timezoneModeSelect).toHaveValue('utc')
+  await captureAuditScreenshot(page, testInfo, '05-settings-timezone-utc', { fullPage: false })
 
-  await page.getByRole('button', { name: 'Rankings', exact: true }).click()
-  await expect(page.getByPlaceholder('Search leaderboard...')).toBeVisible({ timeout: 60_000 })
-  await captureAuditScreenshot(page, '06-explore-rankings')
+  const themeSelect = page.getByLabel('Select theme')
+  const currentThemeValue = await themeSelect.inputValue()
+  const themeValues = await themeSelect.locator('option').evaluateAll((options) =>
+    options
+      .map((option) => (option as HTMLOptionElement).value)
+      .filter((value) => typeof value === 'string' && value.length > 0),
+  )
+  const alternateThemeValue = themeValues.find((value) => value !== currentThemeValue)
+  if (alternateThemeValue) {
+    await themeSelect.selectOption(alternateThemeValue)
+    await expect(themeSelect).toHaveValue(alternateThemeValue)
+  }
+  await captureAuditScreenshot(page, testInfo, '06-settings-theme-switch', { fullPage: false })
 
-  await page.getByRole('button', { name: 'Behavior', exact: true }).click()
-  await waitForHeading(page, 'Skip and shuffle trend')
-  await captureAuditScreenshot(page, '07-explore-behavior')
-
-  await page.getByRole('button', { name: 'Context', exact: true }).click()
-  await waitForHeading(page, 'Context Intelligence')
-  await captureAuditScreenshot(page, '08-explore-context')
-
-  await page.getByRole('button', { name: 'Rhythm', exact: true }).click()
-  await waitForHeading(page, 'Radial Clock')
-  await captureAuditScreenshot(page, '09-explore-rhythm')
-
-  await page.getByRole('button', { name: 'Eras', exact: true }).click()
-  await waitForHeading(page, 'Music Eras')
-  await waitForHeading(page, 'Era Detail')
-  await captureAuditScreenshot(page, '10-explore-eras')
-
-  await page.getByRole('tab', { name: 'Taste DNA', exact: true }).click()
-  await waitForHeading(page, 'Taste DNA')
-  await captureAuditScreenshot(page, '11-taste-dna-baseline')
+  const resetButton = page.getByRole('button', { name: 'Reset uploaded data' })
+  await resetButton.click()
+  await expect(page.getByRole('button', { name: 'Confirm reset uploaded data' })).toBeVisible()
+  await captureAuditScreenshot(page, testInfo, '07-settings-reset-confirm-armed', { fullPage: false })
 
   await page.getByRole('tab', { name: 'Share', exact: true }).click()
   await waitForHeading(page, 'Share Studio')
-  await captureAuditScreenshot(page, '12-share-studio-baseline')
+  await captureAuditScreenshot(page, testInfo, '08-share-studio-baseline')
 
   await page.getByRole('button', { name: 'Headline Stats', exact: true }).click()
   await page.getByRole('button', { name: 'Anonymous Highlights', exact: true }).click()
   await page.getByRole('button', { name: 'Detailed Stats', exact: true }).click()
   await expect(page.getByText(/Included cards \(\d+(?:\/\d+)?\)/)).toBeVisible()
-  await captureAuditScreenshot(page, '13-share-studio-preset-toggles')
+  await captureAuditScreenshot(page, testInfo, '09-share-studio-preset-toggles')
 
   const nextCardButton = page.getByRole('button', { name: 'Go to next story card' })
   for (let attempts = 0; attempts < 20; attempts += 1) {
@@ -126,15 +123,15 @@ test('captures primary desktop UIUX flow screenshots with Spotify fixture data',
   } else {
     await expect(page.getByRole('button', { name: 'Restart story card deck' })).toBeVisible()
   }
-  await captureAuditScreenshot(page, '14-share-studio-card-traversal-end')
+  await captureAuditScreenshot(page, testInfo, '10-share-studio-card-traversal-end')
 
-  const shareLink = (await page.locator('code').first().innerText()).trim()
+  const shareLink = (await page.locator('code').filter({ hasText: '/share#' }).first().innerText()).trim()
   expect(shareLink).toContain('/share#')
 
   await page.goto(shareLink)
   await waitForHeading(page, 'Shared Listening Snapshot')
   await expect(page.getByText(/payload v4/i)).toBeVisible()
-  await captureAuditScreenshot(page, '15-share-route-v4-valid')
+  await captureAuditScreenshot(page, testInfo, '11-share-route-v4-valid')
 
   const legacyV2Payload = {
     version: 2,
@@ -163,5 +160,5 @@ test('captures primary desktop UIUX flow screenshots with Spotify fixture data',
   await page.goto(`/share#${toBase64Url(JSON.stringify(legacyV2Payload))}`)
   await waitForHeading(page, 'Shared Listening Snapshot')
   await expect(page.getByText(/^#1 Legacy Artist A$/)).toBeVisible()
-  await captureAuditScreenshot(page, '16-share-route-legacy-v2-render')
+  await captureAuditScreenshot(page, testInfo, '12-share-route-legacy-v2-render')
 })

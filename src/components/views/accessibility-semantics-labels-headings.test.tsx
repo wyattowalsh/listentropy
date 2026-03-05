@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import { GraphControls } from '@/components/graph/GraphControls'
@@ -54,6 +55,7 @@ vi.mock('@/components/share/StoryCardDeck', () => ({
 }))
 
 const data = processRecords(makeSyntheticRecords(24), { timezoneMode: 'local' })
+const suggestedArtistName = [...data.artists].sort((a, b) => b.plays - a.plays || a.name.localeCompare(b.name))[0]?.name ?? ''
 
 describe('a11y semantics labels and headings', () => {
   it('adds an explicit label to the TopCharts search input', () => {
@@ -68,15 +70,54 @@ describe('a11y semantics labels and headings', () => {
     expect(screen.getByRole('textbox', { name: /search artist/i })).toBeInTheDocument()
   })
 
+  it('shows deterministic recovery guidance when artist search has no result', async () => {
+    const user = userEvent.setup()
+    render(<ArtistDeepDive data={data} />)
+
+    await user.clear(screen.getByRole('textbox', { name: /search artist/i }))
+    await user.type(screen.getByRole('textbox', { name: /search artist/i }), 'z')
+
+    expect(screen.getByText(/no artist matched “z”/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /clear search/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: `Try top artist: ${suggestedArtistName}` })).toBeInTheDocument()
+  })
+
+  it('recovers from no-result state via clear search action', async () => {
+    const user = userEvent.setup()
+    render(<ArtistDeepDive data={data} />)
+
+    await user.clear(screen.getByRole('textbox', { name: /search artist/i }))
+    await user.type(screen.getByRole('textbox', { name: /search artist/i }), 'z')
+    await user.click(screen.getByRole('button', { name: /clear search/i }))
+
+    expect(screen.getByRole('textbox', { name: /search artist/i })).toHaveValue('')
+    expect(screen.queryByText(/no artist matched/i)).not.toBeInTheDocument()
+    expect(screen.getByText('Selected Artist')).toBeInTheDocument()
+  })
+
+  it('recovers from no-result state via top-artist suggestion', async () => {
+    const user = userEvent.setup()
+    render(<ArtistDeepDive data={data} />)
+
+    await user.clear(screen.getByRole('textbox', { name: /search artist/i }))
+    await user.type(screen.getByRole('textbox', { name: /search artist/i }), 'z')
+    await user.click(screen.getByRole('button', { name: `Try top artist: ${suggestedArtistName}` }))
+
+    expect(screen.getByRole('textbox', { name: /search artist/i })).toHaveValue(suggestedArtistName)
+    expect(screen.queryByText(/no artist matched/i)).not.toBeInTheDocument()
+  })
+
   it('adds an explicit label to the PluginExtras filter input', () => {
     render(<PluginExtras data={data} />)
 
     expect(screen.getByRole('textbox', { name: /filter plugins/i })).toBeInTheDocument()
   })
 
-  it('adds explicit labels and semantic heading levels in ShareStudio', () => {
+  it('adds explicit labels and semantic heading levels in ShareStudio', async () => {
+    const user = userEvent.setup()
     render(<ShareStudio data={data} />)
 
+    await user.click(screen.getByRole('button', { name: /show deck presentation options/i }))
     expect(screen.getByRole('textbox', { name: /display name/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: /share studio/i })).toBeInTheDocument()
   })

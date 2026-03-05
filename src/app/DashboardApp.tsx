@@ -1,19 +1,20 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
+import demoZipUrl from '../../my_spotify_data.zip?url'
 
 import { Header } from '@/components/layout/Header'
 import { getPrimaryAnalyticsPanelId, getPrimaryAnalyticsTabId } from '@/components/layout/primary-analytics-tab-ids'
 import { TabNav } from '@/components/layout/TabNav'
 import { ViewContainer } from '@/components/layout/ViewContainer'
 import { ViewErrorBoundary } from '@/components/layout/ViewErrorBoundary'
-import { ParseProgress } from '@/components/upload/ParseProgress'
 import { DropZone } from '@/components/upload/DropZone'
-import { pluginRegistry } from '@/lib/plugins/runtime'
-import { firstPartyPlugins } from '@/features/plugins/firstPartyPlugins'
+import { ParseProgress } from '@/components/upload/ParseProgress'
 import type { AdvancedHubSection } from '@/components/views/AdvancedHub'
-import { applyTheme, useThemeStore } from '@/store/useThemeStore'
+import { firstPartyPlugins } from '@/features/plugins/firstPartyPlugins'
+import { pluginRegistry } from '@/lib/plugins/runtime'
 import { useDataStore } from '@/store/useDataStore'
 import { useExperienceStore } from '@/store/useExperienceStore'
 import { useSessionMetricsStore } from '@/store/useSessionMetricsStore'
+import { applyTheme, useThemeStore } from '@/store/useThemeStore'
 
 const OverviewDashboard = lazy(() =>
   import('@/components/views/OverviewDashboard').then((module) => ({
@@ -25,40 +26,59 @@ const ShareStudio = lazy(() =>
     default: module.ShareStudio,
   })),
 )
-const ExploreDashboard = lazy(() =>
-  import('@/components/views/ExploreDashboard').then((module) => ({
-    default: module.ExploreDashboard,
-  })),
-)
-const TasteDNA = lazy(() =>
-  import('@/components/views/TasteDNA').then((module) => ({
-    default: module.TasteDNA,
-  })),
-)
 const AdvancedHub = lazy(() =>
   import('@/components/views/AdvancedHub').then((module) => ({
     default: module.AdvancedHub,
   })),
 )
 
-type MainView =
-  | 'overview'
-  | 'explore'
-  | 'taste'
-  | 'share'
-  | 'advanced'
+type MainView = 'dashboard' | 'share'
 
-type PrimaryMainView = Exclude<MainView, 'advanced'>
+type PrimaryMainView = MainView
 
 interface ViewTabMeta {
   badge?: string
   detail?: string
 }
 
+const ADVANCED_HASH_PREFIX = '#advanced/'
+const ADVANCED_SECTIONS: AdvancedHubSection[] = ['lab', 'network', 'artist', 'plugins']
+
+function readAdvancedSectionFromHash(): AdvancedHubSection | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+  if (!window.location.hash.startsWith(ADVANCED_HASH_PREFIX)) {
+    return null
+  }
+  const candidate = window.location.hash.slice(ADVANCED_HASH_PREFIX.length) as AdvancedHubSection
+  return ADVANCED_SECTIONS.includes(candidate) ? candidate : null
+}
+
+function syncAdvancedHash(section: AdvancedHubSection | null): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+  const { pathname, search, hash } = window.location
+  if (section) {
+    const nextHash = `${ADVANCED_HASH_PREFIX}${section}`
+    if (hash !== nextHash) {
+      window.history.replaceState(window.history.state, '', `${pathname}${search}${nextHash}`)
+    }
+    return
+  }
+  if (hash.startsWith(ADVANCED_HASH_PREFIX)) {
+    window.history.replaceState(window.history.state, '', `${pathname}${search}`)
+  }
+}
+
 export function DashboardApp(): JSX.Element {
-  const [primaryView, setPrimaryView] = useState<PrimaryMainView>('overview')
-  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
-  const [advancedSection, setAdvancedSection] = useState<AdvancedHubSection>('lab')
+  const deepLinkedAdvancedSection = readAdvancedSectionFromHash()
+  const [primaryView, setPrimaryView] = useState<PrimaryMainView>('dashboard')
+  const [advancedSection, setAdvancedSection] = useState<AdvancedHubSection>(
+    deepLinkedAdvancedSection ?? 'lab',
+  )
+  const [showAdvancedTools, setShowAdvancedTools] = useState(deepLinkedAdvancedSection !== null)
   const mode = useDataStore((state) => state.mode)
   const progress = useDataStore((state) => state.progress)
   const error = useDataStore((state) => state.error)
@@ -70,7 +90,7 @@ export function DashboardApp(): JSX.Element {
   const themeKey = useThemeStore((state) => state.themeKey)
   const recordExperienceBehavior = useExperienceStore((state) => state.recordBehavior)
   const recordMetric = useSessionMetricsStore((state) => state.record)
-  const view: MainView = isAdvancedOpen ? 'advanced' : primaryView
+  const view: MainView = primaryView
 
   useEffect(() => {
     applyTheme(themeKey)
@@ -85,7 +105,11 @@ export function DashboardApp(): JSX.Element {
   }, [])
 
   useEffect(() => {
-    const fullViews: MainView[] = ['explore', 'advanced']
+    syncAdvancedHash(showAdvancedTools ? advancedSection : null)
+  }, [advancedSection, showAdvancedTools])
+
+  useEffect(() => {
+    const fullViews: MainView[] = ['share']
     if (fullViews.includes(view)) {
       recordExperienceBehavior('full_tab_visit')
       recordMetric({
@@ -97,53 +121,56 @@ export function DashboardApp(): JSX.Element {
     }
   }, [recordExperienceBehavior, recordMetric, view])
 
-  function openAdvanced(nextSection?: AdvancedHubSection): void {
+  function openAdvancedTools(nextSection?: AdvancedHubSection): void {
     if (nextSection) {
       setAdvancedSection(nextSection)
     }
-    setIsAdvancedOpen(true)
+    setShowAdvancedTools(true)
+    setPrimaryView('dashboard')
   }
 
   const body = useMemo(() => {
     if (!data) {
       return null
     }
-    if (view === 'overview') {
-      return <OverviewDashboard data={data} />
-    }
-    if (view === 'explore') {
+    if (view === 'dashboard') {
       return (
-        <ExploreDashboard
-          data={data}
-          onOpenAdvancedSection={(section) => {
-            setAdvancedSection(section)
-            setIsAdvancedOpen(true)
-          }}
-        />
+        <div className="space-y-6">
+          <OverviewDashboard data={data} />
+          <section className="rounded-theme border border-border bg-surface p-4 sm:p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="font-heading text-xl text-text">Advanced tools</h2>
+                <p className="mt-1 text-sm text-text-muted">
+                  Reveal Xenolab, network, artist deep dive, and plugin extras without leaving Dashboard.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rounded-theme border border-border px-3 py-2 text-sm transition hover:border-accent/45 hover:text-accent"
+                aria-expanded={showAdvancedTools}
+                onClick={() => {
+                  setShowAdvancedTools((value) => !value)
+                }}
+              >
+                {showAdvancedTools ? 'Hide advanced tools' : 'Show advanced tools'}
+              </button>
+            </div>
+            {showAdvancedTools ? (
+              <div className="mt-4">
+                <AdvancedHub
+                  data={data}
+                  section={advancedSection}
+                  onSectionChange={setAdvancedSection}
+                />
+              </div>
+            ) : null}
+          </section>
+        </div>
       )
     }
-    if (view === 'share') {
-      return <ShareStudio data={data} />
-    }
-    if (view === 'taste') {
-      return (
-        <TasteDNA
-          data={data}
-          onOpenSpotifySetup={() => {
-            setAdvancedSection('lab')
-            setIsAdvancedOpen(true)
-          }}
-        />
-      )
-    }
-    return (
-      <AdvancedHub
-        data={data}
-        section={advancedSection}
-        onSectionChange={setAdvancedSection}
-      />
-    )
-  }, [advancedSection, data, view])
+    return <ShareStudio data={data} />
+  }, [advancedSection, data, showAdvancedTools, view])
 
   const loadingFallback = (
     <div className="rounded-theme border border-border bg-surface p-6">
@@ -158,21 +185,13 @@ export function DashboardApp(): JSX.Element {
       return null
     }
     return {
-      overview: {
+      dashboard: {
         badge: `${Math.round(data.summary.totalHours)}h`,
-        detail: `${data.summary.totalPlays.toLocaleString()} plays`,
-      },
-      explore: {
-        badge: '6 sections',
-        detail: `${data.graphAnalytics.summary.nodeCount.toLocaleString()} graph nodes · ${data.eras.length} eras`,
+        detail: `${data.summary.totalPlays.toLocaleString()} plays · ${data.eras.length} eras`,
       },
       share: {
         badge: `${data.narrativeInsights.length} insights`,
         detail: 'story cards + export formats',
-      },
-      taste: {
-        badge: `${data.taste.dimensions.length} dims`,
-        detail: 'DNA + Spotify enrichment',
       },
     }
   }, [data])
@@ -197,11 +216,22 @@ export function DashboardApp(): JSX.Element {
                 <li>Listentropy strips `ip_addr` and processes data locally in-browser.</li>
               </ul>
             </div>
-            <DropZone onFileSelected={ingestZip} />
+            <DropZone onFileSelected={ingestZip} demoZipPath={demoZipUrl} />
             <div className="mt-5 rounded-theme border border-border bg-surface p-4 text-sm text-text-muted">
               <p className="font-semibold text-text">How to get your Spotify export</p>
               <ol className="mt-2 list-decimal space-y-1 pl-5">
-                <li>Go to spotify.com/account/privacy and sign in.</li>
+                <li>
+                  Go to{' '}
+                  <a
+                    href="https://spotify.com/account/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-text underline decoration-dotted underline-offset-2 transition-colors hover:text-accent"
+                  >
+                    spotify.com/account/privacy
+                  </a>{' '}
+                  and sign in.
+                </li>
                 <li>Open data request controls and request Extended Streaming History.</li>
                 <li>Download the zip when Spotify sends it.</li>
                 <li>Upload the original .zip here.</li>
@@ -249,18 +279,20 @@ export function DashboardApp(): JSX.Element {
   }
 
   function handleReset(): void {
-    setIsAdvancedOpen(false)
-    setPrimaryView('overview')
+    setPrimaryView('dashboard')
     setAdvancedSection('lab')
+    setShowAdvancedTools(false)
     reset()
   }
   const activePrimaryNavView = primaryView
 
   return (
     <div className="min-h-screen bg-bg text-text">
-      <Header
-        onReset={handleReset}
-        onOpenAdvanced={openAdvanced}
+        <Header
+          onReset={handleReset}
+          onOpenSettings={() => {
+            openAdvancedTools('lab')
+          }}
         timezoneMode={timezoneMode}
         onTimezoneModeChange={setTimezoneMode}
       />
@@ -269,7 +301,6 @@ export function DashboardApp(): JSX.Element {
           <TabNav
             value={activePrimaryNavView}
             onChange={(value) => {
-              setIsAdvancedOpen(false)
               setPrimaryView(value as PrimaryMainView)
             }}
             metadata={tabMetadata ?? undefined}

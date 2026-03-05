@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ExploreDashboard } from '@/components/views/ExploreDashboard'
 import { makeSyntheticRecords } from '@/lib/labs/modules/test-helpers'
@@ -33,6 +33,11 @@ vi.mock('@/components/views/MusicEras', () => ({
 const data = processRecords(makeSyntheticRecords(120), { timezoneMode: 'local' })
 
 describe('ExploreDashboard', () => {
+  beforeEach(() => {
+    window.history.replaceState({}, '', '/')
+    window.HTMLElement.prototype.scrollIntoView = vi.fn()
+  })
+
   it('renders merged sections and routes the network teaser CTA to Advanced', async () => {
     const onOpenAdvancedSection = vi.fn()
     const user = userEvent.setup()
@@ -47,7 +52,7 @@ describe('ExploreDashboard', () => {
     expect(screen.getByRole('button', { name: 'Rhythm' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Eras' })).toBeInTheDocument()
 
-    expect(screen.getByRole('heading', { name: 'Trends' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Trends', level: 2 })).toBeInTheDocument()
     expect(screen.getByText('ListeningTimeline Mock')).toBeInTheDocument()
     expect(screen.getByText('TopCharts Mock')).toBeInTheDocument()
     expect(screen.getByText('ListeningHabits Mock')).toBeInTheDocument()
@@ -58,6 +63,45 @@ describe('ExploreDashboard', () => {
     expect(screen.getByRole('heading', { name: 'Network teaser' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /open advanced → network/i }))
     expect(onOpenAdvancedSection).toHaveBeenCalledWith('network')
+  })
+
+  it('updates active section semantics and deep-link hash when navigating explore sections', async () => {
+    const user = userEvent.setup()
+
+    render(<ExploreDashboard data={data} />)
+
+    const rankingsButton = screen.getByRole('button', { name: 'Rankings' })
+    await user.click(rankingsButton)
+
+    expect(rankingsButton).toHaveAttribute('aria-current', 'location')
+    expect(window.location.hash).toBe('#explore-rankings')
+    expect(screen.getByRole('heading', { name: 'Rankings', level: 2 })).toHaveFocus()
+  })
+
+  it('supports inspect drill-down controls with keyboard-dismiss and advanced routing', async () => {
+    const onOpenAdvancedSection = vi.fn()
+    const user = userEvent.setup()
+
+    render(<ExploreDashboard data={data} onOpenAdvancedSection={onOpenAdvancedSection} />)
+
+    await user.click(screen.getByRole('button', { name: 'Rankings' }))
+
+    const inspectButton = screen.getByRole('button', { name: /inspect active section/i })
+    expect(inspectButton).toHaveAttribute('aria-expanded', 'false')
+
+    await user.click(inspectButton)
+    expect(inspectButton).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('region', { name: /rankings drill-down details/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /deep link to rankings/i })).toHaveAttribute(
+      'href',
+      '#explore-rankings',
+    )
+
+    await user.click(screen.getByRole('button', { name: /open rankings in advanced/i }))
+    expect(onOpenAdvancedSection).toHaveBeenCalledWith('artist')
+
+    await user.keyboard('{Escape}')
+    expect(inspectButton).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('uses progressive disclosure for hero metrics with accessible expansion state', async () => {

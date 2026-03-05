@@ -113,6 +113,32 @@ describe('fetchSpotifyAudioFeatureProfile', () => {
     expect(result.warnings?.length).toBeGreaterThan(0)
   })
 
+  it('uses backend audio-features proxy when no token is provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        status: 200,
+        data: {
+          features: [feature('a')],
+          requestStats: {
+            requestedUniqueTrackIds: 1,
+            cappedUniqueTrackIds: 1,
+            truncatedTrackIds: 0,
+            requestChunkCount: 1,
+          },
+        },
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await fetchSpotifyAudioFeatureProfile('', ['spotify:track:abc'])
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith('/api/spotify/enrichment/audio-features', expect.any(Object))
+    expect(result.fetchedTrackCount).toBe(1)
+    expect(result.warnings?.[0]).toMatch(/without spotify login/i)
+  })
+
   it('adds genre affinity and neighborhood metrics when artist enrichment succeeds', async () => {
     const fetchMock = vi.fn()
     fetchMock

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Tooltip } from '@/components/ui/tooltip'
 import { encodeSharePayload } from '@/lib/share/share-encoder'
 import type { ProcessedDataModel, SharePayloadV4, SharePresetId } from '@/lib/types'
 import { useThemeStore } from '@/store/useThemeStore'
@@ -286,20 +287,28 @@ export function ShareLinkGenerator({
             <span className="font-semibold text-text">Profile confirmation:</span> profile links stay locked until you confirm the warning.
           </li>
           <li>
-            <span className="font-semibold text-text">Link authenticity:</span> snapshots are generated in your browser and are unverified in this release.
+            <span className="font-semibold text-text">Link authenticity:</span> snapshots are browser-generated and unverified in this release.
           </li>
           <li>
-            <span className="font-semibold text-text">Payload fallback:</span> compact trimming keeps links inside the safety cap.
+            <span className="font-semibold text-text">Snapshot fallback:</span> compact mode keeps links inside the size cap.
           </li>
         </ul>
       </div>
 
       <div className="space-y-2 rounded-theme border border-border bg-surface-hover/40 p-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2 overflow-hidden">
-          <Button onClick={copyLink} disabled={!canCopyProfileLink}>
-            {copied ? <Check className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
-            {copied ? 'Copied' : 'Copy Share Link'}
-          </Button>
+          <Tooltip
+            content={
+              canCopyProfileLink
+                ? 'Copy a browser-generated snapshot link.'
+                : 'Confirm the profile warning to unlock profile-link copy.'
+            }
+          >
+            <Button onClick={copyLink} disabled={!canCopyProfileLink}>
+              {copied ? <Check className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
+              {copied ? 'Copied' : 'Copy Share Link'}
+            </Button>
+          </Tooltip>
           <p className="text-xs text-text-muted">Safe for aggregate sharing by default.</p>
         </div>
         <div className="min-w-0 overflow-hidden">
@@ -310,7 +319,7 @@ export function ShareLinkGenerator({
       </div>
       <div className="space-y-2">
         <p className="text-xs text-text-muted">
-          Link payload size: {payload.hash.length}/{MAX_HASH_LENGTH} chars.
+          Snapshot size: {payload.hash.length}/{MAX_HASH_LENGTH} chars.
         </p>
         <div className="h-1.5 overflow-hidden rounded-full bg-surface-hover">
           <div
@@ -320,8 +329,8 @@ export function ShareLinkGenerator({
         </div>
         <p className="text-xs text-text-muted">
           {payload.compactMode
-            ? 'Compact mode is active to keep the share link under the payload cap.'
-            : 'If the payload exceeds the budget, compact mode trims list detail automatically.'}
+            ? 'Compact mode is active to keep this snapshot under the size cap.'
+            : 'If the snapshot exceeds the size budget, compact mode trims list detail automatically.'}
         </p>
       </div>
     </div>

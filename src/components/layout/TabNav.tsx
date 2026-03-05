@@ -3,9 +3,7 @@ import { getTabsTabId } from '@/components/ui/tab-ids'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const viewTabs = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'explore', label: 'Explore' },
-  { key: 'taste', label: 'Taste DNA' },
+  { key: 'dashboard', label: 'Dashboard' },
   { key: 'share', label: 'Share' },
 ] as const
 
@@ -39,7 +37,7 @@ export function TabNav({
         idBase={PRIMARY_ANALYTICS_TABS_ID_BASE}
       >
         <TabsList
-          className="grid w-full max-w-full min-w-0 grid-cols-2 items-stretch gap-1 rounded-theme-lg border-border/80 bg-surface/80 p-1.5 sm:grid-cols-4"
+          className="grid w-full max-w-full min-w-0 grid-cols-2 items-stretch gap-1 rounded-theme-lg border-border/80 bg-surface/80 p-1.5 sm:grid-cols-3"
           aria-label="Primary analytics views"
         >
           {viewTabs.map((tab) => {

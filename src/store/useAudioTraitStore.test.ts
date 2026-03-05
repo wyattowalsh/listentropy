@@ -29,33 +29,79 @@ describe('useAudioTraitStore', () => {
     resetStores()
   })
 
-  it('returns unsupported when no Spotify token is available', async () => {
+  it('prepares a snapshot without requiring ensureValidAccessToken beforehand', async () => {
     const snapshot = makeSyntheticLabSnapshot()
+    const trackId = snapshot.records.find((row) => row.spotify_track_uri)?.spotify_track_uri?.split(':')[2] ?? '0'
+    const ensureValidAccessTokenSpy = vi.spyOn(useSpotifyAuthStore.getState(), 'ensureValidAccessToken')
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        status: 200,
+        data: {
+          features: [{
+            id: trackId,
+            danceability: 0.6,
+            energy: 0.7,
+            valence: 0.4,
+            acousticness: 0.2,
+            instrumentalness: 0.1,
+            speechiness: 0.05,
+            tempo: 128,
+            liveness: 0.25,
+          }],
+          requestStats: {
+            requestedUniqueTrackIds: 1,
+            cappedUniqueTrackIds: 1,
+            truncatedTrackIds: 0,
+            requestChunkCount: 1,
+          },
+        },
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
     const result = await useAudioTraitStore.getState().ensureSnapshotForDataset(snapshot)
 
-    expect(result).toBeNull()
-    expect(useAudioTraitStore.getState().statusByDatasetFingerprint[snapshot.datasetIdentity.fingerprint]).toBe('unsupported')
-    expect(useAudioTraitStore.getState().capabilityStatus).toBe('unauthorized')
+    expect(ensureValidAccessTokenSpy).not.toHaveBeenCalled()
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/spotify/enrichment/audio-features',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    )
+    expect(useSpotifyAuthStore.getState().status).toBe('disconnected')
+    expect(useSpotifyAuthStore.getState().session).toBeNull()
+    expect(result).toBeTruthy()
+    expect(useAudioTraitStore.getState().statusByDatasetFingerprint[snapshot.datasetIdentity.fingerprint]).toBe('ready')
+    expect(useAudioTraitStore.getState().capabilityStatus).toBe('available')
   })
 
   it('builds and caches an audio trait snapshot with coverage', async () => {
     const snapshot = makeSyntheticLabSnapshot()
-    useSpotifyAuthStore.getState().setManualToken('token')
 
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        audio_features: [{
-          id: snapshot.records.find((row) => row.spotify_track_uri)?.spotify_track_uri?.split(':')[2] ?? '0',
-          danceability: 0.6,
-          energy: 0.7,
-          valence: 0.4,
-          acousticness: 0.2,
-          instrumentalness: 0.1,
-          speechiness: 0.05,
-          tempo: 128,
-          liveness: 0.25,
-        }],
+        status: 200,
+        data: {
+          features: [{
+            id: snapshot.records.find((row) => row.spotify_track_uri)?.spotify_track_uri?.split(':')[2] ?? '0',
+            danceability: 0.6,
+            energy: 0.7,
+            valence: 0.4,
+            acousticness: 0.2,
+            instrumentalness: 0.1,
+            speechiness: 0.05,
+            tempo: 128,
+            liveness: 0.25,
+          }],
+          requestStats: {
+            requestedUniqueTrackIds: 1,
+            cappedUniqueTrackIds: 1,
+            truncatedTrackIds: 0,
+            requestChunkCount: 1,
+          },
+        },
       }),
     }))
 

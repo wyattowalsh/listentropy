@@ -63,6 +63,14 @@ export function SpotifyConnectCard({
       ? audio.snapshot.capabilities.audioFeatures
       : audio.snapshot.capabilities.audioTraits)
     : audio.capabilityStatus
+  const capabilityMessage =
+    audio.status === 'unsupported' || capability === 'restricted' || capability === 'unauthorized'
+      ? 'Backend enrichment is currently restricted. Optional OAuth/manual token fallback will be attempted for restricted capability states.'
+      : capability === 'rate-limited'
+        ? 'Backend enrichment is rate-limited right now. Retry shortly.'
+        : capability === 'available'
+          ? 'Backend enrichment endpoint is available. OAuth/manual controls remain optional advanced recovery tools.'
+          : 'Backend enrichment is checked during snapshot preparation. OAuth/manual controls remain optional advanced recovery tools.'
 
   return (
     <Card>
@@ -70,13 +78,13 @@ export function SpotifyConnectCard({
         <div>
           <CardTitle>Spotify Audio Trait Enrichment</CardTitle>
           <CardDescription className="mt-1">
-            Optional, local-only enrichment for danceability/energy/valence/tempo overlays. OAuth sessions are tab-scoped; manual tokens are memory-only unless you opt in to tab persistence.
+            Backend-powered enrichment fetches Spotify audio traits without login for danceability/energy/valence/tempo overlays. Optional OAuth/manual tokens are used only as advanced fallback for restricted capability states.
           </CardDescription>
         </div>
         <div className="flex flex-wrap gap-2">
           {oauthConfig.clientId ? (
             <Button onClick={() => void auth.connectSpotify()} disabled={auth.status === 'authorizing'}>
-              {auth.status === 'authorizing' ? 'Redirecting…' : 'Connect Spotify (OAuth)'}
+              {auth.status === 'authorizing' ? 'Redirecting…' : 'Connect Spotify (optional OAuth)'}
             </Button>
           ) : null}
           <Button
@@ -110,22 +118,22 @@ export function SpotifyConnectCard({
         <div className="rounded-theme border border-border bg-surface-hover p-3">
           <p className="text-xs text-text-muted">Auth status</p>
           <p className="mt-1 text-sm text-text">{auth.status}</p>
-          <p className="mt-1 text-xs text-text-muted">{auth.session ? `Source: ${auth.session.tokenSource}` : 'No token in session'}</p>
+          <p className="mt-1 text-xs text-text-muted">{auth.session ? `Source: ${auth.session.tokenSource}` : 'No optional token in this tab session'}</p>
         </div>
         <div className="rounded-theme border border-border bg-surface-hover p-3">
           <p className="text-xs text-text-muted">Audio capability</p>
           <p className="mt-1 text-sm text-text">{capability ?? 'unknown'}</p>
-          <p className="mt-1 text-xs text-text-muted">Endpoint access may be restricted by Spotify app policy.</p>
+          <p className="mt-1 text-xs text-text-muted">{capabilityMessage}</p>
         </div>
         <div className="rounded-theme border border-border bg-surface-hover p-3">
           <p className="text-xs text-text-muted">Snapshot status</p>
-          <p className="mt-1 text-sm text-text">{audio.status}</p>
+          <p className="mt-1 text-sm text-text" role="status" aria-label="Snapshot status" aria-live="polite">{audio.status}</p>
           {coverage ? (
             <p className="mt-1 text-xs text-text-muted">
               Row coverage {formatPct(coverage.rowsCoverageShare)} · Track coverage {formatPct(coverage.uniqueTrackCoverageShare)}
             </p>
           ) : (
-            <p className="mt-1 text-xs text-text-muted">Prepare a snapshot to enable audio-affect overlay.</p>
+            <p className="mt-1 text-xs text-text-muted">Prepare a snapshot to run backend enrichment and enable audio-affect overlay.</p>
           )}
           <p className="mt-1 text-xs text-text-muted">Overlay module: {audioAffectStatus}</p>
         </div>
@@ -140,9 +148,9 @@ export function SpotifyConnectCard({
       </div>
 
       <details className="mt-3 rounded-theme border border-border bg-surface-hover p-3">
-        <summary className="cursor-pointer text-sm font-medium text-text">Manual token (full mode / fallback)</summary>
+        <summary className="cursor-pointer text-sm font-medium text-text">Manual access token (advanced fallback)</summary>
         <p className="mt-2 text-xs text-text-muted">
-          Use this if OAuth PKCE is not configured or you want a temporary manual token. Manual tokens are memory-only by default.
+          Use this when backend enrichment is restricted, OAuth PKCE is unavailable, or you need a temporary fallback token. Paste a Spotify OAuth access token (Bearer), not an API key.
         </p>
         <label className="mt-2 flex items-center gap-2 text-xs text-text-muted">
           <input
@@ -156,7 +164,7 @@ export function SpotifyConnectCard({
           <Input
             aria-label="Spotify manual token"
             className="min-w-[18rem] flex-1"
-            placeholder="Spotify API token"
+            placeholder="Spotify access token (Bearer)"
             value={manualTokenDraft}
             onChange={(event) => setManualTokenDraft(event.currentTarget.value)}
           />
@@ -183,7 +191,7 @@ export function SpotifyConnectCard({
           <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-text-muted">
             <li>Create or open a Spotify app in the Spotify Developer Dashboard.</li>
             <li>Add the exact redirect URI shown above to your Spotify app redirect URI list.</li>
-            <li>Set `VITE_SPOTIFY_CLIENT_ID` in your local environment, then restart the app.</li>
+            <li>Set `VITE_SPOTIFY_CLIENT_ID` (public client ID) in your local environment, then restart the app.</li>
             <li>Optionally set `VITE_SPOTIFY_REDIRECT_URI` if you need a non-default callback origin/path.</li>
             <li>Prefer testing on `localhost` or `127.0.0.1` if your Spotify app redirect list is strict.</li>
             <li>If OAuth still fails, use the manual token fallback to test enrichment while debugging app settings.</li>

@@ -101,6 +101,23 @@ describe('useSpotifyAuthStore oauth callback and refresh flows', () => {
     window.history.replaceState({}, '', '/')
   })
 
+  it('requires VITE_SPOTIFY_CLIENT_ID before starting OAuth PKCE redirect', async () => {
+    vi.stubEnv('VITE_SPOTIFY_CLIENT_ID', '')
+    vi.stubEnv('VITE_SPOTIFY_REDIRECT_URI', '')
+
+    const { getSpotifyAuthStorageKeys, useSpotifyAuthStore } = await loadModules()
+    const keys = getSpotifyAuthStorageKeys()
+
+    await useSpotifyAuthStore.getState().connectSpotify()
+
+    const state = useSpotifyAuthStore.getState()
+    expect(state.status).toBe('error')
+    expect(state.error).toBe('Missing VITE_SPOTIFY_CLIENT_ID. Configure a Spotify app client ID to use OAuth PKCE.')
+    expect(sessionStorage.getItem(keys.pkceVerifier)).toBeNull()
+    expect(sessionStorage.getItem(keys.oauthState)).toBeNull()
+    expect(sessionStorage.getItem(keys.pkceCreatedAt)).toBeNull()
+  })
+
   it('handles a successful OAuth callback, exchanges the code, and scrubs callback params', async () => {
     vi.stubEnv('VITE_SPOTIFY_CLIENT_ID', 'client-123')
     vi.stubEnv('VITE_SPOTIFY_REDIRECT_URI', 'http://localhost/auth/spotify/callback')

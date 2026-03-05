@@ -5,9 +5,10 @@ import JSZip from 'jszip'
 import { expect, test } from '@playwright/test'
 import type { Page, TestInfo } from '@playwright/test'
 
-import { uploadAuditFixture } from './helpers/spotifyFixture'
+import { openAdvancedTools, uploadAuditFixture } from './helpers/spotifyFixture'
 
 const SCREENSHOT_DIR = path.join(process.cwd(), 'test-results', 'uiux-audit', 'responsive-errors')
+const STRICT_REAL_DATA_AUDIT = process.env.PW_AUDIT_STRICT_REAL_DATA === '1'
 
 test.describe.configure({ mode: 'serial' })
 
@@ -47,27 +48,30 @@ test('captures mobile responsive happy-path shells with fixture zip', async ({ p
 
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
-  await uploadAuditFixture(page, { waitForTab: 'Share' })
+  await uploadAuditFixture(page, { waitForTab: 'Share', requireRealData: STRICT_REAL_DATA_AUDIT })
 
-  await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Dashboard' })).toBeVisible()
   await captureAuditScreenshot(page, testInfo, 'mobile-uploaded-shell', { fullPage: false })
+  const themeSelect = page.getByLabel('Select theme')
+  const timezoneSelect = page.getByLabel('Select timezone mode')
+  await expect(themeSelect).toBeVisible()
+  await expect(timezoneSelect).toBeVisible()
+  await timezoneSelect.selectOption('utc')
+  await expect(timezoneSelect).toHaveValue('utc')
+  await captureAuditScreenshot(page, testInfo, 'mobile-settings-timezone-utc', { fullPage: false })
+  await timezoneSelect.selectOption('local')
+  await expect(timezoneSelect).toHaveValue('local')
 
   await page.getByRole('tab', { name: 'Share' }).click()
   await expect(page.getByRole('heading', { name: 'Share Studio' })).toBeVisible({ timeout: 30_000 })
   await captureAuditScreenshot(page, testInfo, 'mobile-share-studio')
 
-  await page.getByRole('tab', { name: 'Explore' }).click()
-  const erasButton = page.getByRole('button', { name: 'Eras', exact: true })
-  if ((await erasButton.count()) > 0) {
-    await erasButton.click()
-  }
-  await page.getByRole('heading', { name: 'Music Eras' }).scrollIntoViewIfNeeded()
-  await expect(page.getByRole('heading', { name: 'Era Detail' })).toBeVisible({ timeout: 30_000 })
+  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('heading', { name: 'Year-over-year listening' }).scrollIntoViewIfNeeded()
+  await expect(page.getByRole('heading', { name: 'Country context' })).toBeVisible({ timeout: 30_000 })
   await captureAuditScreenshot(page, testInfo, 'mobile-explore-eras')
 
-  await page.getByRole('button', { name: 'Advanced', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Advanced' })).toBeVisible({ timeout: 30_000 })
-  await page.getByRole('combobox', { name: 'Advanced section' }).selectOption('network')
+  await openAdvancedTools(page, 'network')
   await expect(page.getByRole('heading', { name: 'Music Universe Graph' })).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText('Network Analytics')).toBeVisible({ timeout: 30_000 })
   await captureAuditScreenshot(page, testInfo, 'mobile-advanced-network')
@@ -78,7 +82,9 @@ test('captures webkit mobile responsive variant shell', async ({ page }, testInf
   test.setTimeout(240_000)
 
   await page.goto('/')
-  await uploadAuditFixture(page, { waitForTab: 'Share' })
+  await uploadAuditFixture(page, { waitForTab: 'Share', requireRealData: STRICT_REAL_DATA_AUDIT })
+  await expect(page.getByRole('tab', { name: 'Dashboard' })).toBeVisible()
+  await captureAuditScreenshot(page, testInfo, 'webkit-mobile-uploaded-shell', { fullPage: false })
   await page.getByRole('tab', { name: 'Share' }).click()
   await expect(page.getByRole('heading', { name: 'Share Studio' })).toBeVisible({ timeout: 30_000 })
   await captureAuditScreenshot(page, testInfo, 'webkit-mobile-share-studio')
@@ -123,6 +129,12 @@ test('captures malformed history parse-error state', async ({ page }, testInfo) 
   })
   await expect(page.getByRole('heading', { name: 'Failed to parse data' })).toBeVisible({ timeout: 30_000 })
   await captureAuditScreenshot(page, testInfo, 'error-malformed-history')
+  await page.getByRole('button', { name: 'Try again' }).click()
+  await expect(page.getByRole('heading', { name: 'Listentropy' })).toBeVisible({ timeout: 30_000 })
+  await captureAuditScreenshot(page, testInfo, 'recovery-return-to-upload', { fullPage: false })
+  await uploadAuditFixture(page, { waitForTab: 'Share', requireRealData: STRICT_REAL_DATA_AUDIT })
+  await expect(page.getByRole('tab', { name: 'Dashboard' })).toBeVisible()
+  await captureAuditScreenshot(page, testInfo, 'recovery-reupload-shell', { fullPage: false })
 })
 
 test('captures invalid share hash route state', async ({ page }, testInfo) => {

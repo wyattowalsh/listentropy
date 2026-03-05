@@ -7,53 +7,51 @@ describe('TabNav', () => {
   it('keeps the tab accessible name stable and exposes metadata as description', () => {
     render(
       <TabNav
-        value="overview"
+        value="dashboard"
         onChange={vi.fn()}
         metadata={{
-          explore: {
-            badge: '6 sections',
-            detail: 'charts + timeline + context',
-          },
-          taste: {
-            badge: '10 dims',
-            detail: 'dna + spotify enrichment',
+          share: {
+            badge: 'insights',
+            detail: 'story cards + export formats',
           },
         }}
       />,
     )
 
-    const tasteTab = screen.getByRole('tab', { name: /^Taste DNA$/ })
-    expect(tasteTab).toBeVisible()
-    expect(tasteTab).toHaveAccessibleName('Taste DNA')
-    expect(tasteTab).toHaveAccessibleDescription(/10 dims/)
-    expect(tasteTab).toHaveAccessibleDescription(/dna \+ spotify enrichment/i)
+    const shareTab = screen.getByRole('tab', { name: /^Share$/ })
+    expect(shareTab).toBeVisible()
+    expect(shareTab).toHaveAccessibleName('Share')
+    expect(shareTab).toHaveAccessibleDescription(/insights/i)
+    expect(shareTab).toHaveAccessibleDescription(/story cards \+ export formats/i)
   })
 
-  it('renders only the 4 primary tabs in pass 2', () => {
-    render(<TabNav value="overview" onChange={vi.fn()} />)
+  it('renders only the dashboard and share tabs in the consolidated IA', () => {
+    render(<TabNav value="dashboard" onChange={vi.fn()} />)
 
     expect(screen.queryByLabelText('More views')).not.toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Overview' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Explore' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Taste DNA' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Dashboard' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Share' })).toBeInTheDocument()
-    expect(screen.getAllByRole('tab')).toHaveLength(4)
+    expect(screen.queryByRole('tab', { name: 'Settings' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Overview' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Explore' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Taste DNA' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('tab')).toHaveLength(2)
   })
 
   it('keeps metadata accessibility on a primary tab', () => {
     render(
       <TabNav
-        value="explore"
+        value="dashboard"
         onChange={vi.fn()}
         metadata={{
-          explore: { badge: '6 sections', detail: 'charts + timeline + context' },
+          dashboard: { badge: 'ready', detail: 'overview analytics' },
         }}
       />,
     )
 
-    const exploreTab = screen.getByRole('tab', { name: 'Explore' })
-    expect(exploreTab).toHaveAttribute('aria-selected', 'true')
-    expect(exploreTab).toHaveAccessibleDescription(/6 sections/i)
-    expect(exploreTab).toHaveAccessibleDescription(/charts \+ timeline \+ context/i)
+    const dashboardTab = screen.getByRole('tab', { name: 'Dashboard' })
+    expect(dashboardTab).toHaveAttribute('aria-selected', 'true')
+    expect(dashboardTab).toHaveAccessibleDescription(/ready/i)
+    expect(dashboardTab).toHaveAccessibleDescription(/overview analytics/i)
   })
 })

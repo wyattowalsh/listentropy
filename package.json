@@ -1,7 +1,7 @@
 {
   "name": "listentropy",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
@@ -16,6 +16,7 @@
     "test:e2e:ci": "playwright test tests/e2e/smoke.spec.ts --project=chromium",
     "test:e2e:ci:gate": "playwright test tests/e2e/smoke.spec.ts tests/e2e/upload-errors.spec.ts tests/e2e/universe-eras.spec.ts tests/e2e/responsive.spec.ts tests/e2e/xenolab.spec.ts tests/e2e/a11y.spec.ts --project=chromium",
     "test:e2e:ci:uiux": "playwright test tests/e2e/uiux-audit-primary.spec.ts tests/e2e/uiux-audit-advanced.spec.ts tests/e2e/uiux-audit-responsive-errors.spec.ts --project=chromium",
+    "test:e2e:ci:uiux:responsive-errors": "playwright test tests/e2e/uiux-audit-responsive-errors.spec.ts --project=chromium --project=webkit-mobile",
     "test:e2e:matrix": "pnpm build && playwright test -g @matrix --project=chromium --project=webkit-desktop --project=webkit-mobile",
     "test:e2e:a11y": "pnpm build && playwright test -g @a11y --project=chromium",
     "test:e2e:visual": "pnpm build && PW_VISUAL=1 playwright test -g @visual --project=chromium --update-snapshots",

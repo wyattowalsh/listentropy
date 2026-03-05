@@ -76,7 +76,7 @@ export function SharePage(): JSX.Element {
             Data privacy: decoding happens in your browser and no private data was processed.
           </p>
           <p className="mt-2 text-xs text-text-muted">
-            Link authenticity: shared snapshots are browser-generated and unverified in this release.
+            Link authenticity: snapshots are browser-generated and unverified in this release.
           </p>
           <Link to="/" className="mt-4 inline-block text-accent underline">
             Create a new share snapshot
@@ -94,7 +94,7 @@ export function SharePage(): JSX.Element {
           {payload.includeName && payload.name
             ? `${payload.name}'s profile`
             : 'Anonymous profile'}{' '}
-          · {payload.dateRange[0]} — {payload.dateRange[1]} · payload v{payload.version} ·{' '}
+          · {payload.dateRange[0]} — {payload.dateRange[1]} · snapshot v{payload.version} · payload v{payload.version} ·{' '}
           {payload.timezoneMode === 'utc' ? 'UTC' : 'Local Time'} · {payload.themeKey}
         </CardDescription>
       </Card>
@@ -105,7 +105,7 @@ export function SharePage(): JSX.Element {
             Legacy snapshot upgraded
           </CardTitle>
           <CardDescription className="mt-2">
-            This link was generated with payload v{sourceVersion}. We upgraded it in-browser so it renders with the modern /share layout.
+            This link was generated with snapshot v{sourceVersion}. We upgraded it in-browser so it renders with the modern /share layout.
           </CardDescription>
         </Card>
       ) : null}
@@ -115,7 +115,7 @@ export function SharePage(): JSX.Element {
           <span className="font-semibold text-text">Data privacy:</span> this snapshot is decoded in your browser with no upload required to view it.
         </CardDescription>
         <p className="mt-2 text-xs text-text-muted">
-          <span className="font-semibold text-text">Link authenticity:</span> share snapshots are browser-generated and unverified in this release.
+          <span className="font-semibold text-text">Link authenticity:</span> snapshots are browser-generated and unverified in this release.
         </p>
       </Card>
 

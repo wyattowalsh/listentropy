@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
 import type { Locator } from '@playwright/test'
 
-import { uploadSyntheticFixture } from './helpers/spotifyFixture'
+import { openAdvancedTools, uploadSyntheticFixture } from './helpers/spotifyFixture'
 
 async function expectNoAxeViolations(page: Parameters<typeof test>[0]['page']): Promise<void> {
   const results = await new AxeBuilder({ page })
@@ -61,17 +61,16 @@ test('@a11y redesign surfaces keep semantics, touch targets, and contrast-safe s
   await expect(resetButton).toBeVisible()
   await expectTouchTargetAtLeast(resetButton)
 
-  await page.getByRole('tab', { name: 'Explore' }).click()
-  await expect(page.getByRole('heading', { name: 'Explore', level: 2 })).toBeVisible()
-  await expect(page.getByRole('navigation', { name: 'Explore section navigation' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Overview Snapshot', level: 2 })).toBeVisible()
   await expectNoAxeViolations(page)
 
-  await page.getByRole('tab', { name: 'Taste DNA' }).click()
-  await expect(page.getByRole('heading', { name: 'Taste DNA', level: 2 })).toBeVisible()
+  await page.getByRole('tab', { name: 'Share' }).click()
+  await expect(page.getByRole('heading', { name: 'Share Studio', level: 2 })).toBeVisible()
   await expectNoAxeViolations(page)
 
-  await page.getByRole('button', { name: 'Advanced', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Advanced', level: 2 })).toBeVisible()
+  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await openAdvancedTools(page)
+  await expect(page.getByRole('heading', { name: 'Advanced', exact: true })).toBeVisible()
   await expectNoAxeViolations(page)
 
   await page.getByRole('combobox', { name: 'Advanced section' }).selectOption('network')

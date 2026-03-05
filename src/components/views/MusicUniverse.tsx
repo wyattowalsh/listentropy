@@ -187,11 +187,11 @@ function runTimedStage<T>(enabled: boolean, compute: () => T): TimedStageResult<
 }
 
 function renderModeAwareDeepSection(
-  isSimpleMode: boolean,
+  shouldCollapseByDefault: boolean,
   title: string,
   content: ReactNode,
 ): ReactNode {
-  if (!isSimpleMode) {
+  if (!shouldCollapseByDefault) {
     return content
   }
 
@@ -205,9 +205,53 @@ function renderModeAwareDeepSection(
   )
 }
 
+function useIsMobileLayout(maxWidthPx = 767): boolean {
+  const [isMobileLayout, setIsMobileLayout] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false
+    }
+    if (typeof window.matchMedia !== 'function') {
+      return window.innerWidth <= maxWidthPx
+    }
+    return window.matchMedia(`(max-width: ${maxWidthPx}px)`).matches || window.innerWidth <= maxWidthPx
+  })
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const handleChange = (): void => {
+      const mediaMatch = typeof window.matchMedia === 'function'
+        ? window.matchMedia(`(max-width: ${maxWidthPx}px)`).matches
+        : false
+      setIsMobileLayout(mediaMatch || window.innerWidth <= maxWidthPx)
+    }
+
+    handleChange()
+
+    if (typeof window.matchMedia !== 'function') {
+      window.addEventListener('resize', handleChange)
+      return () => window.removeEventListener('resize', handleChange)
+    }
+
+    const mediaQuery = window.matchMedia(`(max-width: ${maxWidthPx}px)`)
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleChange)
+      return () => mediaQuery.removeEventListener('change', handleChange)
+    }
+
+    mediaQuery.addListener(handleChange)
+    return () => mediaQuery.removeListener(handleChange)
+  }, [maxWidthPx])
+
+  return isMobileLayout
+}
+
 export function MusicUniverse({ data, analysisMode = 'deep' }: MusicUniverseProps): JSX.Element {
   const webglSupported = useMemo(() => detectWebGLSupport(), [])
   const graphPerfDebugEnabled = useMemo(() => isGraphPerfDebugEnabled(), [])
+  const isMobileLayout = useIsMobileLayout()
   const recordMetric = useSessionMetricsStore((state) => state.record)
 
   const [rendererStatus, setRendererStatus] = useState<GraphRendererStatus>(() => initialRendererStatus(webglSupported))
@@ -469,6 +513,8 @@ export function MusicUniverse({ data, analysisMode = 'deep' }: MusicUniverseProp
 
   const is3D = rendererStatus.renderer === '3d'
   const isSimpleMode = analysisMode === 'simple'
+  const collapseDenseSections = isSimpleMode || isMobileLayout
+  const resolvedRendererState = rendererStatus.state ?? (is3D ? '3d-ready' : '2d-manual')
   const diagnosticMessageToneClass = isSimpleMode ? 'text-text' : 'text-text-muted'
 
   const selectedNodeLabel = selectedNodeId ? nodeById.get(selectedNodeId)?.label ?? null : null
@@ -628,6 +674,63 @@ export function MusicUniverse({ data, analysisMode = 'deep' }: MusicUniverseProp
     </>
   )
 
+  const viewDiagnosticsPanel = (
+    <Card>
+      <CardTitle>View Diagnostics</CardTitle>
+      <CardDescription className="mt-1">
+        Renderer health and filtered graph totals for the currently visible network.
+      </CardDescription>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-theme border border-border bg-surface-hover p-3">
+          <p className="text-[11px] uppercase tracking-[0.12em] text-text-muted">Renderer health</p>
+          <dl className="mt-2 space-y-1 text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <dt className="text-text-muted">Mode</dt>
+              <dd className="text-text">{rendererStatus.renderer.toUpperCase()}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <dt className="text-text-muted">State</dt>
+              <dd className="text-text">{resolvedRendererState}</dd>
+            </div>
+          </dl>
+          {rendererStatus.diagnosticMessage ? (
+            <p className={`mt-2 text-xs ${diagnosticMessageToneClass}`}>{rendererStatus.diagnosticMessage}</p>
+          ) : null}
+        </div>
+        <div className="rounded-theme border border-border bg-surface-hover p-3">
+          <p className="text-[11px] uppercase tracking-[0.12em] text-text-muted">Filtered view</p>
+          <dl className="mt-2 space-y-1 text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <dt className="text-text-muted">Artists</dt>
+              <dd className="text-text">{analytics.summary.artistCount}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <dt className="text-text-muted">Tracks</dt>
+              <dd className="text-text">{analytics.summary.trackCount}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <dt className="text-text-muted">Avg weighted degree</dt>
+              <dd className="text-text">{analytics.summary.averageWeightedDegree}</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+      {graphPerfDebugEnabled ? (
+        <div className="mt-3 rounded-theme border border-border bg-surface-hover p-3 text-xs text-text-muted">
+          <p className="font-medium text-text">Graph perf debug (dev only)</p>
+          <p className="mt-1">Deferred graph update: {hasDeferredGraphUpdate ? 'pending' : 'idle'}</p>
+          <p className="mt-1">
+            sanitize {graphStageTimings.sanitizeMs ?? 0}ms · filter {graphStageTimings.filterMs ?? 0}ms · annotate{' '}
+            {graphStageTimings.annotateMs ?? 0}ms
+          </p>
+          <p className="mt-1">
+            layout {graphStageTimings.layoutMs ?? 0}ms · analytics {graphStageTimings.analyticsMs ?? 0}ms
+          </p>
+        </div>
+      ) : null}
+    </Card>
+  )
+
   return (
     <div className="min-w-0 space-y-4">
       <Card>
@@ -635,6 +738,33 @@ export function MusicUniverse({ data, analysisMode = 'deep' }: MusicUniverseProp
         <CardDescription className="mt-1">
           Explore artist and track constellations by co-listen and hierarchy links.
         </CardDescription>
+        {isMobileLayout ? (
+          <section aria-label="Network at a glance" className="mt-3 rounded-theme border border-border bg-surface-hover p-3">
+            <h3 className="text-[11px] uppercase tracking-[0.14em] text-text-muted">Network at a glance</h3>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <div className="rounded-theme border border-border bg-surface px-3 py-2">
+                <p className="text-[11px] uppercase tracking-[0.12em] text-text-muted">Visible graph</p>
+                <p className="mt-1 text-sm text-text">
+                  {analytics.summary.nodeCount} nodes · {analytics.summary.edgeCount} edges
+                </p>
+              </div>
+              <div className="rounded-theme border border-border bg-surface px-3 py-2">
+                <p className="text-[11px] uppercase tracking-[0.12em] text-text-muted">Renderer</p>
+                <p className="mt-1 text-sm text-text">
+                  {rendererStatus.renderer.toUpperCase()} · {resolvedRendererState}
+                </p>
+              </div>
+              <div className="rounded-theme border border-border bg-surface px-3 py-2">
+                <p className="text-[11px] uppercase tracking-[0.12em] text-text-muted">Avg degree</p>
+                <p className="mt-1 text-sm text-text">{analytics.summary.averageDegree}</p>
+              </div>
+              <div className="rounded-theme border border-border bg-surface px-3 py-2">
+                <p className="text-[11px] uppercase tracking-[0.12em] text-text-muted">Components</p>
+                <p className="mt-1 text-sm text-text">{analytics.summary.connectedComponents}</p>
+              </div>
+            </div>
+          </section>
+        ) : null}
         <div className="mt-3">
           <GraphControls
             mode={rendererStatus.renderer}
@@ -656,6 +786,7 @@ export function MusicUniverse({ data, analysisMode = 'deep' }: MusicUniverseProp
             selectedNodeLabel={selectedNodeLabel}
             onResetCamera={() => setCameraResetKey((value) => value + 1)}
             onRetry3D={activate3D}
+            compactByDefault={isMobileLayout}
           />
         </div>
         <div className="mt-3 grid gap-3 xl:grid-cols-2">
@@ -798,7 +929,7 @@ export function MusicUniverse({ data, analysisMode = 'deep' }: MusicUniverseProp
             </div>
           </Card>
 
-          {renderModeAwareDeepSection(isSimpleMode, 'Deep network breakdown', networkDetailPanels)}
+          {renderModeAwareDeepSection(collapseDenseSections, 'Deep network breakdown', networkDetailPanels)}
         </div>
 
         <div className="min-w-0 space-y-4">
@@ -814,61 +945,7 @@ export function MusicUniverse({ data, analysisMode = 'deep' }: MusicUniverseProp
             }
             onClearSelected={selectedNodeId ? () => setSelectedNodeId(null) : undefined}
           />
-          <Card>
-            <CardTitle>View Diagnostics</CardTitle>
-            <CardDescription className="mt-1">
-              Renderer health and filtered graph totals for the currently visible network.
-            </CardDescription>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-theme border border-border bg-surface-hover p-3">
-                <p className="text-[11px] uppercase tracking-[0.12em] text-text-muted">Renderer health</p>
-                <dl className="mt-2 space-y-1 text-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <dt className="text-text-muted">Mode</dt>
-                    <dd className="text-text">{rendererStatus.renderer.toUpperCase()}</dd>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <dt className="text-text-muted">State</dt>
-                    <dd className="text-text">{rendererStatus.state ?? (is3D ? '3d-ready' : '2d-manual')}</dd>
-                  </div>
-                </dl>
-                {rendererStatus.diagnosticMessage ? (
-                  <p className={`mt-2 text-xs ${diagnosticMessageToneClass}`}>{rendererStatus.diagnosticMessage}</p>
-                ) : null}
-              </div>
-              <div className="rounded-theme border border-border bg-surface-hover p-3">
-                <p className="text-[11px] uppercase tracking-[0.12em] text-text-muted">Filtered view</p>
-                <dl className="mt-2 space-y-1 text-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <dt className="text-text-muted">Artists</dt>
-                    <dd className="text-text">{analytics.summary.artistCount}</dd>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <dt className="text-text-muted">Tracks</dt>
-                    <dd className="text-text">{analytics.summary.trackCount}</dd>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <dt className="text-text-muted">Avg weighted degree</dt>
-                    <dd className="text-text">{analytics.summary.averageWeightedDegree}</dd>
-                  </div>
-                </dl>
-              </div>
-            </div>
-            {graphPerfDebugEnabled ? (
-              <div className="mt-3 rounded-theme border border-border bg-surface-hover p-3 text-xs text-text-muted">
-                <p className="font-medium text-text">Graph perf debug (dev only)</p>
-                <p className="mt-1">
-                  Deferred graph update: {hasDeferredGraphUpdate ? 'pending' : 'idle'}
-                </p>
-                <p className="mt-1">
-                  sanitize {graphStageTimings.sanitizeMs ?? 0}ms · filter {graphStageTimings.filterMs ?? 0}ms · annotate {graphStageTimings.annotateMs ?? 0}ms
-                </p>
-                <p className="mt-1">
-                  layout {graphStageTimings.layoutMs ?? 0}ms · analytics {graphStageTimings.analyticsMs ?? 0}ms
-                </p>
-              </div>
-            ) : null}
-          </Card>
+          {renderModeAwareDeepSection(isMobileLayout, 'View diagnostics', viewDiagnosticsPanel)}
         </div>
       </div>
     </div>
