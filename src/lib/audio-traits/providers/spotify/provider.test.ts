@@ -210,4 +210,170 @@ describe('spotify audio trait provider', () => {
     expect(result.warnings.some((warning) => /capp?ed|limit|truncat/i.test(warning))).toBe(true)
     expect(result.provenance.endpointNotes?.some((note) => /5,?010|5,?000|truncat|limit/i.test(note))).toBe(true)
   })
+
+  it('reports unknown capabilities before enrichment is attempted', async () => {
+    const provider = createSpotifyAudioTraitProvider()
+    const capabilities = await provider.getCapabilities()
+    expect(capabilities.audioFeatures).toBe('unknown')
+  })
+
+  it('returns a ready no-op result when there are no eligible track ids', async () => {
+    const provider = createSpotifyAudioTraitProvider()
+    const result = await provider.fetchTraitSnapshot({
+      datasetFingerprint: 'fp',
+      trackIds: [],
+      accessToken: '',
+      tokenSource: 'unknown',
+    })
+
+    expect(result.status).toBe('ready')
+    expect(result.traitsByTrackId).toEqual({})
+    expect(result.warnings.some((warning) => /no eligible spotify .*track/i.test(warning))).toBe(true)
+  })
+
+  it('adds fallback cap notes when optional token fallback truncates request ids', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        headers: { get: () => null },
+      })
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          audio_features: [],
+        }),
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const trackIds = Array.from({ length: 5_010 }, (_, index) => `track-${index}`)
+    const provider = createSpotifyAudioTraitProvider()
+    const result = await provider.fetchTraitSnapshot({
+      datasetFingerprint: 'fp',
+      trackIds,
+      accessToken: 'manual-token-value',
+      tokenSource: 'manual-token',
+    })
+
+    expect(result.status).toBe('ready')
+    expect(result.provenance.endpointNotes?.some((note) => /fallback cap applied/i.test(note))).toBe(true)
+    expect(result.provenance.endpointNotes?.some((note) => /5,?010|5,?000/i.test(note))).toBe(true)
+  })
+
+  it('maps fallback 404 responses to unsupported with restricted capability', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        headers: { get: () => null },
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        headers: { get: () => null },
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const provider = createSpotifyAudioTraitProvider()
+    const result = await provider.fetchTraitSnapshot({
+      datasetFingerprint: 'fp',
+      trackIds: ['abc'],
+      accessToken: 'manual-token-value',
+      tokenSource: 'manual-token',
+    })
+
+    expect(result.status).toBe('unsupported')
+    expect(result.capabilities.audioFeatures).toBe('restricted')
+    expect(result.warnings).toHaveLength(2)
+    expect(result.warnings[1]).toMatch(/404|restricted/i)
+  })
+
+  it('preserves fallback Retry-After context when fallback receives 429', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        headers: { get: () => null },
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        headers: { get: (name: string) => (name === 'Retry-After' ? '7' : null) },
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const provider = createSpotifyAudioTraitProvider()
+    const result = await provider.fetchTraitSnapshot({
+      datasetFingerprint: 'fp',
+      trackIds: ['abc'],
+      accessToken: 'manual-token-value',
+      tokenSource: 'manual-token',
+    })
+
+    expect(result.status).toBe('error')
+    expect(result.capabilities.audioFeatures).toBe('rate-limited')
+    expect(result.warnings[1]).toMatch(/429|rate limit/i)
+    expect(result.provenance.endpointNotes?.some((note) => /Fallback Retry-After 7s/i.test(note))).toBe(true)
+  })
+
+  it('surfaces unexpected fallback failures that are not HTTP errors', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        headers: { get: () => null },
+      })
+      .mockRejectedValueOnce(new Error('fallback network exploded'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const provider = createSpotifyAudioTraitProvider()
+    const result = await provider.fetchTraitSnapshot({
+      datasetFingerprint: 'fp',
+      trackIds: ['abc'],
+      accessToken: 'manual-token-value',
+      tokenSource: 'manual-token',
+    })
+
+    expect(result.status).toBe('error')
+    expect(result.message).toBe('fallback network exploded')
+    expect(result.capabilities.audioFeatures).toBe('restricted')
+    expect(result.warnings[1]).toMatch(/Unexpected Spotify fallback failure/i)
+  })
+
+  it('surfaces unexpected non-http provider failures from proxy fetch', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('proxy network exploded')))
+
+    const provider = createSpotifyAudioTraitProvider()
+    const result = await provider.fetchTraitSnapshot({
+      datasetFingerprint: 'fp',
+      trackIds: ['abc'],
+      accessToken: 'manual-token-value',
+      tokenSource: 'manual-token',
+    })
+
+    expect(result.status).toBe('error')
+    expect(result.message).toBe('proxy network exploded')
+    expect(result.warnings[0]).toMatch(/Unexpected Spotify provider failure/i)
+    expect(result.capabilities.audioFeatures).toBe('unknown')
+  })
+
+  it('maps bad-request proxy responses to an error without unsupported status', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      headers: { get: () => null },
+    }))
+
+    const provider = createSpotifyAudioTraitProvider()
+    const result = await provider.fetchTraitSnapshot({
+      datasetFingerprint: 'fp',
+      trackIds: ['abc'],
+      accessToken: '',
+      tokenSource: 'unknown',
+    })
+
+    expect(result.status).toBe('error')
+    expect(result.capabilities.audioFeatures).toBe('unknown')
+    expect(result.message).toMatch(/400|invalid/i)
+  })
 })
