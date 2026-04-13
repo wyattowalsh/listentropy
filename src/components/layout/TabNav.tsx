@@ -1,10 +1,12 @@
+import { Users, BarChart3, Share2 } from 'lucide-react'
 import { PRIMARY_ANALYTICS_TABS_ID_BASE } from '@/components/layout/primary-analytics-tab-ids'
 import { getTabsTabId } from '@/components/ui/tab-ids'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const viewTabs = [
-  { key: 'dashboard', label: 'Dashboard' },
-  { key: 'share', label: 'Share' },
+  { key: 'home', label: 'Home', icon: Users },
+  { key: 'analytics', label: 'My Analytics', icon: BarChart3 },
+  { key: 'share', label: 'Share', icon: Share2 },
 ] as const
 
 type ViewTabKey = (typeof viewTabs)[number]['key']
@@ -27,9 +29,6 @@ export function TabNav({
 }: TabNavProps): JSX.Element {
   return (
     <div className="min-w-0 space-y-2.5">
-      <p className="px-1 text-[10px] uppercase tracking-[0.2em] text-accent-muted/80">
-        Primary views
-      </p>
       <Tabs
         value={value}
         onValueChange={onChange}
@@ -37,8 +36,8 @@ export function TabNav({
         idBase={PRIMARY_ANALYTICS_TABS_ID_BASE}
       >
         <TabsList
-          className="grid w-full max-w-full min-w-0 grid-cols-2 items-stretch gap-1 rounded-theme-lg border-border/80 bg-surface/80 p-1.5 sm:grid-cols-3"
-          aria-label="Primary analytics views"
+          className="grid w-full max-w-full min-w-0 grid-cols-3 items-stretch gap-1 rounded-theme-lg border-border/80 bg-surface/80 p-1.5"
+          aria-label="Primary views"
         >
           {viewTabs.map((tab) => {
             const tabMeta = metadata?.[tab.key]
@@ -46,6 +45,7 @@ export function TabNav({
             const metaDescriptionId = hasMeta
               ? `${getTabsTabId(PRIMARY_ANALYTICS_TABS_ID_BASE, tab.key)}-meta`
               : undefined
+            const Icon = tab.icon
             return (
               <TabsTrigger
                 key={tab.key}
@@ -55,7 +55,10 @@ export function TabNav({
                 aria-describedby={metaDescriptionId}
               >
                 <span className="flex w-full min-w-0 flex-col items-start gap-1 leading-tight">
-                  <span className="font-medium tracking-[0.01em]">{tab.label}</span>
+                  <span className="flex items-center gap-1.5 font-medium tracking-[0.01em]">
+                    <Icon className="h-3.5 w-3.5" />
+                    {tab.label}
+                  </span>
                   {hasMeta ? (
                     <span
                       id={metaDescriptionId}

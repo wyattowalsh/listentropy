@@ -9,6 +9,7 @@ import { ViewErrorBoundary } from '@/components/layout/ViewErrorBoundary'
 import { DropZone } from '@/components/upload/DropZone'
 import { ParseProgress } from '@/components/upload/ParseProgress'
 import type { AdvancedHubSection } from '@/components/views/AdvancedHub'
+import { CommunityDashboard } from '@/components/views/CommunityDashboard'
 import { firstPartyPlugins } from '@/features/plugins/firstPartyPlugins'
 import { pluginRegistry } from '@/lib/plugins/runtime'
 import { useDataStore } from '@/store/useDataStore'
@@ -35,9 +36,7 @@ const AdvancedHub = lazy(() =>
   })),
 )
 
-type MainView = 'dashboard' | 'share'
-
-type PrimaryMainView = MainView
+type MainView = 'home' | 'analytics' | 'share'
 
 interface ViewTabMeta {
   badge?: string
@@ -76,36 +75,120 @@ function syncAdvancedHash(section: AdvancedHubSection | null): void {
   }
 }
 
-function AuthLandingCta(): JSX.Element | null {
+function OnboardingLanding({ onFileSelected, demoZipPath }: {
+  onFileSelected: (file: File, preflight?: unknown) => void
+  demoZipPath?: string
+}): JSX.Element {
   const authStatus = useAuthStore((state) => state.status)
   const authUser = useAuthStore((state) => state.user)
   const authLogin = useAuthStore((state) => state.login)
 
-  if (authStatus === 'loading') return null
-
-  if (authStatus === 'authenticated' && authUser) {
-    return (
-      <p className="mt-3 text-sm text-accent">
-        Signed in as {authUser.displayName || 'Spotify User'}
-      </p>
-    )
-  }
-
   return (
-    <button
-      type="button"
-      onClick={authLogin}
-      className="mt-4 inline-flex items-center gap-2 rounded-theme border border-[#1DB954] bg-[#1DB954] px-6 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-[#1ED760]"
-    >
-      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-      Continue with Spotify
-    </button>
+    <div className="mx-auto max-w-4xl space-y-8">
+      <div className="text-center">
+        <h1 className="font-heading text-5xl text-text">Listentropy</h1>
+        <p className="mt-3 text-base text-text-muted">
+          Explore your Spotify listening history with deep analytics, or discover community-wide trends.
+        </p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="rounded-theme border border-border bg-surface p-5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/10">
+            <svg className="h-5 w-5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+          </div>
+          <h3 className="mt-3 text-sm font-semibold text-text">Upload Export</h3>
+          <p className="mt-1 text-xs text-text-muted">
+            Drop your Spotify Extended Streaming History zip. Processing happens entirely in your browser.
+          </p>
+        </div>
+
+        <div className="rounded-theme border border-border bg-surface p-5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1DB954]/10">
+            <svg className="h-5 w-5 text-[#1DB954]" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+          </div>
+          <h3 className="mt-3 text-sm font-semibold text-text">Sign in with Spotify</h3>
+          <p className="mt-1 text-xs text-text-muted">
+            Connect your Spotify account to persist data, sync history, and access enriched analytics.
+          </p>
+        </div>
+
+        <div className="rounded-theme border border-border bg-surface p-5 sm:col-span-2 lg:col-span-1">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/10">
+            <svg className="h-5 w-5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" /></svg>
+          </div>
+          <h3 className="mt-3 text-sm font-semibold text-text">Community Insights</h3>
+          <p className="mt-1 text-xs text-text-muted">
+            View privacy-preserving aggregate trends from opted-in users. No account needed to browse.
+          </p>
+        </div>
+      </div>
+
+      {authStatus === 'authenticated' && authUser ? (
+        <div className="rounded-theme border border-positive/30 bg-positive/5 p-4 text-center">
+          <p className="text-sm text-text">
+            Signed in as <span className="font-medium">{authUser.displayName || 'Spotify User'}</span>
+          </p>
+          <p className="mt-1 text-xs text-text-muted">
+            Upload your export below to start analyzing, or browse community insights.
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <button
+            type="button"
+            onClick={authLogin}
+            className="inline-flex items-center gap-2 rounded-theme border border-[#1DB954] bg-[#1DB954] px-6 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-[#1ED760]"
+          >
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+            Continue with Spotify
+          </button>
+          <span className="text-xs text-text-muted">or upload below</span>
+        </div>
+      )}
+
+      <div className="space-y-4">
+        <div className="rounded-theme border border-border bg-surface p-4 text-left">
+          <p className="text-sm font-semibold text-text">Upload preflight</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-text-muted">
+            <li>Use the original Spotify Extended Streaming History <code>.zip</code> file.</li>
+            <li>Expected files include <code>Streaming_History_Audio_*.json</code> entries.</li>
+            <li>Listentropy strips <code>ip_addr</code> and processes data locally in-browser.</li>
+          </ul>
+        </div>
+        <DropZone onFileSelected={onFileSelected} demoZipPath={demoZipPath} />
+        <div className="rounded-theme border border-border bg-surface p-4 text-sm text-text-muted">
+          <p className="font-semibold text-text">How to get your Spotify export</p>
+          <ol className="mt-2 list-decimal space-y-1 pl-5">
+            <li>
+              Go to{' '}
+              <a
+                href="https://spotify.com/account/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-text underline decoration-dotted underline-offset-2 transition-colors hover:text-accent"
+              >
+                spotify.com/account/privacy
+              </a>{' '}
+              and sign in.
+            </li>
+            <li>Open data request controls and request Extended Streaming History.</li>
+            <li>Download the zip when Spotify sends it.</li>
+            <li>Upload the original .zip here.</li>
+          </ol>
+        </div>
+      </div>
+
+      <section>
+        <CommunityDashboard />
+      </section>
+    </div>
   )
 }
 
 export function DashboardApp(): JSX.Element {
   const deepLinkedAdvancedSection = readAdvancedSectionFromHash()
-  const [primaryView, setPrimaryView] = useState<PrimaryMainView>('dashboard')
+  const [primaryView, setPrimaryView] = useState<MainView>('home')
   const [advancedSection, setAdvancedSection] = useState<AdvancedHubSection>(
     deepLinkedAdvancedSection ?? 'lab',
   )
@@ -126,7 +209,6 @@ export function DashboardApp(): JSX.Element {
   const authStatus = useAuthStore((state) => state.status)
   const startTokenLifecycle = useAuthStore((state) => state.startTokenLifecycle)
   const fetchConsent = useConsentStore((state) => state.fetchConsent)
-  const view: MainView = primaryView
 
   useEffect(() => {
     applyTheme(themeKey)
@@ -159,68 +241,87 @@ export function DashboardApp(): JSX.Element {
   }, [advancedSection, showAdvancedTools])
 
   useEffect(() => {
-    const fullViews: MainView[] = ['share']
-    if (fullViews.includes(view)) {
+    if (primaryView === 'share') {
       recordExperienceBehavior('full_tab_visit')
       recordMetric({
         type: 'full_tab_visit',
         timestamp: new Date().toISOString(),
-        dedupeKey: `full-tab:${view}`,
-        metadata: { view },
+        dedupeKey: `full-tab:${primaryView}`,
+        metadata: { view: primaryView },
       })
     }
-  }, [recordExperienceBehavior, recordMetric, view])
+  }, [recordExperienceBehavior, recordMetric, primaryView])
+
+  const hasNavigatedToAnalytics = useMemo(() => ({ current: false }), [])
+  useEffect(() => {
+    if (data && !hasNavigatedToAnalytics.current) {
+      hasNavigatedToAnalytics.current = true
+      setPrimaryView('analytics')
+    }
+  }, [data, hasNavigatedToAnalytics])
 
   function openAdvancedTools(nextSection?: AdvancedHubSection): void {
     if (nextSection) {
       setAdvancedSection(nextSection)
     }
     setShowAdvancedTools(true)
-    setPrimaryView('dashboard')
+    setPrimaryView('analytics')
   }
 
+  function handleReset(): void {
+    setPrimaryView('home')
+    setAdvancedSection('lab')
+    setShowAdvancedTools(false)
+    reset()
+  }
+
+  const hasData = mode === 'ready' && data !== null
+
   const body = useMemo(() => {
+    if (primaryView === 'home') {
+      return <CommunityDashboard />
+    }
+    if (primaryView === 'share' && data) {
+      return <ShareStudio data={data} />
+    }
     if (!data) {
       return null
     }
-    if (view === 'dashboard') {
-      return (
-        <div className="space-y-6">
-          <OverviewDashboard data={data} />
-          <section className="rounded-theme border border-border bg-surface p-4 sm:p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="font-heading text-xl text-text">Advanced tools</h2>
-                <p className="mt-1 text-sm text-text-muted">
-                  Reveal Xenolab, network, artist deep dive, and plugin extras without leaving Dashboard.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="rounded-theme border border-border px-3 py-2 text-sm transition hover:border-accent/45 hover:text-accent"
-                aria-expanded={showAdvancedTools}
-                onClick={() => {
-                  setShowAdvancedTools((value) => !value)
-                }}
-              >
-                {showAdvancedTools ? 'Hide advanced tools' : 'Show advanced tools'}
-              </button>
+    return (
+      <div className="space-y-6">
+        <OverviewDashboard data={data} />
+        <section className="rounded-theme border border-border bg-surface p-4 sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="font-heading text-xl text-text">Advanced tools</h2>
+              <p className="mt-1 text-sm text-text-muted">
+                Reveal Xenolab, network, artist deep dive, and plugin extras without leaving Dashboard.
+              </p>
             </div>
-            {showAdvancedTools ? (
-              <div className="mt-4">
-                <AdvancedHub
-                  data={data}
-                  section={advancedSection}
-                  onSectionChange={setAdvancedSection}
-                />
-              </div>
-            ) : null}
-          </section>
-        </div>
-      )
-    }
-    return <ShareStudio data={data} />
-  }, [advancedSection, data, showAdvancedTools, view])
+            <button
+              type="button"
+              className="rounded-theme border border-border px-3 py-2 text-sm transition hover:border-accent/45 hover:text-accent"
+              aria-expanded={showAdvancedTools}
+              onClick={() => {
+                setShowAdvancedTools((value) => !value)
+              }}
+            >
+              {showAdvancedTools ? 'Hide advanced tools' : 'Show advanced tools'}
+            </button>
+          </div>
+          {showAdvancedTools ? (
+            <div className="mt-4">
+              <AdvancedHub
+                data={data}
+                section={advancedSection}
+                onSectionChange={setAdvancedSection}
+              />
+            </div>
+          ) : null}
+        </section>
+      </div>
+    )
+  }, [advancedSection, data, primaryView, showAdvancedTools])
 
   const loadingFallback = (
     <div className="rounded-theme border border-border bg-surface p-6">
@@ -230,66 +331,33 @@ export function DashboardApp(): JSX.Element {
     </div>
   )
 
-  const tabMetadata = useMemo<Record<PrimaryMainView, ViewTabMeta> | null>(() => {
-    if (!data) {
-      return null
-    }
+  const tabMetadata = useMemo<Record<MainView, ViewTabMeta> | null>(() => {
     return {
-      dashboard: {
-        badge: `${Math.round(data.summary.totalHours)}h`,
-        detail: `${data.summary.totalPlays.toLocaleString()} plays · ${data.eras.length} eras`,
+      home: {
+        badge: 'community',
+        detail: 'aggregate insights',
       },
-      share: {
+      analytics: data ? {
+        badge: `${Math.round(data.summary.totalHours)}h`,
+        detail: `${data.summary.totalPlays.toLocaleString()} plays`,
+      } : {
+        detail: 'upload to unlock',
+      },
+      share: data ? {
         badge: `${data.narrativeInsights.length} insights`,
-        detail: 'story cards + export formats',
+        detail: 'story cards + export',
+      } : {
+        detail: 'requires data',
       },
     }
   }, [data])
 
-  if (mode === 'idle') {
+  if (mode === 'idle' && !hasData) {
     return (
       <div className="relative min-h-screen bg-bg text-text">
         <ConsentDialog />
         <ViewContainer>
-          <div className="mx-auto mt-12 max-w-3xl">
-            <div className="mb-6 text-center">
-              <h1 className="font-heading text-5xl text-text">Listentropy</h1>
-              <p className="mt-3 text-sm text-text-muted">
-                Request your Spotify Extended Streaming History zip and drop it below.
-                All processing happens locally in your browser.
-              </p>
-              <AuthLandingCta />
-            </div>
-            <div className="mb-4 rounded-theme border border-border bg-surface p-4 text-left">
-              <p className="text-sm font-semibold text-text">Upload preflight</p>
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-text-muted">
-                <li>Use the original Spotify Extended Streaming History `.zip` file.</li>
-                <li>Expected files include `Streaming_History_Audio_*.json` entries.</li>
-                <li>Listentropy strips `ip_addr` and processes data locally in-browser.</li>
-              </ul>
-            </div>
-            <DropZone onFileSelected={ingestZip} demoZipPath={DEMO_ZIP_PATH} />
-            <div className="mt-5 rounded-theme border border-border bg-surface p-4 text-sm text-text-muted">
-              <p className="font-semibold text-text">How to get your Spotify export</p>
-              <ol className="mt-2 list-decimal space-y-1 pl-5">
-                <li>
-                  Go to{' '}
-                  <a
-                    href="https://spotify.com/account/privacy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-text underline decoration-dotted underline-offset-2 transition-colors hover:text-accent"
-                  >
-                    spotify.com/account/privacy
-                  </a>{' '}
-                  and sign in.
-                </li>
-                <li>Open data request controls and request Extended Streaming History.</li>
-                <li>Download the zip when Spotify sends it.</li>
-                <li>Upload the original .zip here.</li>
-              </ol>
-            </div>
-          </div>
+          <OnboardingLanding onFileSelected={ingestZip} demoZipPath={DEMO_ZIP_PATH} />
         </ViewContainer>
       </div>
     )
@@ -330,12 +398,6 @@ export function DashboardApp(): JSX.Element {
     )
   }
 
-  function handleReset(): void {
-    setPrimaryView('dashboard')
-    setAdvancedSection('lab')
-    setShowAdvancedTools(false)
-    reset()
-  }
   const activePrimaryNavView = primaryView
 
   return (
@@ -358,7 +420,9 @@ export function DashboardApp(): JSX.Element {
           <TabNav
             value={activePrimaryNavView}
             onChange={(value) => {
-              setPrimaryView(value as PrimaryMainView)
+              if (value === 'analytics' && !hasData) return
+              if (value === 'share' && !hasData) return
+              setPrimaryView(value as MainView)
             }}
             metadata={tabMetadata ?? undefined}
           />
@@ -369,7 +433,7 @@ export function DashboardApp(): JSX.Element {
             aria-labelledby={getPrimaryAnalyticsTabId(activePrimaryNavView)}
             tabIndex={0}
           >
-            <ViewErrorBoundary viewKey={view}>
+            <ViewErrorBoundary viewKey={primaryView}>
               <Suspense fallback={loadingFallback}>{body}</Suspense>
             </ViewErrorBoundary>
           </div>

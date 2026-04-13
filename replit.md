@@ -5,7 +5,7 @@ Listentropy is a privacy-first Spotify listening history analyzer. Users upload 
 
 ## Architecture
 - **Frontend:** React 18 + TypeScript 5.9, Vite 7.3, Tailwind CSS 3.4
-- **State:** Zustand (11 stores: data, lab, audio traits, spotify auth, server auth, consent, datasets, theme, session metrics, experience, upload)
+- **State:** Zustand (12 stores: data, lab, audio traits, spotify auth, server auth, consent, datasets, theme, session metrics, experience, upload, aggregates)
 - **Visualization:** Recharts, D3-force, Three.js / @react-three/fiber
 - **Workers:** 2 dedicated Web Workers (data processing, lab analytics)
 - **Backend:** Express API server on port 3001, proxied through Vite dev server
@@ -15,7 +15,8 @@ Listentropy is a privacy-first Spotify listening history analyzer. Users upload 
 - **Data Model:** Per-dataset dedup (unique on dataset_id + dedup_hash), user-level dedup via DISTINCT ON, merge engine creates new datasets with full provenance trail
 - **Ingestion:** ZIP export upload, Spotify API server-side sync, merge of multiple datasets
 - **Aggregation:** Privacy-preserving cross-user analytics with min cohort=5, rare-item suppression, hourly scheduler, in-memory cache
-- **Routing:** react-router-dom v7 (/, /auth/spotify/callback, /share)
+- **Navigation:** 3-tab structure (Home=community aggregates, My Analytics=personal data, Share), react-router-dom v7 (/, /auth/spotify/callback, /share)
+- **Onboarding:** Landing page with 3 clear paths: Upload Export, Sign in with Spotify, Community Insights; CommunityDashboard embedded on landing
 
 ## Key Directories
 ```
