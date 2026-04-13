@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express'
 import { query } from '../db.js'
 import { runAggregationPipeline, MIN_COHORT_SIZE } from '../aggregation.js'
 import { requireAuth, requireCsrf, type AuthenticatedRequest } from '../middleware.js'
+import { computeLimiter } from '../rate-limit.js'
 
 const router = Router()
 
@@ -143,7 +144,7 @@ router.get('/snapshot/:type', async (req: Request, res: Response) => {
   }
 })
 
-router.post('/compute', requireAuth, requireCsrf, async (req: Request, res: Response) => {
+router.post('/compute', computeLimiter, requireAuth, requireCsrf, async (req: Request, res: Response) => {
   const authReq = req as AuthenticatedRequest
 
   const userCheck = await query<{ spotify_id: string }>(

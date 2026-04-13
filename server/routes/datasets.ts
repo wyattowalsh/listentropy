@@ -5,8 +5,11 @@ import { query, getClient } from '../db.js'
 import { decrypt } from '../crypto.js'
 import { requireAuth, requireCsrf, type AuthenticatedRequest } from '../middleware.js'
 import { parseZipBuffer, type ParsedRecord } from '../parser.js'
+import { uploadLimiter } from '../rate-limit.js'
 
 const router = Router()
+
+const MAX_INGEST_TRACKS = 5000
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -131,6 +134,7 @@ async function insertRecordsBatch(
 
 router.post(
   '/upload',
+  uploadLimiter,
   requireAuth,
   requireCsrf,
   upload.single('file'),
@@ -248,7 +252,7 @@ router.post(
   },
 )
 
-router.post('/ingest-api', requireAuth, requireCsrf, async (req: Request, res: Response) => {
+router.post('/ingest-api', uploadLimiter, requireAuth, requireCsrf, async (req: Request, res: Response) => {
   const authReq = req as AuthenticatedRequest
   const { tracks } = req.body as {
     tracks?: Array<{
@@ -264,6 +268,11 @@ router.post('/ingest-api', requireAuth, requireCsrf, async (req: Request, res: R
 
   if (!tracks || !Array.isArray(tracks) || tracks.length === 0) {
     res.status(400).json({ error: 'No tracks provided' })
+    return
+  }
+
+  if (tracks.length > MAX_INGEST_TRACKS) {
+    res.status(400).json({ error: `Maximum ${MAX_INGEST_TRACKS} tracks per request` })
     return
   }
 
@@ -384,7 +393,7 @@ router.post('/ingest-api', requireAuth, requireCsrf, async (req: Request, res: R
   }
 })
 
-router.post('/sync-spotify', requireAuth, requireCsrf, async (req: Request, res: Response) => {
+router.post('/sync-spotify', uploadLimiter, requireAuth, requireCsrf, async (req: Request, res: Response) => {
   const authReq = req as AuthenticatedRequest
 
   const consentCheck = await query<{ granted: boolean }>(

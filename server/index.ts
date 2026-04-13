@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
 import cookieParser from 'cookie-parser'
 import { runMigrations } from './db.js'
 import authRoutes from './routes/auth.js'
@@ -7,11 +8,17 @@ import datasetRoutes from './routes/datasets.js'
 import aggregateRoutes from './routes/aggregates.js'
 import enrichmentHandler from './routes/enrichment.js'
 import { runAggregationPipeline } from './aggregation.js'
+import { authLimiter, uploadLimiter, apiLimiter } from './rate-limit.js'
 
 const app = express()
 const PORT = parseInt(process.env.SERVER_PORT || '3001', 10)
 
 app.set('trust proxy', 1)
+
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}))
 
 const ALLOWED_ORIGINS = [
   ...(process.env.REPLIT_DEV_DOMAIN ? [`https://${process.env.REPLIT_DEV_DOMAIN}`] : []),
@@ -33,9 +40,9 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }))
 app.use(cookieParser())
 
-app.use('/api/auth', authRoutes)
-app.use('/api/datasets', datasetRoutes)
-app.use('/api/aggregates', aggregateRoutes)
+app.use('/api/auth', authLimiter, authRoutes)
+app.use('/api/datasets', apiLimiter, datasetRoutes)
+app.use('/api/aggregates', apiLimiter, aggregateRoutes)
 
 app.post('/api/spotify/enrichment/audio-features', enrichmentHandler)
 

@@ -71,7 +71,15 @@ tests/                          # E2E (Playwright) + fixtures
 - `GET /api/datasets` — List user's datasets
 - `DELETE /api/datasets/:id` — Delete a dataset and its events (requires CSRF)
 - `GET /api/datasets/events` — Paginated listening events query
-- `POST /api/spotify/enrichment/audio-features` — Audio feature enrichment proxy
+- `POST /api/datasets/ingest-api` — Ingest tracks from API (requires CSRF, consent, max 5000 tracks)
+- `POST /api/datasets/sync-spotify` — Sync recent plays from Spotify (requires CSRF, consent)
+- `POST /api/datasets/merge` — Merge datasets (requires CSRF)
+- `GET /api/datasets/provenance` — Data provenance trail
+- `GET /api/aggregates/summary` — Aggregate snapshot summary (public, cached 15min)
+- `GET /api/aggregates/snapshot/:type` — Aggregate snapshot data (public, cached 15min)
+- `POST /api/aggregates/compute` — Trigger aggregation pipeline (requires auth + CSRF)
+- `GET /api/aggregates/privacy` — Privacy rules and guarantees (public)
+- `POST /api/spotify/enrichment/audio-features` — Audio feature enrichment proxy (rate limited 60/min)
 
 ## Database Schema
 - `users` — User accounts (Spotify identity)
@@ -92,8 +100,23 @@ tests/                          # E2E (Playwright) + fixtures
 - `SPOTIFY_ENRICHMENT_PROXY_RATE_LIMIT_PER_MINUTE` — Rate limit override (default: 60)
 
 ## Architecture Documents
+- `docs/architecture.md` — Comprehensive system architecture documentation
+- `docs/aggregate-privacy.md` — Aggregate analytics privacy model
 - `docs/audit.md` — Full codebase audit
 - `docs/target-architecture.md` — Target architecture for multi-user evolution
+
+## Security
+- **Helmet**: Security headers (X-Content-Type-Options, X-Frame-Options, HSTS, etc.)
+- **Rate Limiting**: express-rate-limit with tiered limits:
+  - Auth endpoints: 30 requests/15min per IP
+  - Upload/ingest/sync: 10 requests/hr per IP
+  - Compute trigger: 5 requests/10min per IP
+  - General API: 300 requests/15min per IP
+  - Enrichment proxy: 60 requests/min per IP
+- **Input Validation**: Max 5000 tracks per ingest-api request, ZIP-only file filter, 256MB upload limit, 1MB JSON body limit
+- **CSRF**: All mutation endpoints require X-CSRF-Token header
+- **Encryption**: AES-256-GCM for Spotify tokens at rest
+- **Session Security**: SHA-256 hashed session tokens, HttpOnly cookies, 30-day expiry
 
 ## Privacy Model
 - Local-only processing is the default path (no forced server persistence)
