@@ -25,6 +25,8 @@ export async function getClient(): Promise<pg.PoolClient> {
 export async function runMigrations(): Promise<void> {
   console.log('[db] Running migrations...')
 
+  await pool.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto;`)
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
