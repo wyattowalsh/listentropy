@@ -40,4 +40,3 @@ externalPort = 80
 [userenv]
 
 [userenv.shared]
-ENCRYPTION_KEY = "1c556423a5b2141da901b47945ae2ff1e4887a31dad1c60fe38664f85000c682"
