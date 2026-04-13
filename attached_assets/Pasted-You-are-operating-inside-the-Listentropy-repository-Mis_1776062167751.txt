@@ -1,0 +1,321 @@
+You are operating inside the Listentropy repository.
+
+Mission:
+Perform a full end-to-end review, audit, redesign, and implementation overhaul of the app so that:
+1) users can sign in with Spotify as a first-class authenticated experience,
+2) users can optionally upload and enrich with their Spotify account data exports,
+3) the product can persist consented user data centrally,
+4) the app can power a home dashboard built from privacy-preserving, aggregated, cross-user analytics,
+5) all of this remains compliant, explainable, secure, and operationally maintainable.
+
+This is not just a local-first analyzer anymore. Treat this as a privacy-aware, multi-user data product with centralized identity, ingestion, storage, aggregation, and deletion requirements.
+
+Non-negotiable goals:
+- First-class Spotify login
+- Optional Spotify export upload / enrichment
+- Persistent user accounts and durable datasets
+- Cross-user aggregate analytics for the home dashboard
+- Explicit privacy, consent, provenance, retention, and deletion controls
+- Strong security and test coverage
+- Evolutionary refactor where possible, not reckless rewrite
+
+Context you must infer from the repo before changing anything:
+- The app already contains Spotify-related auth/enrichment concepts.
+- The current product philosophy is privacy-first / local-first.
+- Existing upload, analytics, enrichment, proxy, and test flows should be preserved where possible.
+- You must audit current architecture before redesigning it.
+
+Operating mode:
+Work like a staff engineer + architect + product/security reviewer.
+Use subagents aggressively and in parallel.
+Do not ask unnecessary questions. Inspect the codebase, write the audit, propose the target architecture, and implement the best coherent version you can.
+
+Primary product shift:
+Evolve Listentropy from a local upload analyzer into a hybrid system with:
+- authenticated Spotify accounts,
+- optional export ingestion,
+- user-scoped persisted private data,
+- derived privacy-preserving aggregate analytics across the user base,
+- clear separation between raw/private data and aggregate/public product metrics.
+
+Critical architecture principle:
+Never conflate:
+1) raw user data,
+2) user-private derived data,
+3) cached API enrichment data,
+4) aggregate analytics tables,
+5) UI/session/auth state.
+
+You must model these explicitly.
+
+A. Audit first
+Before major refactors, perform a serious repo-wide audit across:
+- frontend architecture
+- auth flow
+- backend/API routes
+- data parsing / workers / enrichment
+- state management
+- tests / CI
+- deployment/runtime assumptions
+- performance constraints
+- security/privacy risks
+- current product/UX inconsistencies
+
+Produce an in-repo audit document that clearly states:
+- current behavior
+- strengths
+- weaknesses
+- architectural risks
+- security/privacy risks
+- recommended target architecture
+- migration strategy
+
+B. Make Spotify login first-class
+Implement a robust, product-grade Spotify sign-in and connected-account experience.
+Requirements:
+- “Continue with Spotify” is a primary entry point
+- secure OAuth with PKCE
+- correct callback/state handling
+- account connect / reconnect / disconnect
+- refresh and expiry handling
+- clear signed-in account state in the UI
+- account settings / connection management area
+- support revoked access / stale tokens / partial permissions gracefully
+- explicit storage decisions for tokens/session material
+- strong auth abstraction, not scattered token logic
+
+C. Introduce real user accounts and persisted data
+Design and implement a durable user/account model suitable for a multi-user app.
+Requirements:
+- authenticated user identity
+- persisted user profile / account linkage
+- persisted datasets tied to a user
+- explicit ownership and provenance of uploaded/exported/enriched data
+- migration path from today’s local-only assumptions
+- no ambiguous global state or unowned records
+
+D. Support optional export ingestion and merge with Spotify account data
+Users should be able to choose among:
+1) Spotify login only
+2) export upload only
+3) login + export upload, merged intelligently
+
+Requirements:
+- clean ingestion pipeline for Spotify data exports
+- explicit provenance for every dataset and derived insight
+- robust merge/dedupe strategy between API/live data and exported history
+- versioned parsing / normalization pipeline where practical
+- clear handling of missing, conflicting, or partially overlapping data
+- preserve high-value existing analytics behavior
+
+E. Build centralized storage carefully
+The system should support storing consented user data centrally, but in a disciplined way.
+Do NOT treat this as “dump everything into one database”.
+You must design and implement:
+- a user-scoped private/raw data layer
+- a derived user-private analytics layer
+- a privacy-preserving aggregate analytics layer for cross-user dashboards
+- explicit separation of concerns between these layers
+
+Design requirements:
+- raw/private user listening data remains access-controlled and user-scoped
+- aggregate analytics are derived from private data through a defined pipeline
+- aggregate tables should not expose user-identifiable records
+- provenance should always show whether a metric came from:
+  - Spotify API
+  - uploaded export
+  - merged data
+  - aggregate cross-user analytics
+
+F. Privacy, consent, retention, and deletion
+This is a core requirement.
+Implement a privacy-aware product architecture with explicit user control.
+
+Requirements:
+- clear consent UX before any server-side persistence of account/export data
+- clear explanation of what is:
+  - local only
+  - uploaded
+  - persisted
+  - fetched from Spotify
+  - aggregated for product-wide analytics
+- user ability to disconnect Spotify
+- user ability to delete uploaded datasets
+- user ability to delete their account and all associated persisted private data
+- documented retention strategy
+- deletion propagation strategy for derived aggregates where appropriate
+- audit all current copy and flows for misleading privacy claims after the architecture change
+
+Important:
+Do not claim “anonymous” if the implementation is only pseudonymous or reversible.
+Prefer precise language like:
+- user-scoped private data
+- de-identified derived aggregates
+- thresholded aggregate analytics
+- privacy-preserving aggregate metrics
+
+G. Aggregate analytics / home dashboard
+Design and implement a home dashboard backed by cross-user aggregate analytics, but do so safely.
+
+Requirements:
+- define exactly which aggregate metrics are useful and defensible
+- build aggregation jobs / derivation flows
+- add guardrails such as:
+  - minimum cohort thresholds
+  - suppression of low-count slices
+  - no direct exposure of row-level user listening data
+  - no unique-user fingerprinting surfaces
+- ensure the dashboard only uses appropriately derived aggregate tables
+- document tradeoffs and residual privacy risks honestly
+
+Examples of acceptable aggregate patterns:
+- top artists/tracks across sufficiently large cohorts
+- genre/time/behavior aggregates above minimum thresholds
+- comparative percentile-style metrics only if implemented safely
+
+Examples of risky patterns to avoid unless carefully protected:
+- narrow cohort slices
+- exact rare listening histories
+- user-level raw event exposure
+- dashboards where a single user can infer another user’s private behavior
+
+H. Security hardening
+Audit and improve:
+- OAuth/PKCE correctness
+- CSRF/state handling
+- token handling and storage
+- API validation
+- upload validation
+- abuse/rate limiting
+- secret/env management
+- authorization checks for user-owned data
+- logging hygiene
+- callback safety
+- privacy/security documentation
+- protection against accidental cross-user data leaks
+
+I. Architecture expectations
+Inspect existing conventions before introducing new patterns.
+Prefer coherent boundaries such as:
+- auth/session layer
+- ingestion/parsing layer
+- enrichment layer
+- normalized domain models
+- user-private persistence layer
+- aggregate analytics derivation layer
+- frontend query/view models
+
+Refactor toward:
+- strong typing
+- explicit schemas/contracts
+- clear service boundaries
+- minimal duplicated state
+- testable pure transformations
+- maintainable async flows
+- durable migration path
+
+J. Data model expectations
+Create explicit models for concepts like:
+- User
+- SpotifyConnection
+- ConsentState
+- UploadedDataset
+- DatasetSource / Provenance
+- ListeningEvent / NormalizedPlaybackFact
+- EnrichmentArtifact
+- UserPrivateAnalyticsSnapshot
+- AggregateMetric / AggregateFact
+- DeletionRequest / RetentionPolicy metadata if appropriate
+
+K. UX overhaul
+Redesign onboarding and core flows for these journeys:
+1) “I want to sign in with Spotify and explore my account”
+2) “I want to upload my export only”
+3) “I want both, merged”
+4) “I want to understand exactly what gets stored and aggregated”
+5) “I want to disconnect or delete my data”
+
+Deliver:
+- improved landing / onboarding
+- clearer navigation and IA
+- better account/settings/data controls
+- better ingestion/progress/error states
+- clearer privacy/provenance UI
+- more coherent dashboard story
+
+L. Testing and validation
+Extend the repo’s quality gates.
+Add/update:
+- unit tests
+- integration tests
+- e2e tests
+- auth tests
+- ingestion/merge tests
+- authorization tests
+- deletion tests
+- privacy/provenance tests
+- aggregate-threshold/suppression tests
+- regression tests for existing analytics behavior
+
+Do not weaken quality standards without documenting why.
+
+M. Documentation
+Update docs for:
+- overall architecture
+- auth/session model
+- persistence model
+- provenance model
+- privacy and consent model
+- retention/deletion behavior
+- environment variables
+- Spotify app setup
+- deployment/runtime implications
+- migration notes
+- operational risks and follow-up work
+
+N. Deliverables
+By the end, produce:
+1) a written audit
+2) a target architecture plan
+3) the implementation
+4) updated tests
+5) updated docs
+6) a concise changelog/summary
+7) explicit tradeoffs, risks, and next steps
+
+Subagent strategy:
+Use subagents in parallel with scopes such as:
+- Auth & security audit
+- Frontend UX / product flow redesign
+- Data modeling / provenance / merge architecture
+- Persistence and authorization architecture
+- Aggregate analytics privacy design
+- Testing / CI / regression
+- Docs / migration
+
+Each subagent should:
+- inspect relevant files deeply
+- report findings
+- propose concrete changes
+- cite exact files/functions
+- reconcile into one coherent architecture
+
+Execution order:
+1) Deeply audit the current repo
+2) Summarize current architecture
+3) Propose target architecture
+4) Define phased migration plan
+5) Implement end to end
+6) Update tests/docs
+7) Validate against existing quality expectations
+8) Summarize remaining gaps honestly
+
+Important constraints:
+- Do not bulldoze working core analytics if they can be preserved
+- Do not hand-wave privacy/compliance
+- Do not label weak de-identification as true anonymity
+- Do not mix raw private data with product-wide aggregate tables
+- Do not introduce user-data persistence without clear consent UX and deletion support
+- Do not leave auth/security/storage semantics implicit
+
+Start now by auditing the repository deeply, then propose the target architecture, then implement it.
