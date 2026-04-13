@@ -11,10 +11,10 @@ const PORT = parseInt(process.env.SERVER_PORT || '3001', 10)
 app.set('trust proxy', 1)
 
 const ALLOWED_ORIGINS = [
-  `https://${process.env.REPLIT_DEV_DOMAIN}`,
-  ...(process.env.REPLIT_DOMAINS?.split(',').map(d => `https://${d.trim()}`) ?? []),
+  ...(process.env.REPLIT_DEV_DOMAIN ? [`https://${process.env.REPLIT_DEV_DOMAIN}`] : []),
+  ...(process.env.REPLIT_DOMAINS?.split(',').filter(d => d.trim()).map(d => `https://${d.trim()}`) ?? []),
   'http://localhost:5000',
-].filter(Boolean)
+]
 
 app.use(cors({
   origin: (origin, callback) => {
