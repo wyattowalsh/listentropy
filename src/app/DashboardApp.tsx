@@ -15,7 +15,9 @@ import { useDataStore } from '@/store/useDataStore'
 import { useExperienceStore } from '@/store/useExperienceStore'
 import { useSessionMetricsStore } from '@/store/useSessionMetricsStore'
 import { useAuthStore } from '@/store/useAuthStore'
+import { useConsentStore } from '@/store/useConsentStore'
 import { applyTheme, useThemeStore } from '@/store/useThemeStore'
+import { ConsentDialog } from '@/components/consent/ConsentDialog'
 
 const OverviewDashboard = lazy(() =>
   import('@/components/views/OverviewDashboard').then((module) => ({
@@ -121,7 +123,9 @@ export function DashboardApp(): JSX.Element {
   const recordExperienceBehavior = useExperienceStore((state) => state.recordBehavior)
   const recordMetric = useSessionMetricsStore((state) => state.record)
   const checkSession = useAuthStore((state) => state.checkSession)
+  const authStatus = useAuthStore((state) => state.status)
   const startTokenLifecycle = useAuthStore((state) => state.startTokenLifecycle)
+  const fetchConsent = useConsentStore((state) => state.fetchConsent)
   const view: MainView = primaryView
 
   useEffect(() => {
@@ -135,6 +139,12 @@ export function DashboardApp(): JSX.Element {
   useEffect(() => {
     return startTokenLifecycle()
   }, [startTokenLifecycle])
+
+  useEffect(() => {
+    if (authStatus === 'authenticated') {
+      void fetchConsent()
+    }
+  }, [authStatus, fetchConsent])
 
   useEffect(() => {
     for (const plugin of firstPartyPlugins) {
@@ -239,6 +249,7 @@ export function DashboardApp(): JSX.Element {
   if (mode === 'idle') {
     return (
       <div className="relative min-h-screen bg-bg text-text">
+        <ConsentDialog />
         <ViewContainer>
           <div className="mx-auto mt-12 max-w-3xl">
             <div className="mb-6 text-center">
@@ -329,6 +340,7 @@ export function DashboardApp(): JSX.Element {
 
   return (
     <div className="min-h-screen bg-bg text-text">
+        <ConsentDialog />
         <Header
           onReset={handleReset}
           onOpenSettings={() => {

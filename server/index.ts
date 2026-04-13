@@ -3,6 +3,7 @@ import cors from 'cors'
 import cookieParser from 'cookie-parser'
 import { runMigrations } from './db.js'
 import authRoutes from './routes/auth.js'
+import datasetRoutes from './routes/datasets.js'
 import enrichmentHandler from './routes/enrichment.js'
 
 const app = express()
@@ -31,6 +32,7 @@ app.use(express.json({ limit: '1mb' }))
 app.use(cookieParser())
 
 app.use('/api/auth', authRoutes)
+app.use('/api/datasets', datasetRoutes)
 
 app.post('/api/spotify/enrichment/audio-features', enrichmentHandler)
 

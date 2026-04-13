@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Music2, Trash2, Unlink, Link, X, Shield } from 'lucide-react'
 import { useAuthStore } from '@/store/useAuthStore'
 import { Button } from '@/components/ui/button'
+import { DataManagement } from './DataManagement'
 
 interface AccountSettingsProps {
   onClose: () => void
@@ -18,7 +19,7 @@ export function AccountSettings({ onClose }: AccountSettingsProps): JSX.Element 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div
-        className="w-full max-w-lg overflow-hidden rounded-theme border border-border/80 bg-bg shadow-2xl"
+        className="w-full max-w-lg overflow-hidden rounded-theme border border-border/80 bg-bg shadow-2xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border/60 px-6 py-4">
@@ -92,6 +93,8 @@ export function AccountSettings({ onClose }: AccountSettingsProps): JSX.Element 
               )}
             </div>
           </div>
+
+          <DataManagement />
 
           <div className="rounded-theme border border-negative/30 p-4">
             <p className="text-sm font-medium text-negative">Danger Zone</p>
