@@ -61,7 +61,6 @@ interface User {
   avatarUrl: string | null       // From Spotify profile
   createdAt: string              // ISO 8601
   updatedAt: string              // ISO 8601
-  deletedAt: string | null       // Soft delete timestamp
 }
 
 interface SpotifyConnection {
@@ -133,7 +132,6 @@ interface UploadedDataset {
   fingerprint: string            // Content hash for dedup
   uploadedAt: string             // ISO 8601
   processedAt: string | null     // ISO 8601
-  deletedAt: string | null       // Soft delete
   sizeBytes: number
 }
 
@@ -363,6 +361,71 @@ GET  /api/aggregates/trends         → Time-series aggregate trends
 - No row-level event exposure in aggregate endpoints
 - No user-identifiable fields in aggregate responses
 - Provenance mix included (export vs API vs merged percentages)
+
+### 3.6 Frontend Query / View Models
+
+API responses use dedicated view-model shapes (not raw DB rows) to decouple frontend rendering from backend schema.
+
+```typescript
+interface UserProfileResponse {
+  id: string
+  displayName: string | null
+  avatarUrl: string | null
+  spotifyConnected: boolean
+  consents: Record<ConsentType, boolean>
+  datasetCount: number
+  totalEventCount: number
+  memberSince: string
+}
+
+interface DatasetListResponse {
+  datasets: Array<{
+    id: string
+    source: DatasetSource
+    fileName: string | null
+    recordCount: number
+    dateRange: { from: string; to: string }
+    uploadedAt: string
+    status: 'processing' | 'ready' | 'error'
+  }>
+}
+
+interface AnalyticsSnapshotResponse {
+  snapshotId: string
+  computedAt: string
+  summary: {
+    totalPlays: number
+    totalMsPlayed: number
+    uniqueArtists: number
+    uniqueTracks: number
+    dateRange: { from: string; to: string }
+  }
+  eras: Array<{ label: string; startDate: string; endDate: string; topArtists: string[] }>
+  archetypes: Array<{ name: string; score: number }>
+}
+
+interface AggregateDashboardResponse {
+  updatedAt: string
+  totalUsers: number
+  metrics: Array<{
+    dimension: string
+    value: string
+    count: number
+    cohortSize: number
+  }>
+  trends: Array<{
+    period: string
+    dimension: string
+    value: number
+  }>
+}
+```
+
+**Caching boundaries:**
+- `UserProfileResponse`: No cache (always fresh)
+- `DatasetListResponse`: No cache (user-mutable)
+- `AnalyticsSnapshotResponse`: Cache for 1 hour (immutable once computed, invalidated on reprocess)
+- `AggregateDashboardResponse`: Cache for 15 minutes (shared, recomputed periodically)
 
 ---
 

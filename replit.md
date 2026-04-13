@@ -5,7 +5,7 @@ Listentropy is a privacy-first Spotify listening history analyzer. Users upload 
 
 ## Architecture
 - **Frontend:** React 18 + TypeScript 5.9, Vite 7.3, Tailwind CSS 3.4
-- **State:** Zustand (6 stores: data, lab, audio traits, spotify auth, theme, session metrics)
+- **State:** Zustand (8 stores: data, lab, audio traits, spotify auth, theme, session metrics, and 2 additional stores)
 - **Visualization:** Recharts, D3-force, Three.js / @react-three/fiber
 - **Workers:** 2 dedicated Web Workers (data processing, lab analytics)
 - **Backend:** Single API endpoint for Spotify audio feature enrichment proxy
