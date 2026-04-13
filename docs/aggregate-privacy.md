@@ -118,6 +118,6 @@ Currently triggered manually via `POST /api/aggregates/compute`. Future work may
 ## Design Decisions
 
 - **UTC timestamps for hourly patterns:** Avoids leaking timezone information that could narrow geographic identity.
-- **No genre data yet:** Genre distribution requires Spotify API enrichment data, which is not yet aggregated. Will be added when enrichment pipeline is complete.
-- **No archetype distribution yet:** Archetype computation happens client-side. Server-side archetype aggregation would require either client reporting or server-side recomputation.
+- **Genre distribution:** Combines enrichment-derived genre affinity data (from Spotify API) with content-type classification. Enrichment genres are joined via `enrichment_artifacts` with `genre_affinity` type; content types (music/podcast/audiobook) are always available from raw events.
+- **Archetype distribution:** Server-side recomputation of listener archetypes using behavioral indicators (nocturnal share, skip rate, shuffle rate, unique artists, top-artist concentration, total hours). Each user is assigned their dominant archetype, and the aggregate shows the distribution across the cohort.
 - **100-item cap per snapshot:** Prevents exhaustive enumeration of the long tail, which could reveal rare items.

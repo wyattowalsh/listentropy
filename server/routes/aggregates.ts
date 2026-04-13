@@ -206,6 +206,8 @@ router.get('/privacy', (_req: Request, res: Response) => {
       'hourly_patterns: Listening activity distribution by hour of day (UTC)',
       'platform_distribution: Listening platform usage across the cohort',
       'listening_trends: Monthly listening volume, skip rates, and engagement',
+      'archetype_distribution: Dominant listener archetype distribution across the cohort (behavioral classification)',
+      'genre_distribution: Genre and content type distribution from enrichment data and raw events',
     ],
   })
 })
