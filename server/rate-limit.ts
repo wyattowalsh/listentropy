@@ -35,3 +35,12 @@ export const apiLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later' },
   validate: { xForwardedForHeader: false },
 })
+
+export const enrichmentLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { status: 429, error: { code: 'rate-limited', message: 'Too many requests' } },
+  validate: { xForwardedForHeader: false },
+})
