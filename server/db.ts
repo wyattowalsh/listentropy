@@ -132,6 +132,35 @@ export async function runMigrations(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_listening_events_user_id ON listening_events(user_id);
     CREATE INDEX IF NOT EXISTS idx_listening_events_dataset_id ON listening_events(dataset_id);
     CREATE INDEX IF NOT EXISTS idx_listening_events_ts ON listening_events(user_id, ts);
+
+    CREATE TABLE IF NOT EXISTS enrichment_artifacts (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      artifact_type TEXT NOT NULL CHECK (artifact_type IN ('audio_features', 'artist_metadata', 'track_metadata', 'genre_affinity')),
+      entity_uri TEXT NOT NULL,
+      payload JSONB NOT NULL DEFAULT '{}',
+      source TEXT NOT NULL CHECK (source IN ('spotify_api', 'derived')),
+      fetched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      expires_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_enrichment_artifacts_dedup ON enrichment_artifacts(user_id, artifact_type, entity_uri);
+    CREATE INDEX IF NOT EXISTS idx_enrichment_artifacts_user_id ON enrichment_artifacts(user_id);
+
+    CREATE TABLE IF NOT EXISTS provenance_metadata (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      dataset_id UUID REFERENCES datasets(id) ON DELETE CASCADE,
+      event_type TEXT NOT NULL CHECK (event_type IN ('upload', 'api_fetch', 'merge', 'dedupe', 'enrichment', 'deletion')),
+      source TEXT NOT NULL CHECK (source IN ('spotify_export', 'spotify_api', 'merged', 'system')),
+      record_count INTEGER DEFAULT 0,
+      details JSONB DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_provenance_metadata_user_id ON provenance_metadata(user_id);
+    CREATE INDEX IF NOT EXISTS idx_provenance_metadata_dataset_id ON provenance_metadata(dataset_id);
   `)
 
   console.log('[db] Migrations complete.')

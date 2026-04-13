@@ -191,6 +191,38 @@ router.post(
         [insertedCount, parseResult.dateRangeStart, parseResult.dateRangeEnd, parseResult.historyFileCount, datasetId],
       )
 
+      await client.query(
+        `INSERT INTO provenance_metadata (user_id, dataset_id, event_type, source, record_count, details)
+         VALUES ($1, $2, 'upload', 'spotify_export', $3, $4)`,
+        [
+          authReq.userId,
+          datasetId,
+          insertedCount,
+          JSON.stringify({
+            fileName: req.file.originalname,
+            fileSizeBytes: req.file.size,
+            totalParsed: parseResult.records.length,
+            duplicatesSkipped: parseResult.records.length - insertedCount,
+            historyFileCount: parseResult.historyFileCount,
+            dateRangeStart: parseResult.dateRangeStart,
+            dateRangeEnd: parseResult.dateRangeEnd,
+          }),
+        ],
+      )
+
+      if (parseResult.records.length > insertedCount) {
+        await client.query(
+          `INSERT INTO provenance_metadata (user_id, dataset_id, event_type, source, record_count, details)
+           VALUES ($1, $2, 'dedupe', 'system', $3, $4)`,
+          [
+            authReq.userId,
+            datasetId,
+            parseResult.records.length - insertedCount,
+            JSON.stringify({ reason: 'duplicate_dedup_hash' }),
+          ],
+        )
+      }
+
       await client.query('COMMIT')
 
       res.json({
@@ -279,6 +311,12 @@ router.delete('/:id', requireAuth, requireCsrf, async (req: Request, res: Respon
       return
     }
 
+    const countResult = await query<{ count: string }>(
+      `SELECT COUNT(*) as count FROM listening_events WHERE dataset_id = $1 AND user_id = $2`,
+      [datasetId, authReq.userId],
+    )
+    const deletedCount = parseInt(countResult.rows[0].count, 10)
+
     await query(
       `DELETE FROM listening_events WHERE dataset_id = $1 AND user_id = $2`,
       [datasetId, authReq.userId],
@@ -287,6 +325,12 @@ router.delete('/:id', requireAuth, requireCsrf, async (req: Request, res: Respon
     await query(
       `UPDATE datasets SET status = 'deleted', record_count = 0, updated_at = now() WHERE id = $1`,
       [datasetId],
+    )
+
+    await query(
+      `INSERT INTO provenance_metadata (user_id, dataset_id, event_type, source, record_count, details)
+       VALUES ($1, $2, 'deletion', 'system', $3, $4)`,
+      [authReq.userId, datasetId, deletedCount, JSON.stringify({ action: 'dataset_deleted' })],
     )
 
     res.json({ ok: true })
@@ -328,6 +372,168 @@ router.get('/events', requireAuth, async (req: Request, res: Response) => {
   } catch (err) {
     console.error('[datasets] Failed to fetch events:', err)
     res.status(500).json({ error: 'Failed to fetch events' })
+  }
+})
+
+router.post('/merge', requireAuth, requireCsrf, async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest
+  const { datasetIds } = req.body as { datasetIds?: string[] }
+
+  if (!datasetIds || !Array.isArray(datasetIds) || datasetIds.length < 2) {
+    res.status(400).json({ error: 'At least two dataset IDs are required for merge' })
+    return
+  }
+
+  const client = await getClient()
+  try {
+    await client.query('BEGIN')
+
+    const validDatasets = await client.query<{ id: string; name: string; source: string }>(
+      `SELECT id, name, source FROM datasets
+       WHERE id = ANY($1) AND user_id = $2 AND status = 'ready'`,
+      [datasetIds, authReq.userId],
+    )
+
+    if (validDatasets.rows.length < 2) {
+      await client.query('ROLLBACK')
+      res.status(400).json({ error: 'At least two valid ready datasets required' })
+      return
+    }
+
+    const sourceNames = validDatasets.rows.map((d) => d.name).join(' + ')
+    const mergedDatasetResult = await client.query<{ id: string }>(
+      `INSERT INTO datasets (user_id, name, source, status)
+       VALUES ($1, $2, 'merged', 'processing')
+       RETURNING id`,
+      [authReq.userId, `Merged: ${sourceNames}`],
+    )
+    const mergedDatasetId = mergedDatasetResult.rows[0].id
+
+    const insertResult = await client.query<{ count: string }>(
+      `WITH source_events AS (
+        SELECT DISTINCT ON (dedup_hash)
+          $1::uuid as new_user_id,
+          $2::uuid as new_dataset_id,
+          dedup_hash, ts, platform, ms_played, conn_country,
+          master_metadata_track_name, master_metadata_album_artist_name,
+          master_metadata_album_album_name, spotify_track_uri,
+          episode_name, episode_show_name, spotify_episode_uri,
+          reason_start, reason_end, shuffle, skipped,
+          offline, offline_timestamp, incognito_mode, content_type
+        FROM listening_events
+        WHERE dataset_id = ANY($3) AND user_id = $1
+        ORDER BY dedup_hash, ts ASC
+      )
+      INSERT INTO listening_events (
+        user_id, dataset_id, dedup_hash, ts, platform, ms_played, conn_country,
+        master_metadata_track_name, master_metadata_album_artist_name,
+        master_metadata_album_album_name, spotify_track_uri,
+        episode_name, episode_show_name, spotify_episode_uri,
+        reason_start, reason_end, shuffle, skipped,
+        offline, offline_timestamp, incognito_mode, content_type
+      )
+      SELECT new_user_id, new_dataset_id,
+        dedup_hash, ts, platform, ms_played, conn_country,
+        master_metadata_track_name, master_metadata_album_artist_name,
+        master_metadata_album_album_name, spotify_track_uri,
+        episode_name, episode_show_name, spotify_episode_uri,
+        reason_start, reason_end, shuffle, skipped,
+        offline, offline_timestamp, incognito_mode, content_type
+      FROM source_events
+      ON CONFLICT (user_id, dedup_hash) DO NOTHING
+      RETURNING id`,
+      [authReq.userId, mergedDatasetId, validDatasets.rows.map((d) => d.id)],
+    )
+
+    const mergedCount = insertResult.rowCount ?? 0
+
+    const dateRange = await client.query<{ min_ts: string | null; max_ts: string | null }>(
+      `SELECT MIN(ts) as min_ts, MAX(ts) as max_ts FROM listening_events WHERE dataset_id = $1`,
+      [mergedDatasetId],
+    )
+
+    await client.query(
+      `UPDATE datasets SET
+        status = 'ready',
+        record_count = $1,
+        date_range_start = $2,
+        date_range_end = $3,
+        updated_at = now()
+       WHERE id = $4`,
+      [mergedCount, dateRange.rows[0]?.min_ts, dateRange.rows[0]?.max_ts, mergedDatasetId],
+    )
+
+    const sourceDatasetIds = validDatasets.rows.map((d) => d.id)
+    const sourceCounts = await client.query<{ dataset_id: string; count: string }>(
+      `SELECT dataset_id, COUNT(*) as count FROM listening_events
+       WHERE dataset_id = ANY($1) GROUP BY dataset_id`,
+      [sourceDatasetIds],
+    )
+
+    await client.query(
+      `INSERT INTO provenance_metadata (user_id, dataset_id, event_type, source, record_count, details)
+       VALUES ($1, $2, 'merge', 'merged', $3, $4)`,
+      [
+        authReq.userId,
+        mergedDatasetId,
+        mergedCount,
+        JSON.stringify({
+          sourceDatasets: validDatasets.rows.map((d) => ({
+            id: d.id,
+            name: d.name,
+            source: d.source,
+            eventCount: parseInt(sourceCounts.rows.find((r) => r.dataset_id === d.id)?.count ?? '0', 10),
+          })),
+          duplicatesRemoved: sourceCounts.rows.reduce((sum, r) => sum + parseInt(r.count, 10), 0) - mergedCount,
+        }),
+      ],
+    )
+
+    await client.query('COMMIT')
+
+    res.json({
+      datasetId: mergedDatasetId,
+      recordCount: mergedCount,
+      sourceDatasets: validDatasets.rows.length,
+      dateRange: {
+        start: dateRange.rows[0]?.min_ts,
+        end: dateRange.rows[0]?.max_ts,
+      },
+    })
+  } catch (err) {
+    await client.query('ROLLBACK')
+    console.error('[datasets] Merge failed:', err)
+    res.status(500).json({ error: 'Failed to merge datasets' })
+  } finally {
+    client.release()
+  }
+})
+
+router.get('/provenance', requireAuth, async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest
+  const datasetId = req.query.datasetId as string | undefined
+
+  try {
+    const params: unknown[] = [authReq.userId]
+    let whereClause = 'WHERE user_id = $1'
+    if (datasetId) {
+      whereClause += ' AND dataset_id = $2'
+      params.push(datasetId)
+    }
+
+    const result = await query(
+      `SELECT id, dataset_id, event_type, source, record_count, details, created_at
+       FROM provenance_metadata
+       ${whereClause}
+       ORDER BY created_at DESC
+       LIMIT 100`,
+      params,
+    )
+
+    res.json({ provenance: result.rows })
+  } catch (err) {
+    console.error('[datasets] Failed to fetch provenance:', err)
+    res.status(500).json({ error: 'Failed to fetch provenance' })
   }
 })
 
