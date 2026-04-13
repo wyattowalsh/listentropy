@@ -118,7 +118,7 @@ async function insertRecordsBatch(
         reason_start, reason_end, shuffle, skipped,
         offline, offline_timestamp, incognito_mode, content_type
       ) VALUES ${placeholders.join(', ')}
-      ON CONFLICT (user_id, dedup_hash) DO NOTHING`,
+      ON CONFLICT (dataset_id, dedup_hash) DO NOTHING`,
       values,
     )
     inserted += result.rowCount ?? 0
@@ -246,6 +246,143 @@ router.post(
   },
 )
 
+router.post('/ingest-api', requireAuth, requireCsrf, async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest
+  const { tracks } = req.body as {
+    tracks?: Array<{
+      ts: string
+      trackName: string
+      artistName: string
+      albumName: string
+      spotifyUri: string
+      msPlayed: number
+      platform?: string
+    }>
+  }
+
+  if (!tracks || !Array.isArray(tracks) || tracks.length === 0) {
+    res.status(400).json({ error: 'No tracks provided' })
+    return
+  }
+
+  const consentCheck = await query<{ granted: boolean }>(
+    `SELECT granted FROM consent_events
+     WHERE user_id = $1 AND consent_type = 'persist_history'
+     ORDER BY created_at DESC LIMIT 1`,
+    [authReq.userId],
+  )
+
+  if (consentCheck.rows.length === 0 || !consentCheck.rows[0].granted) {
+    res.status(403).json({ error: 'Consent for history persistence not granted' })
+    return
+  }
+
+  const client = await getClient()
+  try {
+    await client.query('BEGIN')
+
+    const datasetResult = await client.query<{ id: string }>(
+      `INSERT INTO datasets (user_id, name, source, status)
+       VALUES ($1, $2, 'spotify_api', 'processing')
+       RETURNING id`,
+      [authReq.userId, `Spotify API import - ${new Date().toISOString().split('T')[0]}`],
+    )
+    const datasetId = datasetResult.rows[0].id
+
+    const { createHash } = await import('crypto')
+    let inserted = 0
+    let minTs: string | null = null
+    let maxTs: string | null = null
+
+    for (let i = 0; i < tracks.length; i += INSERT_BATCH_SIZE) {
+      const batch = tracks.slice(i, i + INSERT_BATCH_SIZE)
+      const values: unknown[] = []
+      const placeholders: string[] = []
+      const COLS_PER_ROW = 10
+
+      for (let j = 0; j < batch.length; j++) {
+        const t = batch[j]
+        const offset = j * COLS_PER_ROW
+        const ps = Array.from({ length: COLS_PER_ROW }, (_, k) => `$${offset + k + 1}`).join(', ')
+        placeholders.push(`(${ps})`)
+
+        const dedupInput = `${t.ts}|${t.spotifyUri || ''}|${t.trackName || ''}|${t.artistName || ''}`
+        const dedupHash = createHash('sha256').update(dedupInput).digest('hex')
+
+        if (!minTs || t.ts < minTs) minTs = t.ts
+        if (!maxTs || t.ts > maxTs) maxTs = t.ts
+
+        values.push(
+          authReq.userId,
+          datasetId,
+          dedupHash,
+          t.ts,
+          t.platform || 'spotify_api',
+          t.msPlayed,
+          t.trackName || null,
+          t.artistName || null,
+          t.albumName || null,
+          t.spotifyUri || null,
+        )
+      }
+
+      const result = await client.query(
+        `INSERT INTO listening_events (
+          user_id, dataset_id, dedup_hash, ts, platform, ms_played,
+          master_metadata_track_name, master_metadata_album_artist_name,
+          master_metadata_album_album_name, spotify_track_uri
+        ) VALUES ${placeholders.join(', ')}
+        ON CONFLICT (dataset_id, dedup_hash) DO NOTHING`,
+        values,
+      )
+      inserted += result.rowCount ?? 0
+    }
+
+    await client.query(
+      `UPDATE datasets SET
+        status = 'ready',
+        record_count = $1,
+        date_range_start = $2,
+        date_range_end = $3,
+        updated_at = now()
+       WHERE id = $4`,
+      [inserted, minTs, maxTs, datasetId],
+    )
+
+    await client.query(
+      `INSERT INTO provenance_metadata (user_id, dataset_id, event_type, source, record_count, details)
+       VALUES ($1, $2, 'upload', 'spotify_api', $3, $4)`,
+      [
+        authReq.userId,
+        datasetId,
+        inserted,
+        JSON.stringify({
+          totalTracks: tracks.length,
+          duplicatesSkipped: tracks.length - inserted,
+          dateRangeStart: minTs,
+          dateRangeEnd: maxTs,
+        }),
+      ],
+    )
+
+    await client.query('COMMIT')
+
+    res.json({
+      datasetId,
+      recordCount: inserted,
+      totalTracks: tracks.length,
+      duplicatesSkipped: tracks.length - inserted,
+      dateRange: { start: minTs, end: maxTs },
+    })
+  } catch (err) {
+    await client.query('ROLLBACK')
+    console.error('[datasets] API ingest failed:', err)
+    res.status(500).json({ error: 'Failed to ingest API data' })
+  } finally {
+    client.release()
+  }
+})
+
 router.get('/', requireAuth, async (req: Request, res: Response) => {
   const authReq = req as AuthenticatedRequest
   try {
@@ -347,27 +484,33 @@ router.get('/events', requireAuth, async (req: Request, res: Response) => {
 
   try {
     const countResult = await query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM listening_events WHERE user_id = $1`,
+      `SELECT COUNT(*) as count FROM (
+        SELECT DISTINCT ON (dedup_hash) id FROM listening_events WHERE user_id = $1
+      ) deduped`,
       [authReq.userId],
     )
 
     const result = await query(
-      `SELECT ts, platform, ms_played, conn_country,
+      `SELECT DISTINCT ON (dedup_hash) ts, platform, ms_played, conn_country,
               master_metadata_track_name, master_metadata_album_artist_name,
               master_metadata_album_album_name, spotify_track_uri,
               episode_name, episode_show_name, spotify_episode_uri,
               content_type, shuffle, skipped, offline, incognito_mode,
-              dataset_id
+              dataset_id, dedup_hash
        FROM listening_events
        WHERE user_id = $1
-       ORDER BY ts DESC
-       LIMIT $2 OFFSET $3`,
-      [authReq.userId, limit, offset],
+       ORDER BY dedup_hash, ts DESC`,
+      [authReq.userId],
     )
+
+    const sorted = result.rows.sort((a: { ts: string }, b: { ts: string }) => b.ts.localeCompare(a.ts))
+    const paged = sorted.slice(offset, offset + limit)
+
+    const result2 = { rows: paged }
 
     res.json({
       totalCount: parseInt(countResult.rows[0].count, 10),
-      events: result.rows,
+      events: result2.rows,
     })
   } catch (err) {
     console.error('[datasets] Failed to fetch events:', err)
@@ -440,7 +583,7 @@ router.post('/merge', requireAuth, requireCsrf, async (req: Request, res: Respon
         reason_start, reason_end, shuffle, skipped,
         offline, offline_timestamp, incognito_mode, content_type
       FROM source_events
-      ON CONFLICT (user_id, dedup_hash) DO NOTHING
+      ON CONFLICT (dataset_id, dedup_hash) DO NOTHING
       RETURNING id`,
       [authReq.userId, mergedDatasetId, validDatasets.rows.map((d) => d.id)],
     )

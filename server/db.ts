@@ -128,7 +128,8 @@ export async function runMigrations(): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
 
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_listening_events_dedup ON listening_events(user_id, dedup_hash);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_listening_events_dedup ON listening_events(dataset_id, dedup_hash);
+    CREATE INDEX IF NOT EXISTS idx_listening_events_user_dedup ON listening_events(user_id, dedup_hash);
     CREATE INDEX IF NOT EXISTS idx_listening_events_user_id ON listening_events(user_id);
     CREATE INDEX IF NOT EXISTS idx_listening_events_dataset_id ON listening_events(dataset_id);
     CREATE INDEX IF NOT EXISTS idx_listening_events_ts ON listening_events(user_id, ts);

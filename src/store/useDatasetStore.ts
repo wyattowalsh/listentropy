@@ -15,6 +15,16 @@ export interface Dataset {
   updatedAt: string
 }
 
+export interface ProvenanceEvent {
+  id: string
+  dataset_id: string
+  event_type: string
+  source: string
+  record_count: number
+  details: Record<string, unknown>
+  created_at: string
+}
+
 interface UploadResult {
   datasetId: string
   recordCount: number
@@ -26,19 +36,30 @@ interface UploadResult {
 
 interface DatasetState {
   datasets: Dataset[]
+  provenance: ProvenanceEvent[]
   loading: boolean
   uploading: boolean
+  merging: boolean
   uploadProgress: string | null
   error: string | null
   fetchDatasets: () => Promise<void>
   uploadExport: (file: File) => Promise<UploadResult | null>
   deleteDataset: (id: string) => Promise<boolean>
+  mergeDatasets: (datasetIds: string[]) => Promise<boolean>
+  fetchProvenance: (datasetId?: string) => Promise<void>
+}
+
+function getCsrfHeader(): Record<string, string> {
+  const csrfToken = useAuthStore.getState().csrfToken
+  return csrfToken ? { 'X-CSRF-Token': csrfToken } : {}
 }
 
 export const useDatasetStore = create<DatasetState>((set, get) => ({
   datasets: [],
+  provenance: [],
   loading: false,
   uploading: false,
+  merging: false,
   uploadProgress: null,
   error: null,
 
@@ -58,7 +79,6 @@ export const useDatasetStore = create<DatasetState>((set, get) => ({
   },
 
   uploadExport: async (file) => {
-    const csrfToken = useAuthStore.getState().csrfToken
     set({ uploading: true, uploadProgress: 'Uploading...', error: null })
 
     try {
@@ -68,9 +88,7 @@ export const useDatasetStore = create<DatasetState>((set, get) => ({
       const res = await fetch('/api/datasets/upload', {
         method: 'POST',
         credentials: 'include',
-        headers: {
-          ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
-        },
+        headers: getCsrfHeader(),
         body: formData,
       })
 
@@ -91,14 +109,13 @@ export const useDatasetStore = create<DatasetState>((set, get) => ({
   },
 
   deleteDataset: async (id) => {
-    const csrfToken = useAuthStore.getState().csrfToken
     try {
       const res = await fetch(`/api/datasets/${id}`, {
         method: 'DELETE',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+          ...getCsrfHeader(),
         },
       })
       if (res.ok) {
@@ -108,6 +125,46 @@ export const useDatasetStore = create<DatasetState>((set, get) => ({
       return false
     } catch {
       return false
+    }
+  },
+
+  mergeDatasets: async (datasetIds) => {
+    set({ merging: true, error: null })
+    try {
+      const res = await fetch('/api/datasets/merge', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getCsrfHeader(),
+        },
+        body: JSON.stringify({ datasetIds }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        set({ merging: false, error: data.error || 'Merge failed' })
+        return false
+      }
+      set({ merging: false })
+      await get().fetchDatasets()
+      return true
+    } catch {
+      set({ merging: false, error: 'Merge failed' })
+      return false
+    }
+  },
+
+  fetchProvenance: async (datasetId) => {
+    try {
+      const url = datasetId
+        ? `/api/datasets/provenance?datasetId=${datasetId}`
+        : '/api/datasets/provenance'
+      const res = await fetch(url, { credentials: 'include' })
+      if (res.ok) {
+        const data = await res.json()
+        set({ provenance: data.provenance })
+      }
+    } catch {
     }
   },
 }))
