@@ -121,6 +121,7 @@ export function DashboardApp(): JSX.Element {
   const recordExperienceBehavior = useExperienceStore((state) => state.recordBehavior)
   const recordMetric = useSessionMetricsStore((state) => state.record)
   const checkSession = useAuthStore((state) => state.checkSession)
+  const startTokenLifecycle = useAuthStore((state) => state.startTokenLifecycle)
   const view: MainView = primaryView
 
   useEffect(() => {
@@ -130,6 +131,10 @@ export function DashboardApp(): JSX.Element {
   useEffect(() => {
     void checkSession()
   }, [checkSession])
+
+  useEffect(() => {
+    return startTokenLifecycle()
+  }, [startTokenLifecycle])
 
   useEffect(() => {
     for (const plugin of firstPartyPlugins) {

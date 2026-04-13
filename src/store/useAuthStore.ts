@@ -24,6 +24,7 @@ interface AuthState {
   disconnectSpotify: () => Promise<void>
   deleteAccount: () => Promise<void>
   refreshSpotifyToken: () => Promise<void>
+  startTokenLifecycle: () => () => void
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -124,11 +125,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         },
       })
       if (!res.ok) {
-        const data = await res.json()
-        set({ error: data.error || 'Token refresh failed' })
+        await get().checkSession()
       }
     } catch {
-      set({ error: 'Token refresh failed' })
+      await get().checkSession()
+    }
+  },
+
+  startTokenLifecycle: () => {
+    const REFRESH_INTERVAL = 10 * 60 * 1000
+    const SESSION_SYNC_INTERVAL = 5 * 60 * 1000
+
+    const refreshTimer = setInterval(() => {
+      const { status, user } = get()
+      if (status === 'authenticated' && user?.spotifyConnected) {
+        void get().refreshSpotifyToken()
+      }
+    }, REFRESH_INTERVAL)
+
+    const syncTimer = setInterval(() => {
+      const { status } = get()
+      if (status === 'authenticated') {
+        void get().checkSession()
+      }
+    }, SESSION_SYNC_INTERVAL)
+
+    return () => {
+      clearInterval(refreshTimer)
+      clearInterval(syncTimer)
     }
   },
 }))

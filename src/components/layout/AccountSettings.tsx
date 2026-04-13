@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Music2, Trash2, Unlink, X, Shield } from 'lucide-react'
+import { Music2, Trash2, Unlink, Link, X, Shield } from 'lucide-react'
 import { useAuthStore } from '@/store/useAuthStore'
 import { Button } from '@/components/ui/button'
 
@@ -8,7 +8,7 @@ interface AccountSettingsProps {
 }
 
 export function AccountSettings({ onClose }: AccountSettingsProps): JSX.Element {
-  const { user, disconnectSpotify, deleteAccount } = useAuthStore()
+  const { user, disconnectSpotify, deleteAccount, login } = useAuthStore()
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   if (!user) {
@@ -71,7 +71,7 @@ export function AccountSettings({ onClose }: AccountSettingsProps): JSX.Element 
                   </p>
                 )}
               </div>
-              {user.spotifyConnected && (
+              {user.spotifyConnected ? (
                 <Button
                   variant="outline"
                   onClick={() => void disconnectSpotify()}
@@ -79,6 +79,15 @@ export function AccountSettings({ onClose }: AccountSettingsProps): JSX.Element 
                 >
                   <Unlink className="h-3 w-3" />
                   Disconnect
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={login}
+                  className="gap-1 text-xs text-[#1DB954] border-[#1DB954]/40 hover:bg-[#1DB954]/10"
+                >
+                  <Link className="h-3 w-3" />
+                  Reconnect
                 </Button>
               )}
             </div>

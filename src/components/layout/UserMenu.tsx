@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { LogOut, Settings, User, ChevronDown } from 'lucide-react'
+import { LogOut, Settings, User, ChevronDown, Link } from 'lucide-react'
 import { useAuthStore } from '@/store/useAuthStore'
 
 interface UserMenuProps {
@@ -7,7 +7,7 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ onOpenAccountSettings }: UserMenuProps): JSX.Element | null {
-  const { status, user, logout } = useAuthStore()
+  const { status, user, logout, login } = useAuthStore()
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -57,6 +57,19 @@ export function UserMenu({ onOpenAccountSettings }: UserMenuProps): JSX.Element 
             <p className="truncate text-xs text-text-muted">{user.email}</p>
           </div>
           <div className="py-1">
+            {user && !user.spotifyConnected && (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false)
+                  login()
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[#1DB954] transition-colors hover:bg-surface-hover"
+              >
+                <Link className="h-4 w-4" />
+                Reconnect Spotify
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
