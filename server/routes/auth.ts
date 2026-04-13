@@ -6,6 +6,8 @@ import { requireAuth, requireCsrf, type AuthenticatedRequest } from '../middlewa
 
 const router = Router()
 
+const IS_SECURE = process.env.NODE_ENV === 'production' || !!process.env.REPLIT_DEV_DOMAIN
+
 const SPOTIFY_AUTHORIZE_URL = 'https://accounts.spotify.com/authorize'
 const SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token'
 const SPOTIFY_PROFILE_URL = 'https://api.spotify.com/v1/me'
@@ -42,14 +44,14 @@ router.get('/spotify/login', async (req: AuthenticatedRequest, res: Response) =>
 
     res.cookie('oauth_state', state, {
       httpOnly: true,
-      secure: true,
+      secure: IS_SECURE,
       sameSite: 'lax',
       maxAge: 10 * 60 * 1000,
       path: '/',
     })
     res.cookie('oauth_verifier', codeVerifier, {
       httpOnly: true,
-      secure: true,
+      secure: IS_SECURE,
       sameSite: 'lax',
       maxAge: 10 * 60 * 1000,
       path: '/',
@@ -228,7 +230,7 @@ router.get('/spotify/callback', async (req: AuthenticatedRequest, res: Response)
 
     res.cookie('session_token', sessionToken, {
       httpOnly: true,
-      secure: true,
+      secure: IS_SECURE,
       sameSite: 'lax',
       maxAge: SESSION_DURATION_MS,
       path: '/',

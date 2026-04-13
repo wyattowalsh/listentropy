@@ -38,8 +38,22 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
+function validateEnv(): void {
+  const required = ['DATABASE_URL', 'ENCRYPTION_KEY']
+  const missing = required.filter((k) => !process.env[k])
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`)
+  }
+  const spotifyVars = ['SPOTIFY_CLIENT_ID', 'SPOTIFY_CLIENT_SECRET']
+  const missingSpotify = spotifyVars.filter((k) => !process.env[k])
+  if (missingSpotify.length > 0) {
+    console.warn(`[server] WARNING: Missing Spotify credentials (${missingSpotify.join(', ')}). OAuth login will fail.`)
+  }
+}
+
 async function start() {
   try {
+    validateEnv()
     await runMigrations()
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`[server] API server running on port ${PORT}`)
