@@ -352,7 +352,7 @@ router.post('/ingest-api', requireAuth, requireCsrf, async (req: Request, res: R
 
     await client.query(
       `INSERT INTO provenance_metadata (user_id, dataset_id, event_type, source, record_count, details)
-       VALUES ($1, $2, 'upload', 'spotify_api', $3, $4)`,
+       VALUES ($1, $2, 'api_fetch', 'spotify_api', $3, $4)`,
       [
         authReq.userId,
         datasetId,
@@ -629,13 +629,12 @@ router.delete('/:id', requireAuth, requireCsrf, async (req: Request, res: Respon
     )
 
     const derivedDatasets = await query<{ id: string }>(
-      `SELECT id FROM datasets WHERE user_id = $1 AND source = 'merged' AND status != 'deleted'
-       AND id IN (
-         SELECT dataset_id FROM provenance_metadata
-         WHERE user_id = $1 AND event_type = 'merge'
-         AND details::text LIKE $2
-       )`,
-      [authReq.userId, `%${datasetId}%`],
+      `SELECT DISTINCT pm.dataset_id as id FROM provenance_metadata pm
+       JOIN datasets d ON d.id = pm.dataset_id
+       WHERE pm.user_id = $1 AND pm.event_type = 'merge'
+       AND d.source = 'merged' AND d.status != 'deleted'
+       AND pm.details->'sourceDatasets' @> $2::jsonb`,
+      [authReq.userId, JSON.stringify([{ id: datasetId }])],
     )
 
     let derivedDeletedCount = 0
@@ -695,26 +694,25 @@ router.get('/events', requireAuth, async (req: Request, res: Response) => {
     )
 
     const result = await query(
-      `SELECT DISTINCT ON (dedup_hash) ts, platform, ms_played, conn_country,
-              master_metadata_track_name, master_metadata_album_artist_name,
-              master_metadata_album_album_name, spotify_track_uri,
-              episode_name, episode_show_name, spotify_episode_uri,
-              content_type, shuffle, skipped, offline, incognito_mode,
-              dataset_id, dedup_hash
-       FROM listening_events
-       WHERE user_id = $1
-       ORDER BY dedup_hash, ts DESC`,
-      [authReq.userId],
+      `SELECT * FROM (
+        SELECT DISTINCT ON (dedup_hash) ts, platform, ms_played, conn_country,
+                master_metadata_track_name, master_metadata_album_artist_name,
+                master_metadata_album_album_name, spotify_track_uri,
+                episode_name, episode_show_name, spotify_episode_uri,
+                content_type, shuffle, skipped, offline, incognito_mode,
+                dataset_id
+         FROM listening_events
+         WHERE user_id = $1
+         ORDER BY dedup_hash, ts DESC
+      ) deduped
+      ORDER BY ts DESC
+      LIMIT $2 OFFSET $3`,
+      [authReq.userId, limit, offset],
     )
-
-    const sorted = result.rows.sort((a: { ts: string }, b: { ts: string }) => b.ts.localeCompare(a.ts))
-    const paged = sorted.slice(offset, offset + limit)
-
-    const result2 = { rows: paged }
 
     res.json({
       totalCount: parseInt(countResult.rows[0].count, 10),
-      events: result2.rows,
+      events: result.rows,
     })
   } catch (err) {
     console.error('[datasets] Failed to fetch events:', err)
