@@ -52,10 +52,14 @@ export const useAggregateStore = create<AggregateState>((set, get) => ({
         return
       }
       const data = await res.json()
+      const snapshots = data.snapshots ?? []
+      const cohortSize = snapshots.length > 0
+        ? Math.max(...snapshots.map((s: SnapshotSummary) => s.cohortSize))
+        : 0
       set({
         available: data.available,
-        cohortSize: data.cohortSize ?? 0,
-        snapshots: data.snapshots ?? [],
+        cohortSize,
+        snapshots,
         loading: false,
       })
     } catch {

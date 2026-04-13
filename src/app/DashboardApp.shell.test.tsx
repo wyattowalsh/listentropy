@@ -33,6 +33,10 @@ vi.mock('@/components/views/AdvancedHub', () => ({
   AdvancedHub: ({ section }: { section?: string }) => <div>{`AdvancedHub Mock (${section ?? 'lab'})`}</div>,
 }))
 
+vi.mock('@/components/views/CommunityDashboard', () => ({
+  CommunityDashboard: () => <div>CommunityDashboard Mock</div>,
+}))
+
 const data = processRecords(makeSyntheticRecords(24), { timezoneMode: 'local' })
 
 describe('DashboardApp shell', () => {
@@ -59,14 +63,14 @@ describe('DashboardApp shell', () => {
 
     expect(screen.queryByText(/spotify enrichment setup \(optional\)/i)).not.toBeInTheDocument()
 
-    expect(screen.getAllByRole('tab')).toHaveLength(2)
-    expect(screen.getByRole('tab', { name: 'Dashboard' })).toBeInTheDocument()
+    expect(screen.getAllByRole('tab')).toHaveLength(3)
+    expect(screen.getByRole('tab', { name: 'Home' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'My Analytics' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Share' })).toBeInTheDocument()
     expect(screen.queryByRole('tab', { name: 'Settings' })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('More views')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Advanced' })).not.toBeInTheDocument()
 
-    expect(screen.getByRole('button', { name: /login with spotify/i })).toBeInTheDocument()
     expect(screen.queryByText(/AdvancedHub Mock/i)).not.toBeInTheDocument()
 
     await user.click(await screen.findByRole('button', { name: /show advanced tools/i }))
