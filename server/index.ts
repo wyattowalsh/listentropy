@@ -4,7 +4,9 @@ import cookieParser from 'cookie-parser'
 import { runMigrations } from './db.js'
 import authRoutes from './routes/auth.js'
 import datasetRoutes from './routes/datasets.js'
+import aggregateRoutes from './routes/aggregates.js'
 import enrichmentHandler from './routes/enrichment.js'
+import { runAggregationPipeline } from './aggregation.js'
 
 const app = express()
 const PORT = parseInt(process.env.SERVER_PORT || '3001', 10)
@@ -33,6 +35,7 @@ app.use(cookieParser())
 
 app.use('/api/auth', authRoutes)
 app.use('/api/datasets', datasetRoutes)
+app.use('/api/aggregates', aggregateRoutes)
 
 app.post('/api/spotify/enrichment/audio-features', enrichmentHandler)
 
@@ -53,12 +56,31 @@ function validateEnv(): void {
   }
 }
 
+const AGGREGATION_INTERVAL_MS = 60 * 60 * 1000
+
+function startAggregationScheduler(): void {
+  setTimeout(() => {
+    void runAggregationPipeline().catch((err) => {
+      console.error('[scheduler] Initial aggregation failed:', err)
+    })
+  }, 30_000)
+
+  setInterval(() => {
+    void runAggregationPipeline().catch((err) => {
+      console.error('[scheduler] Scheduled aggregation failed:', err)
+    })
+  }, AGGREGATION_INTERVAL_MS)
+
+  console.log('[scheduler] Aggregation scheduler started (hourly)')
+}
+
 async function start() {
   try {
     validateEnv()
     await runMigrations()
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`[server] API server running on port ${PORT}`)
+      startAggregationScheduler()
     })
   } catch (err) {
     console.error('[server] Failed to start:', err)

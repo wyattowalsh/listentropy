@@ -162,6 +162,36 @@ export async function runMigrations(): Promise<void> {
 
     CREATE INDEX IF NOT EXISTS idx_provenance_metadata_user_id ON provenance_metadata(user_id);
     CREATE INDEX IF NOT EXISTS idx_provenance_metadata_dataset_id ON provenance_metadata(dataset_id);
+
+    CREATE TABLE IF NOT EXISTS aggregate_snapshots (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      snapshot_type TEXT NOT NULL CHECK (snapshot_type IN ('top_artists', 'top_tracks', 'genre_distribution', 'hourly_patterns', 'archetype_distribution', 'platform_distribution', 'listening_trends')),
+      cohort_size INTEGER NOT NULL DEFAULT 0,
+      min_cohort_threshold INTEGER NOT NULL DEFAULT 5,
+      computed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      period_start TIMESTAMPTZ,
+      period_end TIMESTAMPTZ,
+      source_provenance JSONB NOT NULL DEFAULT '{}',
+      version INTEGER NOT NULL DEFAULT 1
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_aggregate_snapshots_type ON aggregate_snapshots(snapshot_type, computed_at DESC);
+
+    CREATE TABLE IF NOT EXISTS aggregate_facts (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      snapshot_id UUID NOT NULL REFERENCES aggregate_snapshots(id) ON DELETE CASCADE,
+      dimension TEXT NOT NULL,
+      dimension_value TEXT NOT NULL,
+      metric_name TEXT NOT NULL,
+      metric_value DOUBLE PRECISION NOT NULL DEFAULT 0,
+      rank INTEGER,
+      suppressed BOOLEAN NOT NULL DEFAULT false,
+      suppression_reason TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_aggregate_facts_snapshot ON aggregate_facts(snapshot_id);
+    CREATE INDEX IF NOT EXISTS idx_aggregate_facts_dimension ON aggregate_facts(dimension, dimension_value);
   `)
 
   console.log('[db] Migrations complete.')
