@@ -9,9 +9,11 @@ Listentropy is a privacy-first Spotify listening history analyzer. Users upload 
 - **Visualization:** Recharts, D3-force, Three.js / @react-three/fiber
 - **Workers:** 2 dedicated Web Workers (data processing, lab analytics)
 - **Backend:** Express API server on port 3001, proxied through Vite dev server
-- **Database:** PostgreSQL (Replit-managed) with users, spotify_connections, sessions, consent_events, datasets, listening_events tables
+- **Database:** PostgreSQL (Replit-managed) with 8 tables: users, spotify_connections, sessions, consent_events, datasets, listening_events, enrichment_artifacts, provenance_metadata
 - **Auth:** Server-side Spotify OAuth (PKCE + client secret) with HttpOnly session cookies
-- **Privacy:** Consent-gated persistence with append-only consent events, granular opt-in, dedup-based merge
+- **Privacy:** Consent-gated persistence with append-only consent events, granular opt-in/revocation, dedup-based merge
+- **Data Model:** Per-dataset dedup (unique on dataset_id + dedup_hash), user-level dedup via DISTINCT ON, merge engine creates new datasets with full provenance trail
+- **Ingestion:** ZIP export upload, Spotify API server-side sync, merge of multiple datasets
 - **Routing:** react-router-dom v7 (/, /auth/spotify/callback, /share)
 
 ## Key Directories

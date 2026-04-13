@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Database, Trash2, Upload, Calendar, FileArchive, GitMerge, History, ShieldOff, ChevronDown, ChevronUp } from 'lucide-react'
+import { Database, Trash2, Upload, Calendar, FileArchive, GitMerge, History, ShieldOff, ChevronDown, ChevronUp, Radio } from 'lucide-react'
 import { useDatasetStore, type Dataset, type ProvenanceEvent } from '@/store/useDatasetStore'
 import { useConsentStore } from '@/store/useConsentStore'
 import { useAuthStore } from '@/store/useAuthStore'
@@ -170,7 +170,7 @@ function ConsentControls(): JSX.Element {
 
 export function DataManagement(): JSX.Element {
   const { status } = useAuthStore()
-  const { datasets, provenance, loading, uploading, merging, error, fetchDatasets, uploadExport, deleteDataset, mergeDatasets, fetchProvenance } = useDatasetStore()
+  const { datasets, provenance, loading, uploading, merging, ingesting, error, fetchDatasets, uploadExport, deleteDataset, mergeDatasets, syncSpotify, fetchProvenance } = useDatasetStore()
   const { consent, requireConsent } = useConsentStore()
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showProvenance, setShowProvenance] = useState(false)
@@ -203,6 +203,12 @@ export function DataManagement(): JSX.Element {
     if (success) setSelectedIds(new Set())
   }
 
+  async function handleSyncSpotify() {
+    requireConsent(async () => {
+      await syncSpotify()
+    })
+  }
+
   function handleToggleProvenance() {
     if (!showProvenance) {
       void fetchProvenance()
@@ -232,6 +238,15 @@ export function DataManagement(): JSX.Element {
               {merging ? 'Merging...' : `Merge ${selectedIds.size} datasets`}
             </Button>
           )}
+          <Button
+            variant="outline"
+            className="gap-1 text-xs"
+            disabled={ingesting}
+            onClick={() => void handleSyncSpotify()}
+          >
+            <Radio className="h-3 w-3" />
+            {ingesting ? 'Syncing...' : 'Sync Spotify'}
+          </Button>
           <label htmlFor={fileInputId}>
             <Button
               variant="outline"

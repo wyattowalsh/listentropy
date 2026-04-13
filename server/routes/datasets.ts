@@ -1,6 +1,8 @@
 import { Router, type Request, type Response } from 'express'
 import multer from 'multer'
+import { createHash } from 'crypto'
 import { query, getClient } from '../db.js'
+import { decrypt } from '../crypto.js'
 import { requireAuth, requireCsrf, type AuthenticatedRequest } from '../middleware.js'
 import { parseZipBuffer, type ParsedRecord } from '../parser.js'
 
@@ -289,7 +291,6 @@ router.post('/ingest-api', requireAuth, requireCsrf, async (req: Request, res: R
     )
     const datasetId = datasetResult.rows[0].id
 
-    const { createHash } = await import('crypto')
     let inserted = 0
     let minTs: string | null = null
     let maxTs: string | null = null
@@ -383,6 +384,174 @@ router.post('/ingest-api', requireAuth, requireCsrf, async (req: Request, res: R
   }
 })
 
+router.post('/sync-spotify', requireAuth, requireCsrf, async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest
+
+  const consentCheck = await query<{ granted: boolean }>(
+    `SELECT granted FROM consent_events
+     WHERE user_id = $1 AND consent_type = 'persist_history'
+     ORDER BY created_at DESC LIMIT 1`,
+    [authReq.userId],
+  )
+
+  if (consentCheck.rows.length === 0 || !consentCheck.rows[0].granted) {
+    res.status(403).json({ error: 'Consent for history persistence not granted' })
+    return
+  }
+
+  const connResult = await query<{ access_token_encrypted: string; token_expires_at: string }>(
+    `SELECT access_token_encrypted, token_expires_at FROM spotify_connections
+     WHERE user_id = $1 AND status = 'active'
+     ORDER BY last_refreshed_at DESC LIMIT 1`,
+    [authReq.userId],
+  )
+
+  if (connResult.rows.length === 0) {
+    res.status(400).json({ error: 'No active Spotify connection' })
+    return
+  }
+
+  const accessToken = decrypt(connResult.rows[0].access_token_encrypted)
+  const expiresAt = new Date(connResult.rows[0].token_expires_at)
+
+  if (expiresAt < new Date()) {
+    res.status(401).json({ error: 'Spotify token expired — please refresh first' })
+    return
+  }
+
+  try {
+    const spotifyRes = await fetch('https://api.spotify.com/v1/me/player/recently-played?limit=50', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+
+    if (!spotifyRes.ok) {
+      res.status(502).json({ error: 'Failed to fetch from Spotify API' })
+      return
+    }
+
+    const data = (await spotifyRes.json()) as {
+      items: Array<{
+        played_at: string
+        track: {
+          name: string
+          artists: Array<{ name: string }>
+          album: { name: string }
+          uri: string
+          duration_ms: number
+        }
+      }>
+    }
+
+    if (!data.items || data.items.length === 0) {
+      res.json({ datasetId: null, recordCount: 0, message: 'No recent tracks found' })
+      return
+    }
+
+    const client = await getClient()
+    try {
+      await client.query('BEGIN')
+
+      const datasetResult = await client.query<{ id: string }>(
+        `INSERT INTO datasets (user_id, name, source, status)
+         VALUES ($1, $2, 'spotify_api', 'processing')
+         RETURNING id`,
+        [authReq.userId, `Spotify API sync - ${new Date().toISOString().split('T')[0]}`],
+      )
+      const datasetId = datasetResult.rows[0].id
+
+      let inserted = 0
+      let minTs: string | null = null
+      let maxTs: string | null = null
+
+      const values: unknown[] = []
+      const placeholders: string[] = []
+      const COLS_PER_ROW = 10
+
+      for (let j = 0; j < data.items.length; j++) {
+        const item = data.items[j]
+        const offset = j * COLS_PER_ROW
+        const ps = Array.from({ length: COLS_PER_ROW }, (_, k) => `$${offset + k + 1}`).join(', ')
+        placeholders.push(`(${ps})`)
+
+        const artistName = item.track.artists.map((a) => a.name).join(', ')
+        const dedupInput = `${item.played_at}|${item.track.uri || ''}|${item.track.name || ''}|${artistName || ''}`
+        const dedupHash = createHash('sha256').update(dedupInput).digest('hex')
+
+        if (!minTs || item.played_at < minTs) minTs = item.played_at
+        if (!maxTs || item.played_at > maxTs) maxTs = item.played_at
+
+        values.push(
+          authReq.userId,
+          datasetId,
+          dedupHash,
+          item.played_at,
+          'spotify_api',
+          item.track.duration_ms,
+          item.track.name || null,
+          artistName || null,
+          item.track.album.name || null,
+          item.track.uri || null,
+        )
+      }
+
+      const insertResult = await client.query(
+        `INSERT INTO listening_events (
+          user_id, dataset_id, dedup_hash, ts, platform, ms_played,
+          master_metadata_track_name, master_metadata_album_artist_name,
+          master_metadata_album_album_name, spotify_track_uri
+        ) VALUES ${placeholders.join(', ')}
+        ON CONFLICT (dataset_id, dedup_hash) DO NOTHING`,
+        values,
+      )
+      inserted = insertResult.rowCount ?? 0
+
+      await client.query(
+        `UPDATE datasets SET
+          status = 'ready',
+          record_count = $1,
+          date_range_start = $2,
+          date_range_end = $3,
+          updated_at = now()
+         WHERE id = $4`,
+        [inserted, minTs, maxTs, datasetId],
+      )
+
+      await client.query(
+        `INSERT INTO provenance_metadata (user_id, dataset_id, event_type, source, record_count, details)
+         VALUES ($1, $2, 'api_fetch', 'spotify_api', $3, $4)`,
+        [
+          authReq.userId,
+          datasetId,
+          inserted,
+          JSON.stringify({
+            totalFetched: data.items.length,
+            duplicatesSkipped: data.items.length - inserted,
+            dateRangeStart: minTs,
+            dateRangeEnd: maxTs,
+          }),
+        ],
+      )
+
+      await client.query('COMMIT')
+
+      res.json({
+        datasetId,
+        recordCount: inserted,
+        totalFetched: data.items.length,
+        duplicatesSkipped: data.items.length - inserted,
+      })
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  } catch (err) {
+    console.error('[datasets] Spotify sync failed:', err)
+    res.status(500).json({ error: 'Failed to sync from Spotify' })
+  }
+})
+
 router.get('/', requireAuth, async (req: Request, res: Response) => {
   const authReq = req as AuthenticatedRequest
   try {
@@ -459,6 +628,31 @@ router.delete('/:id', requireAuth, requireCsrf, async (req: Request, res: Respon
       [datasetId, authReq.userId],
     )
 
+    const derivedDatasets = await query<{ id: string }>(
+      `SELECT id FROM datasets WHERE user_id = $1 AND source = 'merged' AND status != 'deleted'
+       AND id IN (
+         SELECT dataset_id FROM provenance_metadata
+         WHERE user_id = $1 AND event_type = 'merge'
+         AND details::text LIKE $2
+       )`,
+      [authReq.userId, `%${datasetId}%`],
+    )
+
+    let derivedDeletedCount = 0
+    for (const derived of derivedDatasets.rows) {
+      const derivedCount = await query<{ count: string }>(
+        `SELECT COUNT(*) as count FROM listening_events WHERE dataset_id = $1`,
+        [derived.id],
+      )
+      derivedDeletedCount += parseInt(derivedCount.rows[0].count, 10)
+      await query(`DELETE FROM listening_events WHERE dataset_id = $1`, [derived.id])
+      
+      await query(
+        `UPDATE datasets SET status = 'deleted', record_count = 0, updated_at = now() WHERE id = $1`,
+        [derived.id],
+      )
+    }
+
     await query(
       `UPDATE datasets SET status = 'deleted', record_count = 0, updated_at = now() WHERE id = $1`,
       [datasetId],
@@ -467,10 +661,20 @@ router.delete('/:id', requireAuth, requireCsrf, async (req: Request, res: Respon
     await query(
       `INSERT INTO provenance_metadata (user_id, dataset_id, event_type, source, record_count, details)
        VALUES ($1, $2, 'deletion', 'system', $3, $4)`,
-      [authReq.userId, datasetId, deletedCount, JSON.stringify({ action: 'dataset_deleted' })],
+      [
+        authReq.userId,
+        datasetId,
+        deletedCount + derivedDeletedCount,
+        JSON.stringify({
+          action: 'dataset_deleted',
+          eventsDeleted: deletedCount,
+          derivedDatasetsDeleted: derivedDatasets.rows.map((d) => d.id),
+          derivedEventsDeleted: derivedDeletedCount,
+        }),
+      ],
     )
 
-    res.json({ ok: true })
+    res.json({ ok: true, derivedDatasetsDeleted: derivedDatasets.rows.length })
   } catch (err) {
     console.error('[datasets] Failed to delete dataset:', err)
     res.status(500).json({ error: 'Failed to delete dataset' })

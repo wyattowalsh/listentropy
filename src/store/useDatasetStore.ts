@@ -34,18 +34,31 @@ interface UploadResult {
   dateRange: { start: string | null; end: string | null }
 }
 
+interface ApiTrack {
+  ts: string
+  trackName: string
+  artistName: string
+  albumName: string
+  spotifyUri: string
+  msPlayed: number
+  platform?: string
+}
+
 interface DatasetState {
   datasets: Dataset[]
   provenance: ProvenanceEvent[]
   loading: boolean
   uploading: boolean
   merging: boolean
+  ingesting: boolean
   uploadProgress: string | null
   error: string | null
   fetchDatasets: () => Promise<void>
   uploadExport: (file: File) => Promise<UploadResult | null>
   deleteDataset: (id: string) => Promise<boolean>
   mergeDatasets: (datasetIds: string[]) => Promise<boolean>
+  ingestApiData: (tracks: ApiTrack[]) => Promise<boolean>
+  syncSpotify: () => Promise<boolean>
   fetchProvenance: (datasetId?: string) => Promise<void>
 }
 
@@ -60,6 +73,7 @@ export const useDatasetStore = create<DatasetState>((set, get) => ({
   loading: false,
   uploading: false,
   merging: false,
+  ingesting: false,
   uploadProgress: null,
   error: null,
 
@@ -124,6 +138,57 @@ export const useDatasetStore = create<DatasetState>((set, get) => ({
       }
       return false
     } catch {
+      return false
+    }
+  },
+
+  ingestApiData: async (tracks) => {
+    set({ ingesting: true, error: null })
+    try {
+      const res = await fetch('/api/datasets/ingest-api', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getCsrfHeader(),
+        },
+        body: JSON.stringify({ tracks }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        set({ ingesting: false, error: data.error || 'API ingestion failed' })
+        return false
+      }
+      set({ ingesting: false })
+      await get().fetchDatasets()
+      return true
+    } catch {
+      set({ ingesting: false, error: 'API ingestion failed' })
+      return false
+    }
+  },
+
+  syncSpotify: async () => {
+    set({ ingesting: true, error: null })
+    try {
+      const res = await fetch('/api/datasets/sync-spotify', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getCsrfHeader(),
+        },
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        set({ ingesting: false, error: data.error || 'Spotify sync failed' })
+        return false
+      }
+      set({ ingesting: false })
+      await get().fetchDatasets()
+      return true
+    } catch {
+      set({ ingesting: false, error: 'Spotify sync failed' })
       return false
     }
   },

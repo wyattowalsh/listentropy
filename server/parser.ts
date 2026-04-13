@@ -121,7 +121,7 @@ function inferContentType(r: RawRecord): ContentType {
 
 function computeDedupHash(ts: string, uri: string | null, trackName: string | null, artistName: string | null): string {
   const key = `${ts}|${uri ?? ''}|${trackName ?? ''}|${artistName ?? ''}`
-  return crypto.createHash('sha256').update(key).digest('hex').slice(0, 32)
+  return crypto.createHash('sha256').update(key).digest('hex')
 }
 
 function sanitize(raw: RawRecord): ParsedRecord {
