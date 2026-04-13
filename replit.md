@@ -1,15 +1,16 @@
 # Listentropy
 
 ## Overview
-Listentropy is a privacy-first Spotify listening history analyzer. Users upload their Spotify Extended Streaming History ZIP and get deep analytics (eras, archetypes, network graphs, share cards) — all processed locally in-browser via Web Workers.
+Listentropy is a privacy-first Spotify listening history analyzer. Users upload their Spotify Extended Streaming History ZIP and get deep analytics (eras, archetypes, network graphs, share cards) — all processed locally in-browser via Web Workers. Now evolving into a multi-user product with server-side auth and persistence.
 
 ## Architecture
 - **Frontend:** React 18 + TypeScript 5.9, Vite 7.3, Tailwind CSS 3.4
-- **State:** Zustand (8 stores: data, lab, audio traits, spotify auth, theme, session metrics, upload, share)
+- **State:** Zustand (9 stores: data, lab, audio traits, spotify auth, server auth, theme, session metrics, experience, upload)
 - **Visualization:** Recharts, D3-force, Three.js / @react-three/fiber
 - **Workers:** 2 dedicated Web Workers (data processing, lab analytics)
-- **Backend:** Single API endpoint for Spotify audio feature enrichment proxy
-- **Database:** None (local-first, all processing in browser)
+- **Backend:** Express API server on port 3001, proxied through Vite dev server
+- **Database:** PostgreSQL (Replit-managed) with users, spotify_connections, sessions tables
+- **Auth:** Server-side Spotify OAuth (PKCE + client secret) with HttpOnly session cookies
 - **Routing:** react-router-dom v7 (/, /auth/spotify/callback, /share)
 
 ## Key Directories
@@ -23,23 +24,48 @@ src/
 ├── workers/                    # Web Workers
 ├── features/                   # Plugin system
 └── themes/                     # Theme engine
+server/
+├── index.ts                    # Express server entry point
+├── db.ts                       # PostgreSQL connection pool + migrations
+├── crypto.ts                   # Encryption/hashing utilities
+├── middleware.ts               # Auth middleware (requireAuth, requireCsrf, optionalAuth)
+├── tsconfig.json               # Server TypeScript config
+└── routes/
+    ├── auth.ts                 # Spotify OAuth + session management routes
+    └── enrichment.ts           # Audio feature enrichment proxy
 api/
-└── spotify/enrichment/         # Serverless enrichment proxy
+└── spotify/enrichment/         # Legacy serverless enrichment proxy (preserved)
 docs/                           # Architecture docs
 tests/                          # E2E (Playwright) + fixtures
 ```
 
 ## Development
 - **Package manager:** pnpm
-- **Dev server:** `pnpm run dev` (Vite on port 5000)
+- **Dev server:** `pnpm run dev` (starts both Express API on 3001 and Vite on 5000)
+- **Frontend only:** `pnpm run dev:frontend` (Vite only)
+- **Server only:** `pnpm run dev:server` (Express with tsx watch)
 - **Tests:** `pnpm test` (Vitest), `pnpm test:e2e` (Playwright)
 - **Build:** `pnpm run build` (tsc + vite build)
 
+## API Routes
+- `GET /api/health` — Health check
+- `GET /api/auth/spotify/login` — Initiate Spotify OAuth
+- `GET /api/auth/spotify/callback` — OAuth callback (token exchange, session creation)
+- `GET /api/auth/me` — Current user profile + CSRF token
+- `POST /api/auth/logout` — End session
+- `POST /api/auth/refresh` — Refresh Spotify access token
+- `POST /api/auth/spotify/disconnect` — Revoke Spotify connection (requires CSRF)
+- `DELETE /api/auth/account` — Delete account and all data (requires CSRF)
+- `POST /api/spotify/enrichment/audio-features` — Audio feature enrichment proxy
+
 ## Environment Variables
-- `VITE_SPOTIFY_CLIENT_ID` — Spotify app client ID (frontend, for OAuth PKCE)
-- `VITE_SPOTIFY_REDIRECT_URI` — OAuth callback URL (optional, defaults to /auth/spotify/callback)
-- `SPOTIFY_CLIENT_ID` — Spotify app client ID (backend, for client credentials proxy)
-- `SPOTIFY_CLIENT_SECRET` — Spotify app client secret (backend, for client credentials proxy)
+- `SPOTIFY_CLIENT_ID` — Spotify app client ID (backend)
+- `SPOTIFY_CLIENT_SECRET` — Spotify app client secret (backend)
+- `SPOTIFY_REDIRECT_URI` — OAuth callback URL (defaults to `https://$REPLIT_DEV_DOMAIN/api/auth/spotify/callback`)
+- `ENCRYPTION_KEY` — AES encryption key for token storage (auto-generated)
+- `DATABASE_URL` — PostgreSQL connection string (auto-provisioned)
+- `VITE_SPOTIFY_CLIENT_ID` — Spotify client ID (frontend, for legacy PKCE enrichment)
+- `VITE_SPOTIFY_REDIRECT_URI` — Legacy OAuth callback URL
 - `SPOTIFY_ENRICHMENT_PROXY_RATE_LIMIT_PER_MINUTE` — Rate limit override (default: 60)
 
 ## Architecture Documents

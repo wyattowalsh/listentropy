@@ -63,7 +63,13 @@ export default defineConfig({
     open: false,
     allowedHosts: true,
     watch: {
-      ignored: ['**/coverage/**', '**/playwright-report/**', '**/test-results/**'],
+      ignored: ['**/coverage/**', '**/playwright-report/**', '**/test-results/**', '**/server/**'],
+    },
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
     },
   },
   preview: {

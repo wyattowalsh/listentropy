@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "web"]
+modules = ["nodejs-20", "web", "postgresql-16"]
 [agent]
 expertMode = true
 
@@ -30,5 +30,14 @@ waitForPort = 5000
 outputType = "webview"
 
 [[ports]]
+localPort = 3001
+externalPort = 3001
+
+[[ports]]
 localPort = 5000
 externalPort = 80
+
+[userenv]
+
+[userenv.shared]
+ENCRYPTION_KEY = "1c556423a5b2141da901b47945ae2ff1e4887a31dad1c60fe38664f85000c682"
