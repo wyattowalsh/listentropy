@@ -272,7 +272,12 @@ function requireAuth(req, res, next) {
   next()
 }
 
+const OWNED_TABLES = new Set(['datasets', 'user_analytics_snapshots'])
+
 function requireOwnership(resourceType: string) {
+  if (!OWNED_TABLES.has(resourceType)) {
+    throw new Error(`Invalid resource type: ${resourceType}`)
+  }
   return async (req, res, next) => {
     const resource = await db.query(
       `SELECT user_id FROM ${resourceType} WHERE id = $1`,
@@ -572,9 +577,9 @@ CREATE TABLE aggregate_metrics (
 
 CREATE TABLE deletion_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id),
+  user_id UUID,
   request_type TEXT NOT NULL CHECK (request_type IN ('dataset', 'account')),
-  target_dataset_id UUID REFERENCES datasets(id),
+  target_dataset_id UUID,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
   requested_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   completed_at TIMESTAMPTZ,
