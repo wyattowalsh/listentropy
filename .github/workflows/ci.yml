@@ -19,6 +19,22 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54329/listentropy_test
+      ENCRYPTION_KEY: test-encryption-key
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: listentropy_test
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 54329:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d listentropy_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout
