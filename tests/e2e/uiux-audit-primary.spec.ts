@@ -4,6 +4,7 @@ import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import type { Page, TestInfo } from '@playwright/test'
 
+import { PRIMARY_ANALYTICS_TABLIST_LABEL, PRIMARY_ANALYTICS_TABS } from './helpers/auditContract.mjs'
 import { uploadAuditFixture } from './helpers/spotifyFixture'
 
 const SCREENSHOT_DIR = path.join(process.cwd(), 'test-results', 'uiux-audit', 'primary')
@@ -62,10 +63,10 @@ test('captures primary desktop UIUX flow screenshots with Spotify fixture data',
   await captureAuditScreenshot(page, testInfo, '01-shell-onboarding-idle')
 
   await uploadAuditFixture(page, { waitForTab: 'Share' })
-  await expect(page.getByRole('tablist', { name: 'Primary analytics views' })).toBeVisible()
+  await expect(page.getByRole('tablist', { name: PRIMARY_ANALYTICS_TABLIST_LABEL })).toBeVisible()
   await captureAuditScreenshot(page, testInfo, '02-shell-uploaded-primary-tabs', { fullPage: false })
 
-  await page.getByRole('tab', { name: 'Dashboard', exact: true }).click()
+  await page.getByRole('tab', { name: PRIMARY_ANALYTICS_TABS.analytics, exact: true }).click()
   await waitForHeading(page, 'Year-over-year listening')
   await captureAuditScreenshot(page, testInfo, '03-dashboard-overview')
 

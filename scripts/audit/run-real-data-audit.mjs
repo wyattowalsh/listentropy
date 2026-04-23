@@ -226,36 +226,36 @@ async function runAudit() {
     const uploadStartAt = now()
     await page.goto(baseUrl, { waitUntil: 'domcontentloaded' })
     await page.locator('input[type="file"]').setInputFiles(zipPath)
-    await page.getByRole('tab', { name: PRIMARY_ANALYTICS_TABS.dashboard }).waitFor({ state: 'visible', timeout: 180_000 })
+    await page.getByRole('tab', { name: PRIMARY_ANALYTICS_TABS.analytics }).waitFor({ state: 'visible', timeout: 180_000 })
     const unlockFull = page.getByRole('button', { name: 'Unlock Full Analytics' })
     if ((await unlockFull.count()) > 0) {
       await unlockFull.click()
     }
-    const dashboardPanel = await openPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.dashboard)
-    await dashboardPanel.getByRole('heading', { name: 'Overview Snapshot' }).waitFor({ state: 'visible', timeout: 30_000 })
+    const analyticsPanel = await openPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.analytics)
+    await analyticsPanel.getByRole('heading', { name: 'Overview Snapshot' }).waitFor({ state: 'visible', timeout: 30_000 })
     report.timingsMs.uploadAndParse = now() - uploadStartAt
     report.checks.uploadParsed = true
 
     const tabsStartAt = now()
-    await dashboardPanel.getByRole('heading', { name: 'Country context' }).waitFor({ state: 'visible', timeout: 30_000 })
+    await analyticsPanel.getByRole('heading', { name: 'Country context' }).waitFor({ state: 'visible', timeout: 30_000 })
     report.checks.contextRendered = true
     report.context.countryContextVisible = true
 
-    await dashboardPanel.getByRole('button', { name: 'Show advanced tools' }).click()
-    await dashboardPanel.getByRole('heading', { name: 'Advanced', exact: true }).waitFor({ state: 'visible', timeout: 30_000 })
-    const sectionSelect = dashboardPanel.getByRole('combobox', { name: 'Advanced section' })
+    await analyticsPanel.getByRole('button', { name: 'Show advanced tools' }).click()
+    await analyticsPanel.getByRole('heading', { name: 'Advanced', exact: true }).waitFor({ state: 'visible', timeout: 30_000 })
+    const sectionSelect = analyticsPanel.getByRole('combobox', { name: 'Advanced section' })
     await sectionSelect.selectOption('artist')
-    await dashboardPanel.getByRole('heading', { name: 'Artist Analysis' }).waitFor({ state: 'visible', timeout: 30_000 })
+    await analyticsPanel.getByRole('heading', { name: 'Artist Analysis' }).waitFor({ state: 'visible', timeout: 30_000 })
     await sectionSelect.selectOption('network')
-    await dashboardPanel.getByRole('heading', { name: 'Music Universe Graph' }).waitFor({ state: 'visible', timeout: 30_000 })
-    const crashCount = await dashboardPanel.getByText('This view crashed').count()
+    await analyticsPanel.getByRole('heading', { name: 'Music Universe Graph' }).waitFor({ state: 'visible', timeout: 30_000 })
+    const crashCount = await analyticsPanel.getByText('This view crashed').count()
     if (crashCount > 0) {
       throw new Error('Universe view showed generic crash boundary text')
     }
-    await dashboardPanel.locator('canvas').first().waitFor({ state: 'visible', timeout: 30_000 })
+    await analyticsPanel.locator('canvas').first().waitFor({ state: 'visible', timeout: 30_000 })
     report.checks.universeStable = true
     await sectionSelect.selectOption('lab')
-    await dashboardPanel.getByRole('heading', { name: 'Xenolab', exact: true }).waitFor({ state: 'visible', timeout: 30_000 })
+    await analyticsPanel.getByRole('heading', { name: 'Xenolab', exact: true }).waitFor({ state: 'visible', timeout: 30_000 })
     report.checks.advancedSectionsRendered = true
 
     const sharePanel = await openPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.share)
@@ -265,10 +265,10 @@ async function runAudit() {
 
     const timezoneStartAt = now()
     const timezoneSelect = page.getByLabel('Select timezone mode')
-    const timezoneDashboardPanel = await openPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.dashboard)
-    const timezoneSectionSelect = timezoneDashboardPanel.getByRole('combobox', { name: 'Advanced section' })
+    const timezoneAnalyticsPanel = await openPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.analytics)
+    const timezoneSectionSelect = timezoneAnalyticsPanel.getByRole('combobox', { name: 'Advanced section' })
     await timezoneSectionSelect.selectOption('lab')
-    const timezoneModeCard = timezoneDashboardPanel.getByText('Timezone mode').locator('..')
+    const timezoneModeCard = timezoneAnalyticsPanel.getByText('Timezone mode').locator('..')
     await timezoneSelect.selectOption('utc')
     await timezoneModeCard.getByText(/^utc$/i).waitFor({ state: 'visible', timeout: 30_000 })
     await timezoneSelect.selectOption('local')

@@ -10,7 +10,7 @@ import { useSessionMetricsStore } from '@/store/useSessionMetricsStore'
 
 type LoadMode = 'idle' | 'parsing' | 'ready' | 'error'
 
-interface ZipIngestPreflightContext {
+export interface ZipIngestPreflightContext {
   inspection?: ZipInspectionResult
   preparedArchive?: PreparedSpotifyZipArchive
 }

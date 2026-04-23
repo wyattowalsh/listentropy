@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
 import type { Locator } from '@playwright/test'
 
+import { PRIMARY_ANALYTICS_TABS } from './helpers/auditContract.mjs'
 import { openAdvancedTools, uploadSyntheticFixture } from './helpers/spotifyFixture'
 
 async function expectNoAxeViolations(page: Parameters<typeof test>[0]['page']): Promise<void> {
@@ -68,7 +69,7 @@ test('@a11y redesign surfaces keep semantics, touch targets, and contrast-safe s
   await expect(page.getByRole('heading', { name: 'Share Studio', level: 2 })).toBeVisible()
   await expectNoAxeViolations(page)
 
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: PRIMARY_ANALYTICS_TABS.analytics }).click()
   await openAdvancedTools(page)
   await expect(page.getByRole('heading', { name: 'Advanced', exact: true })).toBeVisible()
   await expectNoAxeViolations(page)

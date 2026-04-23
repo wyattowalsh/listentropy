@@ -19,7 +19,7 @@ export default defineConfig({
     { name: 'webkit-mobile', use: { ...devices['iPhone 13'] } },
   ],
   webServer: {
-    command: 'pnpm preview --strictPort',
+    command: 'pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort',
     port: 4173,
     reuseExistingServer: false,
     timeout: 60_000,

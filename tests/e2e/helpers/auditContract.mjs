@@ -1,8 +1,9 @@
 import { expect } from '@playwright/test'
 
-export const PRIMARY_ANALYTICS_TABLIST_LABEL = 'Primary analytics views'
+export const PRIMARY_ANALYTICS_TABLIST_LABEL = 'Primary views'
 export const PRIMARY_ANALYTICS_TABS = {
-  dashboard: 'Dashboard',
+  home: 'Home',
+  analytics: 'My Analytics',
   share: 'Share',
 }
 export const INVALID_SHARE_TITLE = 'This link needs a refresh'

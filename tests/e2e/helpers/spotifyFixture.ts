@@ -5,6 +5,8 @@ import JSZip from 'jszip'
 import { expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 
+import { PRIMARY_ANALYTICS_TABS } from './auditContract.mjs'
+
 interface FixtureRecord {
   ts: string
   platform: string
@@ -119,12 +121,12 @@ export async function uploadSyntheticFixture(page: Page): Promise<void> {
     mimeType: 'application/zip',
     buffer,
   })
-  await expect(page.getByRole('tab', { name: 'Dashboard' })).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByRole('tab', { name: PRIMARY_ANALYTICS_TABS.analytics })).toBeVisible({ timeout: 20_000 })
 }
 
 export async function uploadAuditFixture(page: Page, options: UploadAuditFixtureOptions = {}): Promise<void> {
   await page.locator('input[type="file"]').setInputFiles(await resolveAuditFixtureInputFiles(options))
-  await expect(page.getByRole('tab', { name: 'Dashboard' })).toBeVisible({ timeout: 180_000 })
+  await expect(page.getByRole('tab', { name: PRIMARY_ANALYTICS_TABS.analytics })).toBeVisible({ timeout: 180_000 })
 
   const unlockFullAnalyticsButton = page.getByRole('button', { name: 'Unlock Full Analytics' })
   if ((await unlockFullAnalyticsButton.count()) > 0) {

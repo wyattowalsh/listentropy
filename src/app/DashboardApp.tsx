@@ -13,6 +13,7 @@ import { CommunityDashboard } from '@/components/views/CommunityDashboard'
 import { firstPartyPlugins } from '@/features/plugins/firstPartyPlugins'
 import { pluginRegistry } from '@/lib/plugins/runtime'
 import { useDataStore } from '@/store/useDataStore'
+import type { ZipIngestPreflightContext } from '@/store/useDataStore'
 import { useExperienceStore } from '@/store/useExperienceStore'
 import { useSessionMetricsStore } from '@/store/useSessionMetricsStore'
 import { useAuthStore } from '@/store/useAuthStore'
@@ -76,7 +77,7 @@ function syncAdvancedHash(section: AdvancedHubSection | null): void {
 }
 
 function OnboardingLanding({ onFileSelected, demoZipPath }: {
-  onFileSelected: (file: File, preflight?: unknown) => void
+  onFileSelected: (file: File, preflight?: ZipIngestPreflightContext) => void
   demoZipPath?: string
 }): JSX.Element {
   const authStatus = useAuthStore((state) => state.status)

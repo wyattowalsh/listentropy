@@ -39,10 +39,12 @@ describe('real-data audit contract', () => {
   })
 
   it('matches the current primary analytics shell labels', () => {
-    render(<TabNav value="dashboard" onChange={() => {}} />)
+    render(<TabNav value="analytics" onChange={() => {}} />)
 
-    expect(screen.getByRole('tab', { name: PRIMARY_ANALYTICS_TABS.dashboard })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: PRIMARY_ANALYTICS_TABS.home })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: PRIMARY_ANALYTICS_TABS.analytics })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: PRIMARY_ANALYTICS_TABS.share })).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Dashboard' })).not.toBeInTheDocument()
     expect(screen.queryByRole('tab', { name: 'Overview' })).not.toBeInTheDocument()
     expect(screen.queryByRole('tab', { name: 'Explore' })).not.toBeInTheDocument()
     expect(screen.queryByRole('tab', { name: 'Taste DNA' })).not.toBeInTheDocument()

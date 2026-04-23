@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 
+import { PRIMARY_ANALYTICS_TABS } from './helpers/auditContract.mjs'
 import { openAdvancedTools, uploadSyntheticFixture } from './helpers/spotifyFixture'
 
 test('@matrix universe renders graph controls, analytics, and diagnostics', async ({ page }) => {
@@ -79,8 +80,8 @@ test('@matrix dashboard summary exposes era counts with overview diagnostics', a
   await page.goto('/')
   await uploadSyntheticFixture(page)
 
-  const dashboardTab = page.getByRole('tab', { name: 'Dashboard' })
-  await expect(dashboardTab).toContainText(/eras/i)
+  const dashboardTab = page.getByRole('tab', { name: PRIMARY_ANALYTICS_TABS.analytics })
+  await expect(dashboardTab).toContainText(/\d[\d,]*\s+plays/i)
   await expect(page.getByRole('heading', { name: 'Overview Snapshot' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Year-over-year listening' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Data Quality' })).toBeVisible()

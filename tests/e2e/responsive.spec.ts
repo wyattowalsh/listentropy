@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 
+import { PRIMARY_ANALYTICS_TABS } from './helpers/auditContract.mjs'
 import { openAdvancedTools, uploadSyntheticFixture } from './helpers/spotifyFixture'
 
 async function expectNoPageOverflow(page: Parameters<typeof test>[0]['page']): Promise<void> {
@@ -21,7 +22,7 @@ test('@matrix mobile key views avoid page-level horizontal overflow', async ({ p
   await expect(page.getByRole('heading', { name: 'Share Studio' })).toBeVisible()
   await expectNoPageOverflow(page)
 
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: PRIMARY_ANALYTICS_TABS.analytics }).click()
   await expect(page.getByRole('heading', { name: 'Overview Snapshot' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Country context' })).toBeVisible()
   await expectNoPageOverflow(page)
@@ -48,8 +49,8 @@ test('@matrix fresh upload shows simplified tabs immediately and explore ranking
   await uploadSyntheticFixture(page)
 
   await expect(page.getByRole('button', { name: 'Unlock Full Analytics' })).toHaveCount(0)
-  await expect(page.getByRole('tab')).toHaveCount(2)
-  await expect(page.getByRole('tab', { name: 'Dashboard' })).toBeVisible()
+  await expect(page.getByRole('tab')).toHaveCount(3)
+  await expect(page.getByRole('tab', { name: PRIMARY_ANALYTICS_TABS.analytics })).toBeVisible()
   await expect(page.getByRole('tab', { name: 'Share' })).toBeVisible()
   await openAdvancedTools(page, 'network')
   await expect(page.getByText('Network Analytics')).toBeVisible()

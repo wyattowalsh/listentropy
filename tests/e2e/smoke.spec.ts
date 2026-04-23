@@ -82,14 +82,14 @@ async function uploadFixture(page: Page): Promise<void> {
     mimeType: 'application/zip',
     buffer,
   })
-  await expect(getPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.dashboard)).toBeVisible({ timeout: 20_000 })
+  await expect(getPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.analytics)).toBeVisible({ timeout: 20_000 })
 }
 
 test('renders upload onboarding and privacy copy', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Listentropy' })).toBeVisible()
   await expect(
-    page.getByText('All processing happens locally in your browser.'),
+    page.getByText('Processing happens entirely in your browser.'),
   ).toBeVisible()
 })
 
@@ -97,10 +97,10 @@ test('primary destinations render after upload', async ({ page }) => {
   await page.goto('/')
   await uploadFixture(page)
   await expect(page.getByRole('button', { name: 'Unlock Full Analytics' })).toHaveCount(0)
-  await expect(page.getByRole('tab')).toHaveCount(2)
+  await expect(page.getByRole('tab')).toHaveCount(3)
 
-  const dashboardPanel = await openPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.dashboard)
-  await expect(dashboardPanel.getByRole('heading', { name: 'Overview Snapshot' })).toBeVisible()
+  const analyticsPanel = await openPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.analytics)
+  await expect(analyticsPanel.getByRole('heading', { name: 'Overview Snapshot' })).toBeVisible()
 
   const sharePanel = await openPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.share)
   await expect(sharePanel.getByRole('heading', { name: 'Share Studio' })).toBeVisible()
@@ -110,10 +110,10 @@ test('dashboard exposes advanced controls via progressive disclosure', async ({ 
   await page.goto('/')
   await uploadFixture(page)
 
-  const dashboardPanel = await openPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.dashboard)
-  await dashboardPanel.getByRole('button', { name: 'Show advanced tools' }).click()
-  await expect(dashboardPanel.getByRole('heading', { name: 'Advanced', exact: true })).toBeVisible()
-  await expect(dashboardPanel.getByRole('combobox', { name: 'Advanced section' })).toBeVisible()
+  const analyticsPanel = await openPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.analytics)
+  await analyticsPanel.getByRole('button', { name: 'Show advanced tools' }).click()
+  await expect(analyticsPanel.getByRole('heading', { name: 'Advanced', exact: true })).toBeVisible()
+  await expect(analyticsPanel.getByRole('combobox', { name: 'Advanced section' })).toBeVisible()
 })
 
 test('share studio supports full deck traversal and share links', async ({ page }) => {
@@ -148,7 +148,7 @@ test('upload-to-share funnel works on mobile viewport', async ({ page }) => {
   await page.goto('/')
   await uploadFixture(page)
 
-  await expect(getPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.dashboard)).toBeVisible()
+  await expect(getPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.analytics)).toBeVisible()
   await expect(getPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.share)).toBeVisible()
   await getPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.share).click()
   await expect(page.getByRole('heading', { name: 'Share Studio' })).toBeVisible()

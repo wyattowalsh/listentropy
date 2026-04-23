@@ -5,6 +5,7 @@ import JSZip from 'jszip'
 import { expect, test } from '@playwright/test'
 import type { Page, TestInfo } from '@playwright/test'
 
+import { assertInvalidShareRecovery, PRIMARY_ANALYTICS_TABS } from './helpers/auditContract.mjs'
 import { openAdvancedTools, uploadAuditFixture } from './helpers/spotifyFixture'
 
 const SCREENSHOT_DIR = path.join(process.cwd(), 'test-results', 'uiux-audit', 'responsive-errors')
@@ -50,7 +51,7 @@ test('captures mobile responsive happy-path shells with fixture zip', async ({ p
   await page.goto('/')
   await uploadAuditFixture(page, { waitForTab: 'Share', requireRealData: STRICT_REAL_DATA_AUDIT })
 
-  await expect(page.getByRole('tab', { name: 'Dashboard' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: PRIMARY_ANALYTICS_TABS.analytics })).toBeVisible()
   await captureAuditScreenshot(page, testInfo, 'mobile-uploaded-shell', { fullPage: false })
   const themeSelect = page.getByLabel('Select theme')
   const timezoneSelect = page.getByLabel('Select timezone mode')
@@ -66,7 +67,7 @@ test('captures mobile responsive happy-path shells with fixture zip', async ({ p
   await expect(page.getByRole('heading', { name: 'Share Studio' })).toBeVisible({ timeout: 30_000 })
   await captureAuditScreenshot(page, testInfo, 'mobile-share-studio')
 
-  await page.getByRole('tab', { name: 'Dashboard' }).click()
+  await page.getByRole('tab', { name: PRIMARY_ANALYTICS_TABS.analytics }).click()
   await page.getByRole('heading', { name: 'Year-over-year listening' }).scrollIntoViewIfNeeded()
   await expect(page.getByRole('heading', { name: 'Country context' })).toBeVisible({ timeout: 30_000 })
   await captureAuditScreenshot(page, testInfo, 'mobile-explore-eras')
@@ -83,7 +84,7 @@ test('captures webkit mobile responsive variant shell', async ({ page }, testInf
 
   await page.goto('/')
   await uploadAuditFixture(page, { waitForTab: 'Share', requireRealData: STRICT_REAL_DATA_AUDIT })
-  await expect(page.getByRole('tab', { name: 'Dashboard' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: PRIMARY_ANALYTICS_TABS.analytics })).toBeVisible()
   await captureAuditScreenshot(page, testInfo, 'webkit-mobile-uploaded-shell', { fullPage: false })
   await page.getByRole('tab', { name: 'Share' }).click()
   await expect(page.getByRole('heading', { name: 'Share Studio' })).toBeVisible({ timeout: 30_000 })
@@ -133,7 +134,7 @@ test('captures malformed history parse-error state', async ({ page }, testInfo) 
   await expect(page.getByRole('heading', { name: 'Listentropy' })).toBeVisible({ timeout: 30_000 })
   await captureAuditScreenshot(page, testInfo, 'recovery-return-to-upload', { fullPage: false })
   await uploadAuditFixture(page, { waitForTab: 'Share', requireRealData: STRICT_REAL_DATA_AUDIT })
-  await expect(page.getByRole('tab', { name: 'Dashboard' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: PRIMARY_ANALYTICS_TABS.analytics })).toBeVisible()
   await captureAuditScreenshot(page, testInfo, 'recovery-reupload-shell', { fullPage: false })
 })
 
@@ -141,8 +142,7 @@ test('captures invalid share hash route state', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'chromium', 'Error-state capture runs on chromium.')
 
   await page.goto('/share#not-valid-payload')
-  await expect(page.getByRole('heading', { name: 'This link needs a refresh' })).toBeVisible({ timeout: 30_000 })
-  await expect(page.getByText(/couldn't decode this snapshot payload safely/i)).toBeVisible()
+  await assertInvalidShareRecovery(page)
   await expect(page.getByRole('link', { name: 'Create a new share snapshot' })).toHaveAttribute('href', '/')
   await captureAuditScreenshot(page, testInfo, 'error-invalid-share-hash')
 })
