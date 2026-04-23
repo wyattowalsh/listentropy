@@ -186,6 +186,22 @@ a {
   transform: none;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .view-enter,
+  .section-reveal > section {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .surface-interactive,
+  .control-interactive,
+  :root {
+    transition: none !important;
+  }
+}
+
 @keyframes fadeSlideUp {
   from {
     opacity: 0;
