@@ -16,6 +16,7 @@ This validates gzip size budgets for:
 - entry chunk
 - largest async chunk
 - worker chunk
+- initial page JS remains informational in the current gate; treat it as a review signal, not a release blocker, unless product policy changes explicitly
 
 If this fails:
 
@@ -58,6 +59,5 @@ SPOTIFY_ZIP_PATH=/absolute/path/to/my_spotify_data.zip pnpm audit:real-data
 
 Review `timingsMs` in `/Users/ww/dev/projects/listentropy/test-results/real-data-context-report.json`, especially:
 
-- `weeklyTimeline`
 - `timezoneToggle`
 - `tabTraversal`

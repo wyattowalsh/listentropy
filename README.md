@@ -171,13 +171,12 @@ The audit validates:
 - upload and parse flow
 - rendering across the primary destinations plus dashboard-embedded advanced sections
 - primary navigation and dashboard advanced-section switching behavior
-- Context Intelligence rendering and key section presence
-- weekly timeline ISO-like labels (not collapsed to W01..W06)
+- dashboard context summary rendering (`Country context`)
 - timezone toggle behavior (`local`/`utc`)
 - Universe stability (graph/fallback, no generic crash card)
 - share preset flows, share link generation, and `/share` route rendering
 - backward compatibility for legacy share links
-- invalid hash handling (`Invalid Share Link`)
+- invalid hash handling (`This link needs a refresh`)
 - zero console errors/warnings/pageerrors
 
 Machine-readable output:

@@ -34,6 +34,18 @@ function createMockResponse(): MockApiResponse {
   }
 }
 
+function createTrustedPostRequest(args: { body: unknown; headers?: Record<string, string> }): {
+  method: 'POST'
+  body: unknown
+  headers: Record<string, string>
+} {
+  return {
+    method: 'POST',
+    body: args.body,
+    headers: args.headers ?? {},
+  }
+}
+
 function createAudioFeature(trackId: string) {
   return {
     id: trackId,
@@ -79,7 +91,7 @@ describe('spotify audio features enrichment api route', () => {
   it('returns bad-request when the POST body is invalid JSON', async () => {
     const response = createMockResponse()
 
-    await handler({ method: 'POST', body: '{"trackIds":[' }, response)
+    await handler(createTrustedPostRequest({ body: '{"trackIds":[' }), response)
 
     expect(response.statusCode).toBe(400)
     expect(response.jsonPayload).toMatchObject({
@@ -111,11 +123,17 @@ describe('spotify audio features enrichment api route', () => {
     const secondResponse = createMockResponse()
 
     await handler(
-      { method: 'POST', headers: { 'x-forwarded-for': '198.51.100.1' }, body: { trackIds: ['track-1'] } },
+      createTrustedPostRequest({
+        headers: { 'x-forwarded-for': '198.51.100.1' },
+        body: { trackIds: ['track-1'] },
+      }),
       firstResponse,
     )
     await handler(
-      { method: 'POST', headers: { 'x-forwarded-for': '198.51.100.1' }, body: { trackIds: ['track-1'] } },
+      createTrustedPostRequest({
+        headers: { 'x-forwarded-for': '198.51.100.1' },
+        body: { trackIds: ['track-1'] },
+      }),
       secondResponse,
     )
 
@@ -128,6 +146,116 @@ describe('spotify audio features enrichment api route', () => {
         code: 'rate-limited',
       },
     })
+  })
+
+  it('ignores caller-supplied client-id for limiter keying', async () => {
+    vi.stubEnv('SPOTIFY_ENRICHMENT_PROXY_RATE_LIMIT_PER_MINUTE', '1')
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          access_token: 'app-token',
+          token_type: 'Bearer',
+          expires_in: 3600,
+        }),
+      })
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          audio_features: [createAudioFeature('track-1')],
+        }),
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const firstResponse = createMockResponse()
+    const secondResponse = createMockResponse()
+    const thirdResponse = createMockResponse()
+
+    await handler(
+      createTrustedPostRequest({
+        headers: {
+          'x-forwarded-for': '198.51.100.1',
+          'x-spotify-enrichment-proxy-client-id': 'trusted-caller-a',
+        },
+        body: { trackIds: ['track-1'] },
+      }),
+      firstResponse,
+    )
+    await handler(
+      createTrustedPostRequest({
+        headers: {
+          'x-forwarded-for': '198.51.100.1',
+          'x-spotify-enrichment-proxy-client-id': 'trusted-caller-b',
+        },
+        body: { trackIds: ['track-1'] },
+      }),
+      secondResponse,
+    )
+    await handler(
+      createTrustedPostRequest({
+        headers: {
+          'x-forwarded-for': '198.51.100.1',
+          'x-spotify-enrichment-proxy-client-id': 'trusted-caller-a',
+        },
+        body: { trackIds: ['track-1'] },
+      }),
+      thirdResponse,
+    )
+
+    expect(firstResponse.statusCode).toBe(200)
+    expect(secondResponse.statusCode).toBe(429)
+    expect(thirdResponse.statusCode).toBe(429)
+  })
+
+  it('ignores spoofed custom ip headers for limiter keying', async () => {
+    vi.stubEnv('SPOTIFY_ENRICHMENT_PROXY_RATE_LIMIT_PER_MINUTE', '1')
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          access_token: 'app-token',
+          token_type: 'Bearer',
+          expires_in: 3600,
+        }),
+      })
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          audio_features: [createAudioFeature('track-1')],
+        }),
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const firstResponse = createMockResponse()
+    const secondResponse = createMockResponse()
+
+    await handler(
+      createTrustedPostRequest({
+        headers: {
+          'user-agent': 'audit-suite',
+          'accept-language': 'en-US',
+          origin: 'https://listentropy.w4w.dev',
+          'x-real-ip': '198.51.100.20',
+        },
+        body: { trackIds: ['track-1'] },
+      }),
+      firstResponse,
+    )
+    await handler(
+      createTrustedPostRequest({
+        headers: {
+          'user-agent': 'audit-suite',
+          'accept-language': 'en-US',
+          origin: 'https://listentropy.w4w.dev',
+          'x-real-ip': '198.51.100.21',
+        },
+        body: { trackIds: ['track-1'] },
+      }),
+      secondResponse,
+    )
+
+    expect(firstResponse.statusCode).toBe(200)
+    expect(secondResponse.statusCode).toBe(429)
   })
 
   it('uses client credentials to fetch app token and returns audio features', async () => {
@@ -149,7 +277,7 @@ describe('spotify audio features enrichment api route', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const response = createMockResponse()
-    await handler({ method: 'POST', body: { trackIds: [' track-1 ', 'track-1'] } }, response)
+    await handler(createTrustedPostRequest({ body: { trackIds: [' track-1 ', 'track-1'] } }), response)
 
     const tokenRequest = fetchMock.mock.calls[0]
     const audioFeaturesRequest = fetchMock.mock.calls[1]
@@ -212,7 +340,7 @@ describe('spotify audio features enrichment api route', () => {
       vi.stubGlobal('fetch', fetchMock)
 
       const response = createMockResponse()
-      await handler({ method: 'POST', body: { trackIds: ['track-1'] } }, response)
+      await handler(createTrustedPostRequest({ body: { trackIds: ['track-1'] } }), response)
 
       expect(response.statusCode).toBe(expectedStatus)
       expect(response.jsonPayload).toMatchObject({
@@ -242,8 +370,8 @@ describe('spotify audio features enrichment api route', () => {
       })
     vi.stubGlobal('fetch', fetchMock)
 
-    await handler({ method: 'POST', body: { trackIds: ['track-1'] } }, createMockResponse())
-    await handler({ method: 'POST', body: { trackIds: ['track-1'] } }, createMockResponse())
+    await handler(createTrustedPostRequest({ body: { trackIds: ['track-1'] } }), createMockResponse())
+    await handler(createTrustedPostRequest({ body: { trackIds: ['track-1'] } }), createMockResponse())
 
     const tokenCalls = fetchMock.mock.calls.filter((call) => call[0] === 'https://accounts.spotify.com/api/token')
     expect(tokenCalls).toHaveLength(1)
@@ -284,9 +412,9 @@ describe('spotify audio features enrichment api route', () => {
       })
     vi.stubGlobal('fetch', fetchMock)
 
-    await handler({ method: 'POST', body: { trackIds: ['track-1'] } }, createMockResponse())
+    await handler(createTrustedPostRequest({ body: { trackIds: ['track-1'] } }), createMockResponse())
     vi.advanceTimersByTime(10_000)
-    await handler({ method: 'POST', body: { trackIds: ['track-2'] } }, createMockResponse())
+    await handler(createTrustedPostRequest({ body: { trackIds: ['track-2'] } }), createMockResponse())
 
     const tokenCalls = fetchMock.mock.calls.filter((call) => call[0] === 'https://accounts.spotify.com/api/token')
     expect(tokenCalls).toHaveLength(2)
@@ -310,7 +438,7 @@ describe('spotify audio features enrichment api route', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const response = createMockResponse()
-    await handler({ method: 'POST', body: { trackIds: ['track-1'] } }, response)
+    await handler(createTrustedPostRequest({ body: { trackIds: ['track-1'] } }), response)
 
     expect(response.statusCode).toBe(429)
     expect(response.headers['retry-after']).toBe('7')
@@ -333,7 +461,7 @@ describe('spotify audio features enrichment api route', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const response = createMockResponse()
-    await handler({ method: 'POST', body: { trackIds: ['track-1'] } }, response)
+    await handler(createTrustedPostRequest({ body: { trackIds: ['track-1'] } }), response)
 
     expect(response.statusCode).toBe(429)
     expect(response.headers['retry-after']).toBe('11')
@@ -353,7 +481,7 @@ describe('spotify audio features enrichment api route', () => {
     vi.stubGlobal('fetch', fetchMock)
     const response = createMockResponse()
 
-    await handler({ method: 'POST', body: { trackIds: ['track-1'] } }, response)
+    await handler(createTrustedPostRequest({ body: { trackIds: ['track-1'] } }), response)
 
     expect(fetchMock).not.toHaveBeenCalled()
     expect(response.statusCode).toBe(503)

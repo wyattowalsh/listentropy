@@ -11,15 +11,14 @@ SPOTIFY_ZIP_PATH=/absolute/path/to/my_spotify_data.zip pnpm audit:real-data
 ## What It Validates
 
 - Zip presence, readability, and Spotify history file structure
-- Upload + parse flow completes in browser
-- Top-level tab traversal renders without crashes
-- Guided-mode and full unlock flows render correctly
-- Context Intelligence view headings render
-- Weekly timeline labels look ISO-like (`YYYY-W##`) with realistic spread
+- Upload + parse flow completes in browser and lands on the current `Dashboard` / `Share` shell
+- Primary navigation renders and `Dashboard` shows `Overview Snapshot`
+- Dashboard context summary renders (`Country context`)
+- Advanced sections switch cleanly for `Artist Analysis`, `Music Universe Graph`, and `Xenolab`
 - Timezone toggle works (`Local Time` / `UTC`)
 - Share preset flow and `/share` route rendering
 - Backward share decode (legacy payloads)
-- Invalid share payload handling
+- Invalid share payload handling with the current recovery copy (`This link needs a refresh`)
 - No console errors, warnings, or page errors
 
 ## Outputs
@@ -29,11 +28,11 @@ SPOTIFY_ZIP_PATH=/absolute/path/to/my_spotify_data.zip pnpm audit:real-data
 
 ## Example Fields (Context Report)
 
-- `checks.weeklyTimelineSane`
+- `checks.advancedSectionsRendered`
 - `checks.timezoneToggleWorks`
 - `checks.sharePresetFlows`
 - `checks.shareV2BackwardCompatible`
-- `context.weeklyLabelsSample`
+- `context.countryContextVisible`
 - `timingsMs.timezoneToggle`
 
 ## Notes

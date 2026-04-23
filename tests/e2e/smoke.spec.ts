@@ -1,6 +1,13 @@
 import JSZip from 'jszip'
 import { expect, test } from '@playwright/test'
-import type { Locator, Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
+
+import {
+  assertInvalidShareRecovery,
+  getPrimaryAnalyticsTab,
+  openPrimaryAnalyticsTab,
+  PRIMARY_ANALYTICS_TABS,
+} from './helpers/auditContract.mjs'
 
 interface FixtureRecord {
   ts: string
@@ -75,23 +82,7 @@ async function uploadFixture(page: Page): Promise<void> {
     mimeType: 'application/zip',
     buffer,
   })
-  await expect(primaryAnalyticsTab(page, 'Dashboard')).toBeVisible({ timeout: 20_000 })
-}
-
-function primaryAnalyticsTab(page: Page, label: string) {
-  return page
-    .getByRole('tablist', { name: 'Primary analytics views' })
-    .getByRole('tab', { name: label, exact: true })
-}
-
-async function openPrimaryAnalyticsTab(page: Page, label: string): Promise<Locator> {
-  const tab = primaryAnalyticsTab(page, label)
-  await tab.click()
-  const panelId = await tab.getAttribute('aria-controls')
-  if (!panelId) {
-    throw new Error(`Primary analytics tab "${label}" is missing aria-controls`)
-  }
-  return page.locator(`#${panelId}`)
+  await expect(getPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.dashboard)).toBeVisible({ timeout: 20_000 })
 }
 
 test('renders upload onboarding and privacy copy', async ({ page }) => {
@@ -108,10 +99,10 @@ test('primary destinations render after upload', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Unlock Full Analytics' })).toHaveCount(0)
   await expect(page.getByRole('tab')).toHaveCount(2)
 
-  const dashboardPanel = await openPrimaryAnalyticsTab(page, 'Dashboard')
+  const dashboardPanel = await openPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.dashboard)
   await expect(dashboardPanel.getByRole('heading', { name: 'Overview Snapshot' })).toBeVisible()
 
-  const sharePanel = await openPrimaryAnalyticsTab(page, 'Share')
+  const sharePanel = await openPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.share)
   await expect(sharePanel.getByRole('heading', { name: 'Share Studio' })).toBeVisible()
 })
 
@@ -119,7 +110,7 @@ test('dashboard exposes advanced controls via progressive disclosure', async ({ 
   await page.goto('/')
   await uploadFixture(page)
 
-  const dashboardPanel = await openPrimaryAnalyticsTab(page, 'Dashboard')
+  const dashboardPanel = await openPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.dashboard)
   await dashboardPanel.getByRole('button', { name: 'Show advanced tools' }).click()
   await expect(dashboardPanel.getByRole('heading', { name: 'Advanced', exact: true })).toBeVisible()
   await expect(dashboardPanel.getByRole('combobox', { name: 'Advanced section' })).toBeVisible()
@@ -129,7 +120,7 @@ test('share studio supports full deck traversal and share links', async ({ page 
   await page.goto('/')
   await uploadFixture(page)
 
-  await primaryAnalyticsTab(page, 'Share').click()
+  await getPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.share).click()
   await page.getByRole('button', { name: 'Headline Stats' }).click()
   await page.getByRole('button', { name: 'Detailed Stats' }).click()
 
@@ -157,9 +148,9 @@ test('upload-to-share funnel works on mobile viewport', async ({ page }) => {
   await page.goto('/')
   await uploadFixture(page)
 
-  await expect(primaryAnalyticsTab(page, 'Dashboard')).toBeVisible()
-  await expect(primaryAnalyticsTab(page, 'Share')).toBeVisible()
-  await primaryAnalyticsTab(page, 'Share').click()
+  await expect(getPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.dashboard)).toBeVisible()
+  await expect(getPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.share)).toBeVisible()
+  await getPrimaryAnalyticsTab(page, PRIMARY_ANALYTICS_TABS.share).click()
   await expect(page.getByRole('heading', { name: 'Share Studio' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Headline Stats' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Copy Share Link' })).toBeVisible()
@@ -167,5 +158,5 @@ test('upload-to-share funnel works on mobile viewport', async ({ page }) => {
 
 test('share route handles invalid payload gracefully', async ({ page }) => {
   await page.goto('/share#not-valid-payload')
-  await expect(page.getByRole('heading', { name: 'This link needs a refresh' })).toBeVisible()
+  await assertInvalidShareRecovery(page)
 })

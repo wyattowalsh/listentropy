@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto'
+import { isIP } from 'node:net'
+
 import {
   mapSpotifyUpstreamStatusToAudioFeaturesProxyError,
   type SpotifyAudioFeaturesProxyErrorResponse,
@@ -21,6 +24,11 @@ interface ApiRouteResponse {
 
 const SPOTIFY_ENRICHMENT_PROXY_RATE_LIMIT_WINDOW_MS = 60_000
 const DEFAULT_SPOTIFY_ENRICHMENT_PROXY_RATE_LIMIT_PER_MINUTE = 60
+const SPOTIFY_ENRICHMENT_PROXY_IP_HEADER_CANDIDATES = [
+  'x-vercel-forwarded-for',
+  'cf-connecting-ip',
+  'x-forwarded-for',
+] as const
 
 interface SpotifyEnrichmentProxyRateLimitEntry {
   windowStartedAtMs: number
@@ -64,20 +72,74 @@ function normalizeHeaderValue(value: string | string[] | undefined): string {
   return value ?? ''
 }
 
+function getHeaderValue(req: ApiRouteRequest, name: string): string {
+  const headers = req.headers
+  if (!headers) {
+    return ''
+  }
+  const direct = normalizeHeaderValue(headers[name]).trim()
+  if (direct) {
+    return direct
+  }
+  const targetName = name.toLowerCase()
+  for (const [headerName, headerValue] of Object.entries(headers)) {
+    if (headerName.toLowerCase() === targetName) {
+      return normalizeHeaderValue(headerValue).trim()
+    }
+  }
+  return ''
+}
+
+function normalizeIpCandidate(candidate: string): string | null {
+  const trimmed = candidate.trim()
+  if (!trimmed) {
+    return null
+  }
+  const bracketedMatch = trimmed.match(/^\[(.+)\](?::\d+)?$/)
+  const unwrapped = bracketedMatch?.[1] ?? trimmed
+  const ipv4WithPortMatch = unwrapped.match(/^(\d{1,3}(?:\.\d{1,3}){3}):\d+$/)
+  const maybeIp = ipv4WithPortMatch?.[1] ?? unwrapped
+  if (isIP(maybeIp)) {
+    return maybeIp
+  }
+  return null
+}
+
+function resolveTrustedClientIp(req: ApiRouteRequest): string | null {
+  for (const headerName of SPOTIFY_ENRICHMENT_PROXY_IP_HEADER_CANDIDATES) {
+    const rawValue = getHeaderValue(req, headerName)
+    if (!rawValue) {
+      continue
+    }
+    const candidateValues = rawValue.split(',')
+    for (const candidate of candidateValues) {
+      const normalizedIp = normalizeIpCandidate(candidate)
+      if (normalizedIp) {
+        return normalizedIp
+      }
+    }
+  }
+  return null
+}
+
+function createAnonymousClientIdentifier(req: ApiRouteRequest): string {
+  const fingerprint = createHash('sha256')
+    .update(getHeaderValue(req, 'user-agent'))
+    .update('|')
+    .update(getHeaderValue(req, 'accept-language'))
+    .update('|')
+    .update(getHeaderValue(req, 'origin'))
+    .digest('hex')
+    .slice(0, 24)
+  return `anon:${fingerprint}`
+}
+
 function resolveClientIdentifier(req: ApiRouteRequest): string {
-  const forwardedFor = normalizeHeaderValue(req.headers?.['x-forwarded-for'])
-  if (forwardedFor.trim()) {
-    return forwardedFor.split(',')[0]?.trim() ?? 'anonymous'
+  const clientIp = resolveTrustedClientIp(req)
+  if (clientIp) {
+    return `ip:${clientIp}`
   }
-  const cfConnectingIp = normalizeHeaderValue(req.headers?.['cf-connecting-ip']).trim()
-  if (cfConnectingIp) {
-    return cfConnectingIp
-  }
-  const xRealIp = normalizeHeaderValue(req.headers?.['x-real-ip']).trim()
-  if (xRealIp) {
-    return xRealIp
-  }
-  return 'anonymous'
+  return createAnonymousClientIdentifier(req)
 }
 
 function consumeSpotifyEnrichmentProxyRateLimit(
