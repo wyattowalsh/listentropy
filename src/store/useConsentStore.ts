@@ -60,6 +60,7 @@ export const useConsentStore = create<ConsentState>((set, get) => ({
         }))
       }
     } catch {
+      /* Consent POST failures are handled by leaving local state unchanged. */
     }
   },
 

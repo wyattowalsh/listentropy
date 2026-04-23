@@ -104,6 +104,7 @@ export const useAggregateStore = create<AggregateState>((set, get) => ({
         },
       }))
     } catch {
+      /* Aggregate snapshot hydration is optional during shell bootstrap. */
     }
   },
 

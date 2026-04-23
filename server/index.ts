@@ -8,7 +8,7 @@ import datasetRoutes from './routes/datasets.js'
 import aggregateRoutes from './routes/aggregates.js'
 import enrichmentHandler from './routes/enrichment.js'
 import { runAggregationPipeline } from './aggregation.js'
-import { authLimiter, uploadLimiter, apiLimiter, enrichmentLimiter } from './rate-limit.js'
+import { authLimiter, apiLimiter, enrichmentLimiter } from './rate-limit.js'
 
 const app = express()
 const PORT = parseInt(process.env.SERVER_PORT || '3001', 10)

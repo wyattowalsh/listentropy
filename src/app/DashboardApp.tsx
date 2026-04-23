@@ -189,6 +189,7 @@ function OnboardingLanding({ onFileSelected, demoZipPath }: {
 export function DashboardApp(): JSX.Element {
   const deepLinkedAdvancedSection = readAdvancedSectionFromHash()
   const [primaryView, setPrimaryView] = useState<MainView>('home')
+  const [hasResolvedInitialDataView, setHasResolvedInitialDataView] = useState(false)
   const [advancedSection, setAdvancedSection] = useState<AdvancedHubSection>(
     deepLinkedAdvancedSection ?? 'lab',
   )
@@ -252,14 +253,6 @@ export function DashboardApp(): JSX.Element {
     }
   }, [recordExperienceBehavior, recordMetric, primaryView])
 
-  const hasNavigatedToAnalytics = useMemo(() => ({ current: false }), [])
-  useEffect(() => {
-    if (data && !hasNavigatedToAnalytics.current) {
-      hasNavigatedToAnalytics.current = true
-      setPrimaryView('analytics')
-    }
-  }, [data, hasNavigatedToAnalytics])
-
   function openAdvancedTools(nextSection?: AdvancedHubSection): void {
     if (nextSection) {
       setAdvancedSection(nextSection)
@@ -270,18 +263,22 @@ export function DashboardApp(): JSX.Element {
 
   function handleReset(): void {
     setPrimaryView('home')
+    setHasResolvedInitialDataView(false)
     setAdvancedSection('lab')
     setShowAdvancedTools(false)
     reset()
   }
 
   const hasData = mode === 'ready' && data !== null
+  const effectivePrimaryView: MainView = hasData && !hasResolvedInitialDataView && primaryView === 'home'
+    ? 'analytics'
+    : primaryView
 
   const body = useMemo(() => {
-    if (primaryView === 'home') {
+    if (effectivePrimaryView === 'home') {
       return <CommunityDashboard />
     }
-    if (primaryView === 'share' && data) {
+    if (effectivePrimaryView === 'share' && data) {
       return <ShareStudio data={data} />
     }
     if (!data) {
@@ -321,7 +318,7 @@ export function DashboardApp(): JSX.Element {
         </section>
       </div>
     )
-  }, [advancedSection, data, primaryView, showAdvancedTools])
+  }, [advancedSection, data, effectivePrimaryView, showAdvancedTools])
 
   const loadingFallback = (
     <div className="rounded-theme border border-border bg-surface p-6">
@@ -398,7 +395,7 @@ export function DashboardApp(): JSX.Element {
     )
   }
 
-  const activePrimaryNavView = primaryView
+  const activePrimaryNavView = effectivePrimaryView
 
   return (
     <div className="min-h-screen bg-bg text-text">
@@ -422,6 +419,9 @@ export function DashboardApp(): JSX.Element {
             onChange={(value) => {
               if (value === 'analytics' && !hasData) return
               if (value === 'share' && !hasData) return
+              if (hasData) {
+                setHasResolvedInitialDataView(true)
+              }
               setPrimaryView(value as MainView)
             }}
             metadata={tabMetadata ?? undefined}
@@ -433,7 +433,7 @@ export function DashboardApp(): JSX.Element {
             aria-labelledby={getPrimaryAnalyticsTabId(activePrimaryNavView)}
             tabIndex={0}
           >
-            <ViewErrorBoundary viewKey={primaryView}>
+            <ViewErrorBoundary viewKey={activePrimaryNavView}>
               <Suspense fallback={loadingFallback}>{body}</Suspense>
             </ViewErrorBoundary>
           </div>

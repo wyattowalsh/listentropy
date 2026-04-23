@@ -348,7 +348,7 @@ async function computeListeningTrends(client: ReturnType<typeof getClient> exten
 
   for (const row of monthlyData.rows) {
     const userCount = parseInt(row.user_count, 10)
-    const { suppressed, reason } = shouldSuppress(userCount, cohortSize)
+    const { suppressed } = shouldSuppress(userCount, cohortSize)
 
     if (suppressed) {
       suppressedCount++
@@ -582,7 +582,7 @@ async function computeGenreDistribution(client: ReturnType<typeof getClient> ext
   for (let i = 0; i < Math.min(enrichmentGenres.rows.length, MAX_FACTS_PER_SNAPSHOT - factCount); i++) {
     const row = enrichmentGenres.rows[i]
     const userCount = parseInt(row.user_count, 10)
-    const { suppressed, reason } = shouldSuppress(userCount, cohortSize)
+    const { suppressed } = shouldSuppress(userCount, cohortSize)
 
     if (suppressed) {
       suppressedCount++

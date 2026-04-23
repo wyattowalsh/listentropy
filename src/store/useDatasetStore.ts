@@ -230,6 +230,7 @@ export const useDatasetStore = create<DatasetState>((set, get) => ({
         set({ provenance: data.provenance })
       }
     } catch {
+      /* Provenance is supplementary; keep the current UI state on fetch failure. */
     }
   },
 }))

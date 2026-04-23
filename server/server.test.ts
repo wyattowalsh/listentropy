@@ -22,9 +22,6 @@ function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex')
 }
 
-let testUserId: string
-let testSessionToken: string
-let testCsrfToken: string
 let testDatasetId: string
 
 async function createTestUser(): Promise<{ userId: string; sessionToken: string; csrfToken: string }> {
@@ -125,7 +122,11 @@ describe('Authentication', () => {
   })
 
   afterAll(async () => {
-    try { await cleanupTestUser(userId) } catch {}
+    try {
+      await cleanupTestUser(userId)
+    } catch {
+      /* Best-effort test cleanup. */
+    }
   })
 
   it('rejects unauthenticated requests to /api/auth/me', async () => {
@@ -494,7 +495,11 @@ describe('CSRF Protection', () => {
   })
 
   afterAll(async () => {
-    try { await cleanupTestUser(user.userId) } catch {}
+    try {
+      await cleanupTestUser(user.userId)
+    } catch {
+      /* Best-effort test cleanup. */
+    }
   })
 
   it('rejects consent POST without CSRF', async () => {
